@@ -1,0 +1,493 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <RelativeLayout
+        android:id="@+id/rlPortAffirm"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:paddingBottom="@dimen/d_22">
+
+        <Button
+            android:id="@+id/butPortAffirm"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="@dimen/d_30"
+            android:layout_marginTop="@dimen/d_10"
+            android:layout_marginRight="@dimen/d_30"
+            android:layout_marginBottom="@dimen/d_16"
+            android:background="@drawable/btn_login_bg"
+            android:text="@string/affirm"
+            android:textColor="@color/c_000000"
+            android:textSize="24sp"
+            android:textStyle="bold" />
+    </RelativeLayout>
+
+    <com.lhxy.istationdevice.common.widget.CustomScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_above="@id/rlPortAffirm"
+        android:fadeScrollbars="false"
+        android:scrollbars="vertical">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingTop="@dimen/d_10">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginLeft="@dimen/d_16"
+                    android:layout_marginTop="@dimen/d_18"
+                    android:text="@string/port_port2321"
+                    android:textColor="@color/c_ffffff"
+                    android:textSize="22sp" />
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/d_1px"
+                    android:layout_marginLeft="@dimen/d_22"
+                    android:layout_marginTop="@dimen/d_14"
+                    android:layout_marginRight="@dimen/d_22"
+                    android:background="@color/c_ffffff" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:baselineAligned="false"
+                    android:orientation="horizontal">
+
+                    <RelativeLayout
+                        android:layout_width="0.0dp"
+                        android:layout_height="@dimen/d_58"
+                        android:layout_weight="1">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_centerVertical="true"
+                            android:paddingLeft="@dimen/d_16"
+                            android:paddingRight="@dimen/d_0"
+                            android:text="@string/port_baud"
+                            tools:ignore="RelativeOverlap"
+                            android:textColor="@color/c_ffffff"
+                            android:textSize="20sp" />
+
+                        <Spinner
+                            android:id="@+id/spPortBaud2321"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_alignParentRight="true"
+                            android:layout_centerVertical="true"
+                            android:layout_marginRight="@dimen/d_30"
+                            android:prompt="@string/port_baud_hint" />
+
+                    </RelativeLayout>
+
+                    <RelativeLayout
+                        android:layout_width="0.0dp"
+                        android:layout_height="@dimen/d_58"
+                        android:layout_weight="1">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_centerVertical="true"
+                            android:paddingLeft="@dimen/d_16"
+                            android:paddingRight="@dimen/d_0"
+                            android:text="@string/port_protocol"
+                            tools:ignore="RelativeOverlap"
+                            android:textColor="@color/c_ffffff"
+                            android:textSize="20sp" />
+
+                        <Spinner
+                            android:id="@+id/spPortProtocol2321"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_alignParentRight="true"
+                            android:layout_centerVertical="true"
+                            android:layout_marginRight="@dimen/d_30"
+                            android:prompt="@string/port_protocol_hint"
+                            android:spinnerMode="dropdown" />
+
+                    </RelativeLayout>
+
+                </LinearLayout>
+
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/d_1px"
+                    android:layout_marginLeft="@dimen/d_22"
+                    android:layout_marginRight="@dimen/d_22"
+                    android:background="@color/c_e5e5e5" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginLeft="@dimen/d_16"
+                    android:layout_marginTop="@dimen/d_18"
+                    android:text="@string/port_port2322"
+                    android:textColor="@color/c_ffffff"
+                    android:textSize="22sp" />
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/d_1px"
+                    android:layout_marginLeft="@dimen/d_22"
+                    android:layout_marginTop="@dimen/d_14"
+                    android:layout_marginRight="@dimen/d_22"
+                    android:background="@color/c_ffffff" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:baselineAligned="false"
+                    android:orientation="horizontal">
+
+                    <RelativeLayout
+                        android:layout_width="0.0dp"
+                        android:layout_height="@dimen/d_58"
+                        android:layout_weight="1">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_centerVertical="true"
+                            android:paddingLeft="@dimen/d_16"
+                            android:paddingRight="@dimen/d_0"
+                            android:text="@string/port_baud"
+                            tools:ignore="RelativeOverlap"
+                            android:textColor="@color/c_ffffff"
+                            android:textSize="20sp" />
+
+                        <Spinner
+                            android:id="@+id/spPortBaud2322"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_alignParentRight="true"
+                            android:layout_centerVertical="true"
+                            android:layout_marginRight="@dimen/d_30"
+                            android:prompt="@string/port_number_hint" />
+
+                    </RelativeLayout>
+
+                    <RelativeLayout
+                        android:layout_width="0.0dp"
+                        android:layout_height="@dimen/d_58"
+                        android:layout_weight="1">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_centerVertical="true"
+                            android:paddingLeft="@dimen/d_16"
+                            android:paddingRight="@dimen/d_0"
+                            android:text="@string/port_protocol"
+                            tools:ignore="RelativeOverlap"
+                            android:textColor="@color/c_ffffff"
+                            android:textSize="20sp" />
+
+                        <Spinner
+                            android:id="@+id/spPortProtocol2322"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_alignParentRight="true"
+                            android:layout_centerVertical="true"
+                            android:layout_marginRight="@dimen/d_30"
+                            android:prompt="@string/port_protocol_hint" />
+
+                    </RelativeLayout>
+
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/d_1px"
+                    android:layout_marginLeft="@dimen/d_22"
+                    android:layout_marginRight="@dimen/d_22"
+                    android:background="@color/c_ffffff" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginLeft="@dimen/d_16"
+                    android:layout_marginTop="@dimen/d_18"
+                    android:text="@string/port_port485"
+                    android:textColor="@color/c_ffffff"
+                    android:textSize="22sp" />
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/d_1px"
+                    android:layout_marginLeft="@dimen/d_22"
+                    android:layout_marginTop="@dimen/d_14"
+                    android:layout_marginRight="@dimen/d_22"
+                    android:background="@color/c_ffffff" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:baselineAligned="false"
+                    android:orientation="horizontal">
+
+                    <RelativeLayout
+                        android:layout_width="0.0dp"
+                        android:layout_height="@dimen/d_58"
+                        android:layout_weight="1">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_centerVertical="true"
+                            android:paddingLeft="@dimen/d_16"
+                            android:paddingRight="@dimen/d_0"
+                            android:text="@string/port_baud"
+                            tools:ignore="RelativeOverlap"
+                            android:textColor="@color/c_ffffff"
+                            android:textSize="20sp" />
+
+                        <Spinner
+                            android:id="@+id/spPortBaud485"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_alignParentRight="true"
+                            android:layout_centerVertical="true"
+                            android:layout_marginRight="@dimen/d_30"
+                            android:prompt="@string/port_baud_hint" />
+
+                    </RelativeLayout>
+
+                    <RelativeLayout
+                        android:layout_width="0.0dp"
+                        android:layout_height="@dimen/d_58"
+                        android:layout_weight="1">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_centerVertical="true"
+                            android:paddingLeft="@dimen/d_16"
+                            android:paddingRight="@dimen/d_0"
+                            android:text="@string/port_protocol"
+                            tools:ignore="RelativeOverlap"
+                            android:textColor="@color/c_ffffff"
+                            android:textSize="18sp" />
+
+                        <Spinner
+                            android:id="@+id/spPortProtocol485"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_alignParentRight="true"
+                            android:layout_centerVertical="true"
+                            android:layout_marginRight="@dimen/d_30"
+                            android:prompt="@string/port_protocol_hint" />
+
+                    </RelativeLayout>
+
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/d_1px"
+                    android:layout_marginLeft="@dimen/d_22"
+                    android:layout_marginRight="@dimen/d_22"
+                    android:background="@color/c_ffffff"
+                    android:visibility="gone" />
+
+                <RelativeLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/d_58"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_centerVertical="true"
+                        android:paddingLeft="@dimen/d_16"
+                        android:paddingRight="@dimen/d_0"
+                        android:text="@string/port_protocol"
+                        tools:ignore="RelativeOverlap"
+                        android:textColor="@color/c_333333"
+                        android:textSize="18sp" />
+
+                    <Spinner
+                        android:id="@+id/spPortProtocol"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_alignParentRight="true"
+                        android:layout_centerVertical="true"
+                        android:layout_marginRight="@dimen/d_22"
+                        android:prompt="@string/port_protocol_hint" />
+
+                </RelativeLayout>
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="@dimen/d_1px"
+                android:layout_marginLeft="@dimen/d_22"
+                android:layout_marginRight="@dimen/d_22"
+                android:background="@color/c_ffffff" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="@dimen/d_16"
+                android:layout_marginTop="@dimen/d_14"
+                android:text="@string/port_send_explain"
+                android:textColor="@color/c_fafafa"
+                android:visibility="gone" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="@dimen/d_1px"
+                android:layout_marginLeft="@dimen/d_22"
+                android:layout_marginTop="@dimen/d_6"
+                android:layout_marginRight="@dimen/d_22"
+                android:background="@color/c_ffffff"
+                android:visibility="gone" />
+
+            <RelativeLayout
+                android:layout_width="match_parent"
+                android:layout_height="@dimen/d_58"
+                android:visibility="gone">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_centerVertical="true"
+                    android:paddingLeft="@dimen/d_16"
+                    android:paddingRight="@dimen/d_0"
+                    android:text="@string/port_port_choice"
+                    tools:ignore="RelativeOverlap"
+                    android:textColor="@color/c_ffffff"
+                    android:textSize="20sp" />
+
+                <Spinner
+                    android:id="@+id/spPortNumber1"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_alignParentRight="true"
+                    android:layout_centerVertical="true"
+                    android:layout_marginRight="@dimen/d_30"
+                    android:entries="@array/arrayport"
+                    android:prompt="@string/port_number_hint" />
+
+            </RelativeLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="@dimen/d_1px"
+                android:layout_marginLeft="@dimen/d_22"
+                android:layout_marginRight="@dimen/d_22"
+                android:background="@color/c_ffffff"
+                android:visibility="gone" />
+
+            <RelativeLayout
+                android:layout_width="match_parent"
+                android:layout_height="@dimen/d_58"
+                android:visibility="gone">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_centerVertical="true"
+                    android:paddingLeft="@dimen/d_16"
+                    android:paddingRight="@dimen/d_0"
+                    android:text="@string/port_send_data_type"
+                    tools:ignore="RelativeOverlap"
+                    android:textColor="@color/c_ffffff"
+                    android:textSize="20sp" />
+
+                <RadioGroup
+                    android:id="@+id/rgDataType"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_alignParentRight="true"
+                    android:layout_centerVertical="true"
+                    android:layout_marginRight="@dimen/d_22"
+                    android:orientation="horizontal">
+
+                    <RadioButton
+                        android:id="@+id/rbTxtType"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:button="@null"
+                        android:checked="true"
+                        android:drawableLeft="@drawable/radio_bg"
+                        android:drawablePadding="@dimen/d_4"
+                        android:textColor="@color/c_ffffff"
+                        android:textSize="18sp" />
+
+                    <RadioButton
+                        android:id="@+id/rbHexType"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginLeft="@dimen/d_6"
+                        android:button="@null"
+                        android:drawableLeft="@drawable/radio_bg"
+                        android:drawablePadding="@dimen/d_4"
+                        android:textColor="@color/c_ffffff"
+                        android:textSize="18sp" />
+                </RadioGroup>
+
+            </RelativeLayout>
+
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="@dimen/d_1px"
+                android:layout_marginLeft="@dimen/d_22"
+                android:layout_marginRight="@dimen/d_22"
+                android:background="@color/c_ffffff"
+                android:visibility="gone" />
+
+            <RelativeLayout
+                android:layout_width="match_parent"
+                android:layout_height="@dimen/d_58"
+                android:paddingLeft="@dimen/d_16"
+                android:paddingRight="@dimen/d_22"
+                android:visibility="gone">
+
+                <Button
+                    android:id="@+id/butSend"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:layout_alignParentRight="true"
+                    android:layout_marginTop="@dimen/d_10"
+                    android:layout_marginBottom="@dimen/d_10"
+                    android:background="@drawable/btn_basic_setup_bg"
+                    android:text="@string/port_send"
+                    android:textColor="@color/c_000000"
+                    android:textSize="20sp"
+                    android:textStyle="bold" />
+
+                <EditText
+                    android:id="@+id/etPortData"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:layout_toLeftOf="@id/butSend"
+                    android:inputType="text"
+                    android:hint="@string/port_send_hint"
+                    android:autofillHints="@string/port_send_hint"
+                    android:textColor="@color/c_ffffff"
+                    android:textColorHint="@color/c_e5e5e5" />
+
+            </RelativeLayout>
+
+        </LinearLayout>
+    </com.lhxy.istationdevice.common.widget.CustomScrollView>
+
+</RelativeLayout>

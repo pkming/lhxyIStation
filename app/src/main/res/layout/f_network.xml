@@ -1,0 +1,556 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/d_16"
+        android:layout_marginBottom="@dimen/d_10"
+        android:paddingLeft="@dimen/d_16"
+        android:paddingRight="@dimen/d_0"
+        android:text="@string/network_dispatch_platform_set"
+        android:textColor="@color/c_fafafa"
+        android:textSize="16sp" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/d_1px"
+        android:layout_marginLeft="@dimen/d_22"
+        android:layout_marginRight="@dimen/d_22"
+        android:background="@color/c_ffffff" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:baselineAligned="false"
+        android:orientation="horizontal">
+
+        <RelativeLayout
+            android:layout_width="0.0dp"
+            android:layout_height="@dimen/d_52"
+            android:layout_marginLeft="@dimen/d_16"
+            android:layout_marginRight="@dimen/d_16"
+            android:layout_weight="1"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerVertical="true"
+                android:text="@string/network_id"
+                android:textColor="@color/c_ffffff"
+                android:textSize="22sp" />
+
+            <EditText
+                android:id="@+id/etDispatchID"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_marginLeft="@dimen/d_120"
+                android:layout_marginTop="@dimen/d_4"
+                android:layout_marginRight="@dimen/d_22"
+                android:layout_marginBottom="@dimen/d_4"
+                android:autofillHints="@string/network_id_hint"
+                android:background="@drawable/edittext_bg"
+                android:hint="@string/network_id_hint"
+                android:inputType="number"
+                android:paddingLeft="@dimen/d_10"
+                android:paddingRight="@dimen/d_10"
+                android:textColor="@color/c_ffffff"
+                android:textColorHint="@color/c_e5e5e5"
+                android:textSize="20sp" />
+        </RelativeLayout>
+
+        <RelativeLayout
+            android:layout_width="0.0dp"
+            android:layout_height="@dimen/d_52"
+            android:layout_marginLeft="@dimen/d_16"
+            android:layout_marginRight="@dimen/d_16"
+            android:layout_weight="1"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerVertical="true"
+                android:text="@string/port_protocol"
+                android:textColor="@color/c_ffffff"
+                android:textSize="22sp"
+                tools:ignore="RelativeOverlap" />
+
+            <Spinner
+                android:id="@+id/spDispatch"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:layout_alignParentRight="true"
+                android:layout_marginRight="@dimen/d_40"
+                android:prompt="@string/port_protocol_hint" />
+        </RelativeLayout>
+
+    </LinearLayout>
+
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/d_1px"
+        android:layout_marginLeft="@dimen/d_22"
+        android:layout_marginRight="@dimen/d_22"
+        android:background="@color/c_ffffff" />
+
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:baselineAligned="false"
+        android:orientation="horizontal">
+
+        <RelativeLayout
+            android:layout_width="0.0dp"
+            android:layout_height="@dimen/d_52"
+            android:layout_marginLeft="@dimen/d_16"
+            android:layout_marginRight="@dimen/d_16"
+            android:layout_weight="1"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerVertical="true"
+                android:text="@string/network_adwords_ip"
+                android:textColor="@color/c_ffffff"
+                android:textSize="22sp" />
+
+            <EditText
+                android:id="@+id/etDispatchIP"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_marginLeft="@dimen/d_120"
+                android:layout_marginTop="@dimen/d_4"
+                android:layout_marginRight="@dimen/d_22"
+                android:layout_marginBottom="@dimen/d_4"
+                android:autofillHints="@string/network_adwords_ip_hint"
+                android:background="@drawable/edittext_bg"
+                android:hint="@string/network_adwords_ip_hint"
+                android:inputType="number|text"
+                android:paddingLeft="@dimen/d_10"
+                android:paddingRight="@dimen/d_10"
+                android:textColor="@color/c_ffffff"
+                android:textColorHint="@color/c_e5e5e5"
+                android:textSize="20sp" />
+        </RelativeLayout>
+
+        <RelativeLayout
+            android:layout_width="0.0dp"
+            android:layout_height="@dimen/d_52"
+            android:layout_marginLeft="@dimen/d_16"
+            android:layout_marginRight="@dimen/d_16"
+            android:layout_weight="1"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerVertical="true"
+                android:text="@string/network_adwords_port"
+                android:textColor="@color/c_ffffff"
+                android:textSize="22sp" />
+
+            <EditText
+                android:id="@+id/etDispatchPort"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_marginLeft="@dimen/d_100"
+                android:layout_marginTop="@dimen/d_4"
+                android:layout_marginRight="@dimen/d_22"
+                android:layout_marginBottom="@dimen/d_4"
+                android:autofillHints="@string/network_adwords_port_hint"
+                android:background="@drawable/edittext_bg"
+                android:hint="@string/network_adwords_port_hint"
+                android:inputType="number"
+                android:paddingLeft="@dimen/d_10"
+                android:paddingRight="@dimen/d_10"
+                android:textColor="@color/c_ffffff"
+                android:textColorHint="@color/c_e5e5e5"
+                android:textSize="20sp" />
+        </RelativeLayout>
+    </LinearLayout>
+
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/d_1px"
+        android:layout_marginLeft="@dimen/d_22"
+        android:layout_marginRight="@dimen/d_22"
+        android:background="@color/c_ffffff" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:baselineAligned="false"
+        android:orientation="horizontal">
+
+
+        <RelativeLayout
+            android:layout_width="0.0dp"
+            android:layout_height="@dimen/d_52"
+            android:layout_marginLeft="@dimen/d_16"
+            android:layout_marginRight="@dimen/d_16"
+            android:layout_weight="1"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerVertical="true"
+                android:text="@string/network_long_interval"
+                android:textColor="@color/c_ffffff"
+                android:textSize="22sp" />
+
+            <com.lhxy.istationdevice.common.widget.CompanyEdittext
+                android:id="@+id/etLongInterval"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_marginLeft="@dimen/d_120"
+                android:layout_marginTop="@dimen/d_4"
+                android:layout_marginRight="@dimen/d_22"
+                android:layout_marginBottom="@dimen/d_4"
+                android:background="@drawable/edittext_bg"
+                android:hint="@string/network_long_interval_hint"
+                android:inputType="number"
+                android:paddingLeft="@dimen/d_10"
+                android:paddingRight="@dimen/d_10"
+                android:textColor="@color/c_ffffff"
+                android:textColorHint="@color/c_e5e5e5"
+                android:textSize="20sp"
+                app:ce_text="@string/network_company"
+                app:ce_text_color="@color/c_808080" />
+        </RelativeLayout>
+
+        <RelativeLayout
+            android:layout_width="0.0dp"
+            android:layout_height="@dimen/d_52"
+            android:layout_marginLeft="@dimen/d_16"
+            android:layout_marginRight="@dimen/d_16"
+            android:layout_weight="1"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerVertical="true"
+                android:text="@string/network_info_interval"
+                android:textColor="@color/c_ffffff"
+                android:textSize="22sp" />
+
+            <com.lhxy.istationdevice.common.widget.CompanyEdittext
+                android:id="@+id/etInfoInterval"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_marginLeft="@dimen/d_100"
+                android:layout_marginTop="@dimen/d_4"
+                android:layout_marginRight="@dimen/d_22"
+                android:layout_marginBottom="@dimen/d_4"
+                android:background="@drawable/edittext_bg"
+                android:hint="@string/network_info_interval_hint"
+                android:inputType="number"
+                android:paddingLeft="@dimen/d_10"
+                android:paddingRight="@dimen/d_10"
+                android:textColor="@color/c_ffffff"
+                android:textColorHint="@color/c_e5e5e5"
+                android:textSize="20sp"
+                app:ce_text="@string/network_company"
+                app:ce_text_color="@color/c_808080" />
+        </RelativeLayout>
+
+    </LinearLayout>
+
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/d_1px"
+        android:layout_marginLeft="@dimen/d_22"
+        android:layout_marginRight="@dimen/d_22"
+        android:background="@color/c_ffffff" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/d_22"
+        android:layout_marginBottom="@dimen/d_10"
+        android:paddingLeft="@dimen/d_16"
+        android:paddingRight="@dimen/d_0"
+        android:text="@string/network_adwords_set"
+        android:textColor="@color/c_fafafa"
+        android:textSize="16sp" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/d_1px"
+        android:layout_marginLeft="@dimen/d_22"
+        android:layout_marginRight="@dimen/d_22"
+        android:background="@color/c_ffffff" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/d_52"
+        android:layout_marginLeft="@dimen/d_16"
+        android:layout_marginRight="@dimen/d_16"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/network_adwords_switch"
+            android:textColor="@color/c_ffffff"
+            android:textSize="22sp" />
+
+        <Switch
+            android:id="@+id/sAdwordsSwitch"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:layout_marginLeft="@dimen/d_120"
+            android:showText="true"
+            android:switchTextAppearance="@style/SwitchTheme"
+            android:textOff="@string/close"
+            android:textOn="@string/open"
+            android:textStyle="bold"
+            android:thumb="@drawable/switch_custom_thumb_selector"
+            android:track="@drawable/switch_custom_track_selector" />
+
+    </LinearLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/d_1px"
+        android:layout_marginLeft="@dimen/d_22"
+        android:layout_marginRight="@dimen/d_22"
+        android:background="@color/c_ffffff" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:baselineAligned="false"
+        android:orientation="horizontal">
+
+        <RelativeLayout
+            android:layout_width="0.0dp"
+            android:layout_height="@dimen/d_52"
+            android:layout_marginLeft="@dimen/d_16"
+            android:layout_marginRight="@dimen/d_16"
+            android:layout_weight="1"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerVertical="true"
+                android:text="@string/main_dlg_author_name"
+                android:textColor="@color/c_ffffff"
+                android:textSize="22sp" />
+
+            <EditText
+                android:id="@+id/etAdwordsID"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_marginLeft="@dimen/d_138"
+                android:layout_marginTop="@dimen/d_4"
+                android:layout_marginRight="@dimen/d_22"
+                android:layout_marginBottom="@dimen/d_4"
+                android:autofillHints="@string/main_dlg_author_name_hint"
+                android:background="@drawable/edittext_bg"
+                android:hint="@string/main_dlg_author_name_hint"
+                android:inputType="text"
+                android:paddingLeft="@dimen/d_10"
+                android:paddingRight="@dimen/d_10"
+                android:textColor="@color/c_ffffff"
+                android:textColorHint="@color/c_e5e5e5"
+                android:textSize="20sp" />
+        </RelativeLayout>
+
+        <RelativeLayout
+            android:layout_width="0.0dp"
+            android:layout_height="@dimen/d_52"
+            android:layout_marginLeft="@dimen/d_16"
+            android:layout_marginRight="@dimen/d_16"
+            android:layout_weight="1"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerVertical="true"
+                android:text="@string/main_dlg_author_user"
+                android:textColor="@color/c_ffffff"
+                android:textSize="22sp" />
+
+            <EditText
+                android:id="@+id/etAdwordsUser"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_marginLeft="@dimen/d_120"
+                android:layout_marginTop="@dimen/d_4"
+                android:layout_marginRight="@dimen/d_22"
+                android:layout_marginBottom="@dimen/d_4"
+                android:autofillHints="@string/main_dlg_author_user_hint"
+                android:background="@drawable/edittext_bg"
+                android:hint="@string/main_dlg_author_user_hint"
+                android:inputType="text"
+                android:paddingLeft="@dimen/d_10"
+                android:paddingRight="@dimen/d_10"
+                android:textColor="@color/c_ffffff"
+                android:textColorHint="@color/c_e5e5e5"
+                android:textSize="20sp" />
+        </RelativeLayout>
+    </LinearLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/d_1px"
+        android:layout_marginLeft="@dimen/d_22"
+        android:layout_marginRight="@dimen/d_22"
+        android:background="@color/c_ffffff" />
+
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:baselineAligned="false"
+        android:orientation="horizontal">
+
+        <RelativeLayout
+            android:layout_width="0.0dp"
+            android:layout_height="@dimen/d_52"
+            android:layout_marginLeft="@dimen/d_16"
+            android:layout_marginRight="@dimen/d_16"
+            android:layout_weight="1"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerVertical="true"
+                android:text="@string/network_adwords_ip"
+                android:textColor="@color/c_ffffff"
+                android:textSize="22sp" />
+
+            <EditText
+                android:id="@+id/etAdwordsIP"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_marginLeft="@dimen/d_138"
+                android:layout_marginTop="@dimen/d_4"
+                android:layout_marginRight="@dimen/d_22"
+                android:layout_marginBottom="@dimen/d_4"
+                android:autofillHints="@string/network_adwords_ip_hint"
+                android:background="@drawable/edittext_bg"
+                android:hint="@string/network_adwords_ip_hint"
+                android:inputType="numberSigned"
+                android:paddingLeft="@dimen/d_10"
+                android:paddingRight="@dimen/d_10"
+                android:textColor="@color/c_ffffff"
+                android:textColorHint="@color/c_e5e5e5"
+                android:textSize="20sp" />
+        </RelativeLayout>
+
+        <RelativeLayout
+            android:layout_width="0.0dp"
+            android:layout_height="@dimen/d_52"
+            android:layout_marginLeft="@dimen/d_16"
+            android:layout_marginRight="@dimen/d_16"
+            android:layout_weight="1"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerVertical="true"
+                android:text="@string/network_adwords_port"
+                android:textColor="@color/c_ffffff"
+                android:textSize="22sp" />
+
+            <EditText
+                android:id="@+id/etAdwordsPort"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_marginLeft="@dimen/d_120"
+                android:layout_marginTop="@dimen/d_4"
+                android:layout_marginRight="@dimen/d_22"
+                android:layout_marginBottom="@dimen/d_4"
+                android:autofillHints="@string/network_adwords_port_hint"
+                android:background="@drawable/edittext_bg"
+                android:hint="@string/network_adwords_port_hint"
+                android:inputType="number"
+                android:paddingLeft="@dimen/d_10"
+                android:paddingRight="@dimen/d_10"
+                android:textColor="@color/c_ffffff"
+                android:textColorHint="@color/c_e5e5e5"
+                android:textSize="20sp" />
+        </RelativeLayout>
+
+    </LinearLayout>
+
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/d_1px"
+        android:layout_marginLeft="@dimen/d_22"
+        android:layout_marginRight="@dimen/d_22"
+        android:background="@color/c_ffffff" />
+
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/d_52"
+        android:layout_marginLeft="@dimen/d_16"
+        android:layout_marginRight="@dimen/d_16"
+        android:orientation="horizontal">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerVertical="true"
+            android:text="@string/network_adwords_interval"
+            android:textColor="@color/c_ffffff"
+            android:textSize="22sp" />
+
+        <com.lhxy.istationdevice.common.widget.CompanyEdittext
+            android:id="@+id/etAdwordsInterval"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_marginLeft="@dimen/d_138"
+            android:layout_marginTop="@dimen/d_4"
+            android:layout_marginRight="@dimen/d_22"
+            android:layout_marginBottom="@dimen/d_4"
+            android:background="@drawable/edittext_bg"
+            android:hint="@string/network_adwords_interval_hint"
+            android:inputType="number"
+            android:paddingLeft="@dimen/d_10"
+            android:paddingRight="@dimen/d_10"
+            android:textColor="@color/c_ffffff"
+            android:textColorHint="@color/c_e5e5e5"
+            android:textSize="20sp"
+            app:ce_text="@string/network_company"
+            app:ce_text_color="@color/c_e5e5e5" />
+
+
+    </RelativeLayout>
+
+    <Button
+        android:id="@+id/butNetWorkAffirm"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="@dimen/d_30"
+        android:layout_marginTop="@dimen/d_15"
+        android:layout_marginRight="@dimen/d_30"
+        android:background="@drawable/btn_login_bg"
+        android:text="@string/affirm"
+        android:textColor="@color/c_000000"
+        android:textSize="24sp"
+        android:textStyle="bold" />
+
+</LinearLayout>

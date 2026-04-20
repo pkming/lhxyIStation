@@ -1,0 +1,250 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    tools:context="com.lhxy.istationdevice.ui.activity.MainActivity">
+
+    <include layout="@layout/toolbar" />
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/d_1" android:background="@color/c_ffffff" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center_vertical"
+        android:orientation="vertical">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/d_270"
+            android:baselineAligned="false"
+            android:orientation="horizontal">
+
+            <RelativeLayout
+                android:id="@+id/lyLineSele"
+                android:layout_width="@dimen/d_0"
+                android:layout_height="match_parent"
+                android:layout_marginBottom="@dimen/d_5"
+                android:layout_marginRight="@dimen/d_5"
+                android:layout_marginTop="@dimen/d_10"
+                android:layout_marginLeft="@dimen/d_10"
+                tools:ignore="all"
+                android:layout_weight="1"
+                android:background="@drawable/btn_menu_bg">
+
+                <TextView
+                    android:id="@+id/tvLineSele"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_centerInParent="true"
+                    android:drawableTop="@drawable/line_selection"
+                    android:gravity="center"
+                    android:paddingBottom="@dimen/d_6"
+                    android:paddingTop="@dimen/d_6"
+                    android:text="@string/menu_line_selection"
+                    android:textColor="@color/c_000000"
+                    android:textStyle="bold"
+                    android:textSize="24sp" />
+
+            </RelativeLayout>
+
+            <RelativeLayout
+                android:id="@+id/lySiteLearn"
+                android:layout_width="@dimen/d_0"
+                android:layout_height="match_parent"
+                android:layout_marginBottom="@dimen/d_5"
+                android:layout_marginRight="@dimen/d_5"
+                android:layout_marginTop="@dimen/d_10"
+                android:layout_marginLeft="@dimen/d_5"
+                android:layout_weight="1"
+                android:background="@drawable/btn_menu_bg">
+
+                <TextView
+                    android:id="@+id/tvSiteLearn"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_centerInParent="true"
+                    android:drawableTop="@drawable/site_learning"
+                    android:gravity="center"
+                    android:paddingBottom="@dimen/d_6"
+                    android:paddingTop="@dimen/d_6"
+                    android:text="@string/menu_site_learning"
+                    android:textColor="@color/c_000000"
+                    android:textStyle="bold"
+                    android:textSize="24sp" />
+            </RelativeLayout>
+
+            <RelativeLayout
+                android:id="@+id/lyFileManage"
+                android:layout_width="@dimen/d_0"
+                android:layout_height="match_parent"
+                android:layout_marginBottom="@dimen/d_5"
+                android:layout_marginRight="@dimen/d_5"
+                android:layout_marginTop="@dimen/d_10"
+                android:layout_marginLeft="@dimen/d_5"
+                android:layout_weight="1"
+                android:background="@drawable/btn_menu_bg">
+
+                <TextView
+                    android:id="@+id/tvFileManage"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_centerInParent="true"
+                    android:drawableTop="@drawable/wenjianguanli"
+                    android:gravity="center"
+                    android:paddingBottom="@dimen/d_6"
+                    android:paddingTop="@dimen/d_6"
+                    android:text="@string/menu_file_management"
+                    android:textColor="@color/c_000000"
+                    android:textStyle="bold"
+                    android:textSize="24sp" />
+            </RelativeLayout>
+
+            <RelativeLayout
+                android:id="@+id/lySystemSet"
+                android:layout_width="@dimen/d_0"
+                android:layout_height="match_parent"
+                android:layout_marginBottom="@dimen/d_5"
+                android:layout_marginRight="@dimen/d_10"
+                tools:ignore="all"
+                android:layout_marginTop="@dimen/d_10"
+                android:layout_marginLeft="@dimen/d_5"
+                android:layout_weight="1"
+                android:background="@drawable/btn_menu_bg">
+
+                <TextView
+                    android:id="@+id/tvSystemSet"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_centerInParent="true"
+                    android:drawableTop="@drawable/basic_setup"
+                    android:gravity="center"
+                    android:paddingBottom="@dimen/d_6"
+                    android:paddingTop="@dimen/d_6"
+                    android:text="@string/menu_system_set"
+                    android:textColor="@color/c_000000"
+                    android:textStyle="bold"
+                    android:textSize="24sp" />
+            </RelativeLayout>
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/lyFinance1"
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/d_270"
+            android:baselineAligned="false"
+            android:orientation="horizontal">
+
+            <RelativeLayout
+                android:id="@+id/lyVoiceCall"
+                android:layout_width="@dimen/d_0"
+                android:layout_height="match_parent"
+                android:layout_marginBottom="@dimen/d_10"
+                android:layout_marginRight="@dimen/d_5"
+                tools:ignore="all"
+                android:layout_marginTop="@dimen/d_5"
+                android:layout_marginLeft="@dimen/d_10"
+                android:layout_weight="1"
+                android:background="@drawable/btn_menu_bg">
+
+                <TextView
+                    android:id="@+id/tvVoiceCall"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_centerInParent="true"
+                    android:drawableTop="@drawable/call_function"
+                    android:gravity="center"
+                    android:paddingBottom="@dimen/d_6"
+                    android:paddingTop="@dimen/d_6"
+                    android:text="@string/menu_voice_call"
+                    android:textColor="@color/c_000000"
+                    android:textStyle="bold"
+                    android:textSize="24sp" />
+            </RelativeLayout>
+
+            <RelativeLayout
+                android:id="@+id/lyDispatchingCenter"
+                android:layout_width="@dimen/d_0"
+                android:layout_height="match_parent"
+                android:layout_marginBottom="@dimen/d_10"
+                android:layout_marginRight="@dimen/d_5"
+                android:layout_marginTop="@dimen/d_5"
+                android:layout_marginLeft="@dimen/d_5"
+                android:layout_weight="1"
+                android:background="@drawable/btn_menu_bg">
+
+                <TextView
+                    android:id="@+id/tvDispatchingCenter"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_centerInParent="true"
+                    android:drawableTop="@drawable/operation_management"
+                    android:gravity="center"
+                    android:paddingBottom="@dimen/d_6"
+                    android:paddingTop="@dimen/d_6"
+                    android:text="@string/menu_dispatching_center"
+                    android:textColor="@color/c_000000"
+                    android:textStyle="bold"
+                    android:textSize="24sp" />
+            </RelativeLayout>
+
+            <RelativeLayout
+                android:id="@+id/lyInfoBrowsing"
+                android:layout_width="@dimen/d_0"
+                android:layout_height="match_parent"
+                android:layout_marginBottom="@dimen/d_10"
+                android:layout_marginRight="@dimen/d_5"
+                android:layout_marginTop="@dimen/d_5"
+                android:layout_marginLeft="@dimen/d_5"
+                android:layout_weight="1"
+                android:background="@drawable/btn_menu_bg">
+
+                <TextView
+                    android:id="@+id/tvInfoBrowsing"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_centerInParent="true"
+                    android:drawableTop="@drawable/access_information"
+                    android:gravity="center"
+                    android:paddingBottom="@dimen/d_6"
+                    android:paddingTop="@dimen/d_6"
+                    android:text="@string/menu_info_browsing"
+                    android:textColor="@color/c_000000"
+                    android:textStyle="bold"
+                    android:textSize="24sp" />
+            </RelativeLayout>
+
+            <RelativeLayout
+                android:id="@+id/lySysInfo"
+                android:layout_width="@dimen/d_0"
+                android:layout_height="match_parent"
+                android:layout_marginBottom="@dimen/d_10"
+                android:layout_marginRight="@dimen/d_10"
+                tools:ignore="all"
+                android:layout_marginTop="@dimen/d_5"
+                android:layout_marginLeft="@dimen/d_5"
+                android:layout_weight="1"
+                android:background="@drawable/btn_menu_bg">
+
+                <TextView
+                    android:id="@+id/tvSysInfo"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_centerInParent="true"
+                    android:drawableTop="@drawable/system_information"
+                    android:gravity="center"
+                    android:paddingBottom="@dimen/d_6"
+                    android:paddingTop="@dimen/d_6"
+                    android:text="@string/menu_system_information"
+                    android:textColor="@color/c_000000"
+                    android:textStyle="bold"
+                    android:textSize="24sp" />
+            </RelativeLayout>
+        </LinearLayout>
+
+    </LinearLayout>
+
+</LinearLayout>

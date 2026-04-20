@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.CAMERA" />
+
+    <application
+        android:name=".ShellApplication"
+        android:allowBackup="true"
+        android:icon="@android:drawable/sym_def_app_icon"
+        android:label="@string/app_name"
+        android:roundIcon="@android:drawable/sym_def_app_icon"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.IStationShell">
+        <activity
+            android:name=".LegacyMenuActivity"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:theme="@style/AppTheme" />
+        <activity
+            android:name=".LegacySystemInfoActivity"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:theme="@style/AppTheme" />
+        <activity
+            android:name=".LegacySiteCollectionActivity"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:theme="@style/AppTheme" />
+        <activity
+            android:name=".LegacyBasicSetupActivity"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:theme="@style/AppTheme" />
+        <activity
+            android:name=".LegacyInfoBrowsActivity"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:theme="@style/AppTheme" />
+        <activity
+            android:name=".LegacyDispatchCenterActivity"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:theme="@style/AppTheme" />
+        <activity
+            android:name=".LegacyVoiceCallActivity"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:theme="@style/AppTheme" />
+        <activity
+            android:name=".LegacyVideoMonitorActivity"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:theme="@style/AppTheme" />
+        <activity
+            android:name=".LegacyFileManageActivity"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:theme="@style/AppTheme" />
+        <activity
+            android:name=".LegacyLineChoiceActivity"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:theme="@style/AppTheme" />
+        <activity
+            android:name=".LegacyLoginActivity"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:theme="@style/AppTheme" />
+        <activity
+            android:name=".LegacyMainActivity"
+            android:exported="true"
+            android:screenOrientation="landscape"
+            android:theme="@style/AppTheme">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name=".BusinessModulesActivity"
+            android:exported="false" />
+        <activity
+            android:name=".ModuleCenterActivity"
+            android:exported="false" />
+        <activity
+            android:name=".MainActivity"
+            android:exported="false" />
+    </application>
+
+</manifest>

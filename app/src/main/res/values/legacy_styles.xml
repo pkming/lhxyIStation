@@ -1,0 +1,85 @@
+<resources>
+
+    <style name="AppTheme" parent="AppTheme.Base" />
+
+    <style name="AppTheme.Base" parent="Theme.AppCompat.Light.NoActionBar">
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowFullscreen">true</item>
+        <!--Window color-->
+        <item name="android:windowBackground">@color/colorMainBG</item>
+        <item name="colorPrimary">@color/colorPrimary</item>
+        <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
+    </style>
+
+    <style name="mToolbarTheme" parent="@style/ThemeOverlay.AppCompat.ActionBar">
+        <item name="actionMenuTextColor">@drawable/txt_bg_select</item> <!--  敲定颜色-->
+        <item name="android:textSize">16sp</item> <!--  搞掂字体大小-->
+        <item name="android:paddingLeft">0dip</item>
+        <item name="android:paddingRight">16dip</item>
+    </style>
+
+    <style name="dialogLoading" parent="@android:style/Theme.Dialog">
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowFrame">@null</item>
+        <item name="android:windowIsFloating">true</item>
+        <item name="android:backgroundDimEnabled">true</item>
+        <item name="android:backgroundDimAmount">0.6</item>
+        <item name="android:windowContentOverlay">@null</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+    </style>
+
+    <style name="dialogPrompt" parent="@android:style/Theme.Dialog">
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowFrame">@null</item>
+        <item name="android:windowIsFloating">true</item>
+        <item name="android:backgroundDimEnabled">true</item>
+        <item name="android:backgroundDimAmount">0.6</item>
+        <item name="android:windowContentOverlay">@null</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+    </style>
+
+    <style name="wheelDialogStyle" parent="@android:style/Theme.Dialog">
+
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowIsFloating">true</item>
+        <item name="android:windowContentOverlay">@null</item>
+        <item name="android:scrollHorizontally">true</item>
+    </style>
+
+    <!-- ActionSheet进出动画 -->
+    <style name="wheelDialogAnimation" parent="@android:style/Animation.Dialog">
+        <item name="android:windowEnterAnimation">@anim/wheelpicker_dialog_in</item>
+        <item name="android:windowExitAnimation">@anim/wheelpicker_dialog_out</item>
+    </style>
+
+    <style name="ToolbarTheme" parent="Theme.AppCompat">
+        <item name="android:background">@android:color/transparent</item>
+    </style>
+
+    <style name="animKeyboardTranslate">
+        <item name="android:windowEnterAnimation">@anim/translate_keyboard_in</item>
+        <item name="android:windowExitAnimation">@anim/translate_keyboard_out</item>
+    </style>
+
+    <declare-styleable name="CompanyEdittext">
+        <attr name="ce_text" format="string" />
+        <attr name="ce_text_color" format="color" />
+    </declare-styleable>
+
+    <style name="SwitchTheme" parent="@android:style/TextAppearance.Small">
+        <item name="android:textColor">@color/switch_text_selector</item>
+    </style>
+
+
+    <style name="monitorTextStyle">
+        <item name="android:textStyle">bold</item>
+        <item name="android:textSize">28sp</item>
+    </style>
+
+
+</resources>

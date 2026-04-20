@@ -1,0 +1,36 @@
+import org.gradle.api.initialization.resolve.RepositoriesMode
+
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+rootProject.name = "IStationDevice-Android11"
+
+include(":app")
+include(":modules:core")
+include(":modules:domain")
+include(":modules:protocol")
+include(":modules:device-api")
+include(":modules:device-m90")
+include(":modules:runtime")
+include(":modules:debug-tools")
+
+project(":modules:core").projectDir = file("modules/core")
+project(":modules:domain").projectDir = file("modules/domain")
+project(":modules:protocol").projectDir = file("modules/protocol")
+project(":modules:device-api").projectDir = file("modules/device-api")
+project(":modules:device-m90").projectDir = file("modules/device-m90")
+project(":modules:runtime").projectDir = file("modules/runtime")
+project(":modules:debug-tools").projectDir = file("modules/debug-tools")

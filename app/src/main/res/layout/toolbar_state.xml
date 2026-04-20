@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="@dimen/d_40"
+    android:background="@color/c_000000">
+
+    <TextView
+        android:id="@+id/tvToolbarLeft"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerVertical="true"
+        android:layout_marginLeft="@dimen/d_4"
+        android:textColor="@color/c_ffffff"
+        android:textSize="22sp"
+        tools:text="2018-04-05 12:00:00" />
+
+    <TextView
+        android:id="@+id/tvToolbarTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerInParent="true"
+        android:layout_marginLeft="@dimen/d_4"
+        android:textColor="@color/c_ffffff"
+        tools:text="@string/app_name" />
+
+    <LinearLayout
+        android:id="@+id/lyToolbarRight"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentRight="true"
+        android:layout_centerVertical="true"
+        tools:ignore="RelativeOverlap"
+        android:layout_marginRight="@dimen/d_20">
+
+        <TextView
+            android:id="@+id/tvSatellites"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@color/c_ffffff"
+            android:layout_marginLeft="@dimen/d_10"
+            android:layout_marginRight="@dimen/d_10"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tvLanState"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@color/c_ffffff"
+            android:layout_marginLeft="@dimen/d_10"
+            android:layout_marginRight="@dimen/d_10"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tvCMS"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@color/c_ffffff"
+            android:layout_marginLeft="@dimen/d_10"
+            android:layout_marginRight="@dimen/d_10"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tvDVR"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@color/c_ffffff"
+            android:layout_marginLeft="@dimen/d_10"
+            android:layout_marginRight="@dimen/d_10"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tv4G"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@color/c_ffffff"
+            android:layout_marginLeft="@dimen/d_10"
+            android:layout_marginRight="@dimen/d_10"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tvWifi"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@color/c_ffffff"
+            android:layout_marginLeft="@dimen/d_10"
+            android:layout_marginRight="@dimen/d_10"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tvLocationGps"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@color/c_ffffff"
+            android:layout_marginLeft="@dimen/d_10"
+            android:layout_marginRight="@dimen/d_16"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+
+</RelativeLayout>

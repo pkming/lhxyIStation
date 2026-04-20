@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <RelativeLayout
+        android:id="@+id/rlToolbar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <include layout="@layout/toolbar" />
+    </RelativeLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/d_1"
+        android:layout_below="@id/rlToolbar"
+        android:background="@color/c_ffffff" />
+
+        <RadioGroup
+            android:id="@+id/rg_radio_learn_navigation"
+            android:layout_width="@dimen/d_130"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/rlToolbar"
+            android:layout_marginLeft="@dimen/d_6"
+            android:layout_marginTop="@dimen/d_6"
+            android:layout_marginRight="@dimen/d_6"
+            android:orientation="vertical">
+
+            <RadioButton
+                android:id="@+id/rb_radio_site_learn"
+                android:layout_width="match_parent"
+                android:layout_height="@dimen/d_58"
+                android:background="@drawable/tabbar_bg"
+                android:button="@null"
+                android:drawablePadding="@dimen/d_5"
+                android:gravity="center"
+                android:text="@string/collection_site_learn"
+                android:textColor="@drawable/radio_button_selector"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+            <RadioButton
+                android:id="@+id/rb_radio_other"
+                android:layout_width="match_parent"
+                android:layout_height="@dimen/d_58"
+                android:layout_marginTop="@dimen/d_6"
+                android:background="@drawable/tabbar_bg"
+                android:button="@null"
+                android:drawablePadding="@dimen/d_5"
+                android:gravity="center"
+                android:text="@string/collection_other"
+                android:textColor="@drawable/radio_button_selector"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+        </RadioGroup>
+
+    <View
+        android:layout_width="@dimen/d_1"
+        android:layout_height="match_parent"
+        android:layout_below="@id/rlToolbar"
+        android:layout_toRightOf="@id/rg_radio_learn_navigation"
+        tools:ignore="all"
+        android:background="@color/c_ffffff" />
+
+    <FrameLayout
+        android:id="@+id/flSiteContext"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_below="@id/rlToolbar"
+        android:layout_toRightOf="@id/rg_radio_learn_navigation"
+        tools:ignore="all"
+        android:paddingRight="@dimen/d_0"
+        android:paddingLeft="@dimen/d_10">
+
+    </FrameLayout>
+
+</RelativeLayout>

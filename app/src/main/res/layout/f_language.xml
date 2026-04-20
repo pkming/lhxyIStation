@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <RadioGroup
+        android:id="@+id/rg_radio_language"
+        android:layout_width="match_parent"
+        android:layout_marginTop="@dimen/d_20"
+        android:layout_height="wrap_content"
+        android:paddingLeft="@dimen/d_22"
+        android:paddingRight="@dimen/d_22">
+
+        <RadioButton
+            android:id="@+id/rb_radio_language_auto"
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/d_50"
+            android:text="@string/language_auto"
+            android:drawableLeft="@drawable/radio_bg"
+            android:button="@null"
+            android:drawablePadding="@dimen/d_4"
+            android:textColor="@color/c_ffffff"
+            android:textSize="20sp" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/d_1px"
+            android:background="@color/c_ffffff" />
+
+        <RadioButton
+            android:id="@+id/rb_radio_language_ch"
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/d_50"
+            android:text="@string/language_cn"
+            android:drawableLeft="@drawable/radio_bg"
+            android:button="@null"
+            android:drawablePadding="@dimen/d_4"
+            android:textColor="@color/c_ffffff"
+            android:textSize="20sp" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/d_1px"
+            android:background="@color/c_ffffff" />
+
+        <RadioButton
+            android:id="@+id/rb_radio_language_tr"
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/d_50"
+            android:text="@string/language_traditional"
+            android:drawableLeft="@drawable/radio_bg"
+            android:button="@null"
+            android:drawablePadding="@dimen/d_4"
+            android:textColor="@color/c_ffffff"
+            android:textSize="20sp" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/d_1px"
+            android:background="@color/c_ffffff" />
+
+        <RadioButton
+            android:id="@+id/rb_radio_language_en"
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/d_50"
+            android:drawableLeft="@drawable/radio_bg"
+            android:button="@null"
+            android:drawablePadding="@dimen/d_4"
+            android:text="@string/language_en"
+            android:textColor="@color/c_ffffff"
+            android:textSize="20sp" />
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/d_1px"
+            android:background="@color/c_ffffff" />
+
+        <RadioButton
+            android:id="@+id/rb_radio_language_ko"
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/d_50"
+            android:drawableLeft="@drawable/radio_bg"
+            android:button="@null"
+            android:drawablePadding="@dimen/d_4"
+            android:text="@string/language_ko"
+            android:textColor="@color/c_ffffff"
+            android:textSize="20sp" />
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/d_1px"
+            android:background="@color/c_ffffff" />
+
+        <RadioButton
+            android:id="@+id/rb_radio_language_es"
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/d_50"
+            android:drawableLeft="@drawable/radio_bg"
+            android:button="@null"
+            android:drawablePadding="@dimen/d_4"
+            android:text="@string/language_es"
+            android:textColor="@color/c_ffffff"
+            android:textSize="20sp" />
+    </RadioGroup>
+
+    <Button
+        android:id="@+id/butAffirm"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="@dimen/d_30"
+        android:layout_marginTop="@dimen/d_50"
+        android:layout_marginRight="@dimen/d_30"
+        android:background="@drawable/btn_login_bg"
+        android:text="@string/affirm"
+        android:textColor="@color/c_000000"
+        android:textSize="24sp"
+        android:textStyle="bold" />
+
+</LinearLayout>

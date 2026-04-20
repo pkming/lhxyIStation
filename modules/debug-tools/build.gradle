@@ -1,0 +1,31 @@
+plugins {
+    id 'com.android.library'
+}
+
+android {
+    namespace 'com.lhxy.istationdevice.android11.debugtools'
+    compileSdk 35
+
+    defaultConfig {
+        minSdk 26
+    }
+
+    buildFeatures {
+        viewBinding true
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation project(':modules:core')
+    implementation project(':modules:domain')
+    implementation project(':modules:device-api')
+    implementation project(':modules:device-m90')
+    implementation project(':modules:runtime')
+    implementation 'androidx.appcompat:appcompat:1.7.0'
+    implementation 'com.google.android.material:material:1.12.0'
+}

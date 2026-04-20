@@ -1,0 +1,406 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_height="match_parent">
+
+    <RelativeLayout
+        android:id="@+id/rlAffirm"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:paddingBottom="@dimen/d_22">
+
+        <Button
+            android:id="@+id/butAffirm"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="@dimen/d_30"
+            android:layout_marginTop="@dimen/d_10"
+            android:layout_marginRight="@dimen/d_30"
+            android:layout_marginBottom="@dimen/d_16"
+            android:background="@drawable/btn_login_bg"
+            android:text="@string/affirm"
+            android:textColor="@color/c_000000"
+            android:textSize="24sp"
+            android:textStyle="bold" />
+    </RelativeLayout>
+
+
+    <com.lhxy.istationdevice.common.widget.CustomScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_above="@id/rlAffirm"
+        android:fadeScrollbars="false"
+        android:scrollbars="vertical">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <RelativeLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/d_80"
+                    android:paddingLeft="@dimen/d_16"
+                    android:paddingRight="@dimen/d_36">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_centerVertical="true"
+                        android:text="@string/basic_newspaper_innervolume"
+                        android:textColor="@color/c_ffffff"
+                        android:textSize="22sp" />
+
+                    <SeekBar
+                        android:id="@+id/sbInnerVolume"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_centerVertical="true"
+                        android:minHeight="@dimen/d_15"
+                        android:maxHeight="@dimen/d_15"
+                        android:progressDrawable="@drawable/layer_seekbar"
+                        android:thumb="@drawable/shape_seekbar_thumb"
+                        android:layout_gravity="center_vertical"
+                        android:layout_marginLeft="@dimen/d_90"
+                        android:max="15"
+                        android:progress="7" />
+
+                </RelativeLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/d_1px"
+                    android:layout_marginLeft="@dimen/d_22"
+                    android:layout_marginRight="@dimen/d_22"
+                    android:background="@color/c_ffffff" />
+
+                <RelativeLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/d_80"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingLeft="@dimen/d_16"
+                    android:paddingRight="@dimen/d_36">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/basic_newspaper_outvolume"
+                        android:layout_centerVertical="true"
+                        android:textColor="@color/c_ffffff"
+                        android:textSize="22sp" />
+
+                    <SeekBar
+                        android:id="@+id/sbOutsideVolume"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:minHeight="@dimen/d_15"
+                        android:maxHeight="@dimen/d_15"
+                        android:layout_centerVertical="true"
+                        android:progressDrawable="@drawable/layer_seekbar"
+                        android:thumb="@drawable/shape_seekbar_thumb"
+                        android:layout_gravity="center_vertical"
+                        android:layout_marginLeft="@dimen/d_90"
+                        android:max="15"
+                        android:progress="7" />
+
+                </RelativeLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/d_1px"
+                    android:layout_marginLeft="@dimen/d_22"
+                    android:layout_marginRight="@dimen/d_22"
+                    android:background="@color/c_ffffff" />
+
+                <RelativeLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/d_58"
+                    android:paddingLeft="@dimen/d_16"
+                    android:paddingRight="@dimen/d_36">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_centerVertical="true"
+                        android:text="@string/basic_newspaper_attribute"
+                        android:textColor="@color/c_ffffff"
+                        android:textSize="22sp" />
+
+                    <RadioGroup
+                        android:id="@+id/rgLineProperty"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_alignParentRight="true"
+                        android:layout_centerVertical="true"
+                        tools:ignore="RelativeOverlap"
+                        android:orientation="horizontal">
+
+                        <RadioButton
+                            android:id="@+id/rbUpAndDown"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/basic_newspaper_attribute_open"
+                            android:drawableLeft="@drawable/radio_bg"
+                            android:button="@null"
+                            android:drawablePadding="@dimen/d_4"
+                            android:textColor="@color/c_ffffff"
+                            android:layout_marginRight="@dimen/d_40"
+                            android:textSize="20sp" />
+
+                        <RadioButton
+                            android:id="@+id/rbLoopLine"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/basic_newspaper_attribute_loop"
+                            android:layout_marginLeft="@dimen/d_6"
+                            android:drawableLeft="@drawable/radio_bg"
+                            android:button="@null"
+                            android:drawablePadding="@dimen/d_4"
+                            android:textColor="@color/c_ffffff"
+                            android:textSize="20sp" />
+
+                        <RadioButton
+                            android:id="@+id/rbAntiReverse"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginLeft="@dimen/d_40"
+                            android:text="@string/basic_newspaper_attribute_anti"
+                            android:drawableLeft="@drawable/radio_bg"
+                            android:button="@null"
+                            android:drawablePadding="@dimen/d_4"
+                            android:textColor="@color/c_ffffff"
+                            android:textSize="20sp" />
+                    </RadioGroup>
+
+                </RelativeLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/d_1px"
+                    android:layout_marginLeft="@dimen/d_22"
+                    android:layout_marginRight="@dimen/d_22"
+                    android:background="@color/c_ffffff" />
+
+                <RelativeLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/d_58"
+                    android:gravity="center_vertical"
+                    android:paddingLeft="@dimen/d_16"
+                    android:paddingRight="@dimen/d_36">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/basic_newspaper_angle"
+                        android:layout_centerVertical="true"
+                        tools:ignore="RelativeOverlap"
+                        android:textColor="@color/c_ffffff"
+                        android:textSize="22sp" />
+
+                    <Switch
+                        android:id="@+id/sAngle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="match_parent"
+                        android:showText="true"
+                        android:textStyle="bold"
+                        android:switchTextAppearance="@style/SwitchTheme"
+                        android:textOff="@string/close"
+                        android:textOn="@string/open"
+                        android:thumb="@drawable/switch_custom_thumb_selector"
+                        android:track="@drawable/switch_custom_track_selector"
+                        android:layout_alignParentRight="true" />
+
+                </RelativeLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/d_1px"
+                    android:layout_marginLeft="@dimen/d_22"
+                    android:layout_marginRight="@dimen/d_22"
+                    android:background="@color/c_ffffff" />
+
+                <RelativeLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/d_58"
+                    android:gravity="center_vertical"
+                    android:paddingLeft="@dimen/d_16"
+                    android:paddingRight="@dimen/d_36">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/basic_newspaper_dialect"
+                        android:layout_centerVertical="true"
+                        tools:ignore="RelativeOverlap"
+                        android:textColor="@color/c_ffffff"
+                        android:textSize="22sp" />
+
+                    <Switch
+                        android:id="@+id/sBroadcastDialect"
+                        android:layout_width="wrap_content"
+                        android:layout_height="match_parent"
+                        android:showText="true"
+                        android:switchTextAppearance="@style/SwitchTheme"
+                        android:textOff="@string/close"
+                        android:textOn="@string/open"
+                        android:thumb="@drawable/switch_custom_thumb_selector"
+                        android:track="@drawable/switch_custom_track_selector"
+                        android:layout_alignParentRight="true" />
+
+                </RelativeLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/d_1px"
+                    android:layout_marginLeft="@dimen/d_22"
+                    android:layout_marginRight="@dimen/d_22"
+                    android:background="@color/c_ffffff" />
+
+                <RelativeLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/d_58"
+                    android:gravity="center_vertical"
+                    android:paddingLeft="@dimen/d_16"
+                    android:paddingRight="@dimen/d_36">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/basic_newspaper_english"
+                        tools:ignore="RelativeOverlap"
+                        android:layout_centerVertical="true"
+                        android:textColor="@color/c_ffffff"
+                        android:textSize="22sp" />
+
+                    <Switch
+                        android:id="@+id/sBroadcastEnglish"
+                        android:layout_width="wrap_content"
+                        android:layout_height="match_parent"
+                        android:showText="true"
+                        android:switchTextAppearance="@style/SwitchTheme"
+                        android:textOff="@string/close"
+                        android:textOn="@string/open"
+                        android:thumb="@drawable/switch_custom_thumb_selector"
+                        android:track="@drawable/switch_custom_track_selector"
+                        android:layout_alignParentRight="true" />
+
+                </RelativeLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/d_1px"
+                    android:layout_marginLeft="@dimen/d_22"
+                    android:layout_marginRight="@dimen/d_22"
+                    android:background="@color/c_e5e5e5" />
+
+                <RelativeLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/d_58"
+                    android:gravity="center_vertical"
+                    android:paddingLeft="@dimen/d_16"
+                    android:paddingRight="@dimen/d_36">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/basic_newspaper_external"
+                        android:layout_centerVertical="true"
+                        tools:ignore="RelativeOverlap"
+                        android:textColor="@color/c_ffffff"
+                        android:textSize="22sp" />
+
+                    <Switch
+                        android:id="@+id/sExternalSound"
+                        android:layout_width="wrap_content"
+                        android:layout_height="match_parent"
+                        android:showText="true"
+                        android:switchTextAppearance="@style/SwitchTheme"
+                        android:textOff="@string/close"
+                        android:textOn="@string/open"
+                        android:thumb="@drawable/switch_custom_thumb_selector"
+                        android:track="@drawable/switch_custom_track_selector"
+                        android:layout_alignParentRight="true" />
+
+                </RelativeLayout>
+
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/d_1px"
+                    android:layout_marginLeft="@dimen/d_22"
+                    android:layout_marginRight="@dimen/d_22"
+                    android:background="@color/c_e5e5e5" />
+
+                <RelativeLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/d_58"
+                    android:gravity="center_vertical"
+                    android:paddingLeft="@dimen/d_16"
+                    android:paddingRight="@dimen/d_36">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/basic_newspaper_point"
+                        android:textColor="@color/c_ffffff"
+                        tools:ignore="RelativeOverlap"
+                        android:layout_centerVertical="true"
+                        android:textSize="22sp" />
+
+                    <Switch
+                        android:id="@+id/sNowTime"
+                        android:layout_width="wrap_content"
+                        android:layout_height="match_parent"
+                        android:showText="true"
+                        android:switchTextAppearance="@style/SwitchTheme"
+                        android:textOff="@string/close"
+                        android:textOn="@string/open"
+                        android:thumb="@drawable/switch_custom_thumb_selector"
+                        android:track="@drawable/switch_custom_track_selector"
+                        android:layout_alignParentRight="true" />
+
+                </RelativeLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/d_1px"
+                    android:layout_marginLeft="@dimen/d_22"
+                    android:layout_marginRight="@dimen/d_22"
+                    android:background="@color/c_e5e5e5" />
+
+                <RelativeLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/d_58"
+                    android:gravity="center_vertical"
+                    android:paddingLeft="@dimen/d_16"
+                    android:paddingRight="@dimen/d_36">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_centerVertical="true"
+                        android:text="@string/basic_newspaper_overtone"
+                        android:textColor="@color/c_ffffff"
+                        tools:ignore="RelativeOverlap"
+                        android:textSize="22sp" />
+
+                    <Switch
+                        android:id="@+id/sOpenSpeeding"
+                        android:layout_width="wrap_content"
+                        android:layout_height="match_parent"
+                        android:showText="true"
+                        android:switchTextAppearance="@style/SwitchTheme"
+                        android:textOff="@string/close"
+                        android:textOn="@string/open"
+                        android:thumb="@drawable/switch_custom_thumb_selector"
+                        android:track="@drawable/switch_custom_track_selector"
+                        android:layout_alignParentRight="true" />
+
+                </RelativeLayout>
+            </LinearLayout>
+    </com.lhxy.istationdevice.common.widget.CustomScrollView>
+
+</RelativeLayout>

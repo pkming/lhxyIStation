@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorPrimary">#000000</color>
+    <color name="colorPrimaryDark">#000000</color>
+    <color name="colorAccent">#FF4081</color>
+    <color name="colorMainBG">#000000</color>
+    <color name="colorPromptBG">#F2F2F2</color>
+    <color name="colorControlNormal">#3e68b0</color>
+    <color name="colorControlActivated">#3e68b0</color>
+    <color name="tabTxtChecked">#ffd700</color>
+    <color name="tabTxtUnChecked">#ffffff</color>
+
+    <color name="c_0077ff">#0077ff</color>
+    <color name="c_003cbd">#003cbd</color>
+    <color name="c_ffffff">#ffffff</color>
+    <color name="c_f1ff2d">#f1ff2d</color>
+    <color name="c_cae1ff">#cae1ff</color>
+    <color name="c_ff0000">#ff0000</color>
+    <color name="c_b31800">#b31800</color>
+    <color name="c_eb3f2f">#eb3f2f</color>
+    <color name="c_000000">#000000</color>
+    <color name="c_127db3">#127db3</color>
+    <color name="c_ff000000">#ff000000</color>
+    <color name="c_333333">#333333</color>
+    <color name="c_2a76ae">#2a76ae</color>
+    <color name="c_8b6914">#8b6914</color>
+    <color name="c_613030">#613030</color>
+    <color name="c_e5e5e5">#e5e5e5</color>
+    <color name="c_b5b5b5">#b5b5b5</color>
+    <color name="c_0080da">#0080da</color>
+    <color name="c_808080">#808080</color>
+    <color name="c_0296ff">#0296ff</color>
+    <color name="c_607b8b">#607B8B</color>
+    <color name="c_66cdaa">#66CDAA</color>
+    <color name="c_449bff">#449bff</color>
+    <color name="c_dbdbdb">#dbdbdb</color>
+    <color name="c_2c2c2c">#2c2c2c</color>
+    <color name="c_bfbfbf">#bfbfbf</color>
+    <color name="c_8a8a8a">#8a8a8a</color>
+    <color name="c_e6e6e6">#e6e6e6</color>
+    <color name="c_fafafa">#fafafa</color>
+    <color name="c_cdcdcd">#cdcdcd</color>
+    <color name="c_515151">#515151</color>
+    <color name="c_414141">#414141</color>
+    <color name="c_f6f6f6">#f6f6f6</color>
+    <color name="c_33bfbfbf">#33bfbfbf</color>
+    <color name="c_cd7f32">#cd7f32</color>
+    <color name="c_ffd700">#ffd700</color>
+
+
+</resources>

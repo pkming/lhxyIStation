@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+
+        <RelativeLayout
+            android:id="@+id/itemDispatchJoinOperation"
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/d_52"
+            android:layout_marginLeft="@dimen/d_16"
+            android:layout_marginRight="@dimen/d_22"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerVertical="true"
+                tools:ignore="RelativeOverlap"
+                android:text="@string/dispatch_center_operation"
+                android:textColor="@color/c_ffffff"
+                android:textSize="22sp" />
+
+            <ImageView
+                android:layout_width="wrap_content"
+                android:layout_alignParentRight="true"
+                android:layout_centerVertical="true"
+                android:contentDescription="@string/ingoto"
+                android:layout_height="wrap_content" android:src="@drawable/icon_direction" />
+        </RelativeLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/d_1px"
+            android:layout_marginLeft="@dimen/d_22"
+            android:layout_marginRight="@dimen/d_22"
+            android:background="@color/c_ffffff" />
+
+        <RelativeLayout
+            android:id="@+id/itemDispatchRequestCharge"
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/d_52"
+            android:layout_marginLeft="@dimen/d_16"
+            android:layout_marginRight="@dimen/d_22"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerVertical="true"
+                tools:ignore="RelativeOverlap"
+                android:text="@string/dispatch_center_request_charging"
+                android:textColor="@color/c_ffffff"
+                android:textSize="22sp" />
+
+            <ImageView
+                android:layout_width="wrap_content"
+                android:layout_alignParentRight="true"
+                android:layout_centerVertical="true"
+                android:contentDescription="@string/ingoto"
+                android:layout_height="wrap_content" android:src="@drawable/icon_direction" />
+        </RelativeLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/d_1px"
+            android:layout_marginLeft="@dimen/d_22"
+            android:layout_marginRight="@dimen/d_22"
+            android:background="@color/c_ffffff" />
+
+        <RelativeLayout
+            android:id="@+id/itemDispatchVehicleFailure"
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/d_52"
+            android:layout_marginLeft="@dimen/d_16"
+            android:layout_marginRight="@dimen/d_22"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerVertical="true"
+                tools:ignore="RelativeOverlap"
+                android:text="@string/dispatch_center_vehicle_failure"
+                android:textColor="@color/c_ffffff"
+                android:textSize="22sp" />
+
+            <ImageView
+                android:layout_width="wrap_content"
+                android:layout_alignParentRight="true"
+                android:layout_centerVertical="true"
+                android:contentDescription="@string/ingoto"
+                android:layout_height="wrap_content" android:src="@drawable/icon_direction" />
+        </RelativeLayout>
+
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/d_1px"
+            android:layout_marginLeft="@dimen/d_22"
+            android:layout_marginRight="@dimen/d_22"
+            android:background="@color/c_ffffff" />
+
+        <RelativeLayout
+            android:id="@+id/itemDispatchLeaveOperation"
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/d_52"
+            android:layout_marginLeft="@dimen/d_16"
+            android:layout_marginRight="@dimen/d_22"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerVertical="true"
+                tools:ignore="RelativeOverlap"
+                android:text="@string/dispatch_center_exit_operation"
+                android:textColor="@color/c_ffffff"
+                android:textSize="22sp" />
+
+            <ImageView
+                android:layout_width="wrap_content"
+                android:layout_alignParentRight="true"
+                android:layout_centerVertical="true"
+                android:contentDescription="@string/ingoto"
+                android:layout_height="wrap_content" android:src="@drawable/icon_direction" />
+        </RelativeLayout>
+
+
+</LinearLayout>

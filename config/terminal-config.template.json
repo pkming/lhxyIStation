@@ -1,0 +1,177 @@
+{
+  "deviceProfile": "M90-STUB",
+  "configVersion": "2026.04.13",
+  "serial": {
+    "rs232_1": {
+      "portName": "ttyS3",
+      "baudRate": 9600,
+      "mode": "stub",
+      "note": "DVR / RS232-1"
+    },
+    "rs232_2": {
+      "portName": "ttyS4",
+      "baudRate": 9600,
+      "mode": "stub",
+      "note": "RS232-2"
+    },
+    "gps": {
+      "portName": "ttyS5",
+      "baudRate": 9600,
+      "mode": "stub",
+      "note": "GPS"
+    },
+    "rs485_1": {
+      "portName": "ttyS7",
+      "baudRate": 9600,
+      "mode": "stub",
+      "note": "RS485-1"
+    },
+    "rs485_2": {
+      "portName": "ttyS9",
+      "baudRate": 9600,
+      "mode": "stub",
+      "note": "RS485-2"
+    }
+  },
+  "socket": {
+    "jt808": {
+      "channelName": "JT808_SOCKET",
+      "host": "211.154.159.34",
+      "port": 7000,
+      "mode": "stub",
+      "note": "JT808 调度"
+    },
+    "al808": {
+      "channelName": "AL808_SOCKET",
+      "host": "211.154.159.34",
+      "port": 7000,
+      "mode": "stub",
+      "note": "AL808 调度"
+    }
+  },
+  "gpio": {
+    "mode": "stub",
+    "note": "GPIO 先走配置驱动，切真机时补 valuePath",
+    "pins": {
+      "inner_audio": {
+        "pinId": "GPIO1_B1",
+        "valuePath": "",
+        "defaultValue": 0,
+        "note": "内音"
+      },
+      "outer_audio": {
+        "pinId": "GPIO1_B2",
+        "valuePath": "",
+        "defaultValue": 0,
+        "note": "外音"
+      },
+      "inner_speaker": {
+        "pinId": "GPIO0_D6",
+        "valuePath": "",
+        "defaultValue": 0,
+        "note": "内喇叭"
+      },
+      "io1": {
+        "pinId": "GPIO1_D0",
+        "valuePath": "",
+        "defaultValue": 1,
+        "note": "IO1"
+      },
+      "io5": {
+        "pinId": "GPIO1_D4",
+        "valuePath": "",
+        "defaultValue": 0,
+        "note": "IO5"
+      }
+    }
+  },
+  "camera": {
+    "mode": "stub",
+    "note": "Camera ID 先按 0~3 占位，真机时按 M90 联调结果修正",
+    "channels": {
+      "av_out": {
+        "cameraId": "0",
+        "note": "AV-OUT / DVR"
+      },
+      "reverse": {
+        "cameraId": "1",
+        "note": "倒车"
+      },
+      "middle_door": {
+        "cameraId": "2",
+        "note": "中门"
+      },
+      "monitor": {
+        "cameraId": "3",
+        "note": "监控"
+      }
+    }
+  },
+  "rfid": {
+    "mode": "stub",
+    "mockCardNo": "RFID-DEMO-001",
+    "inputFilePath": "",
+    "readCommand": "",
+    "note": "真机模式下可以配文件或命令"
+  },
+  "systemOps": {
+    "mode": "stub",
+    "supportSilentInstall": false,
+    "allowReboot": false,
+    "allowSetTime": false,
+    "silentInstallCommand": "",
+    "rebootCommand": "",
+    "setTimeCommand": "",
+    "note": "真机模式下按厂商权限补命令"
+  },
+  "basicSetup": {
+    "newspaper": {
+      "innerVolume": 7,
+      "outerVolume": 7,
+      "lineProperty": "up_down",
+      "angleEnabled": true,
+      "dialectEnabled": false,
+      "englishEnabled": false,
+      "externalSoundEnabled": true,
+      "nowTimeEnabled": true,
+      "speedingWarningEnabled": true
+    },
+    "network": {
+      "dispatchId": "1",
+      "longInterval": 30,
+      "infoInterval": 5,
+      "adwordsEnabled": true,
+      "adwordsId": "1",
+      "adwordsUser": "admin",
+      "adwordsInterval": 10
+    },
+    "serialSettings": {
+      "rs2321Protocol": "JT808",
+      "rs2322Protocol": "AL808",
+      "rs485Protocol": "通达"
+    },
+    "tts": {
+      "enabled": true,
+      "innerVolume": 8,
+      "outerVolume": 8
+    },
+    "language": {
+      "languageCode": "auto"
+    },
+    "other": {
+      "shoutingVolume": 50,
+      "dispatchVolume": 7
+    },
+    "wireless": {
+      "systemEntryEnabled": true
+    }
+  },
+  "debugReplay": {
+    "displaySerialKey": "rs485_1",
+    "gpsSerialKey": "gps",
+    "jt808SocketKey": "jt808",
+    "al808SocketKey": "al808",
+    "gpioPinKey": "inner_audio",
+    "cameraChannelKey": "av_out"
+  }
+}

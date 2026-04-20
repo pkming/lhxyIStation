@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <RelativeLayout
+        android:id="@+id/rlToolbar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <include layout="@layout/toolbar" />
+    </RelativeLayout>
+
+    <View
+        android:id="@+id/vInfo"
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/d_1"
+        android:layout_below="@id/rlToolbar"
+        android:background="@color/c_ffffff" />
+
+    <RelativeLayout
+        android:id="@+id/rlAffirm"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:paddingBottom="@dimen/d_10">
+
+        <Button
+            android:id="@+id/butAffirm"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="@dimen/d_30"
+            android:layout_marginTop="@dimen/d_10"
+            android:layout_marginRight="@dimen/d_30"
+            android:layout_marginBottom="@dimen/d_16"
+            android:background="@drawable/btn_login_bg"
+            android:text="@string/affirm"
+            android:textColor="@color/c_000000"
+            android:textSize="24sp"
+            android:textStyle="bold" />
+    </RelativeLayout>
+
+    <ListView
+        android:id="@+id/lvInfoBrows"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_above="@id/rlAffirm"
+        android:layout_below="@id/vInfo" />
+
+    <LinearLayout
+        android:id="@+id/lyNotInfo"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerInParent="true"
+        android:orientation="horizontal"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/tvLineTip"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/infobrows_not_tip"
+            android:textColor="@color/c_ffffff"
+            android:textSize="24sp" />
+    </LinearLayout>
+</RelativeLayout>

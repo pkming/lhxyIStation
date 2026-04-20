@@ -1,0 +1,373 @@
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
+    <string name="menu_title">菜单</string>
+    <string name="login_title">登录</string>
+    <string name="line_choice_title">线路选择</string>
+    <string name="sysinfo_title">系统信息</string>
+    <string name="systemsetup_title">系统设置</string>
+    <string name="sitelearn_title">站点学习</string>
+    <string name="filemanage_title">文件管理</string>
+    <string name="voicecall_title">语音通话</string>
+    <string name="dispatchcenter_title">调度中心</string>
+    <string name="infobrows_title">信息浏览</string>
+
+    <string name="line_not_tip">没有线路选择~</string>
+    <string name="line_line_name">线路名称</string>
+    <string name="line_line_info">方向&#160;&#160;&#160;&#160;起点站→终点站</string>
+    <string name="line_line_attribute">线路属性</string>
+    <string name="line_line_switch_suc">线路切换成功</string>
+
+    <string name="infobrows_not_tip">没有信息浏览~</string>
+
+    <string name="main_newspaper_station">报站</string>
+    <string name="main_repeat">重复</string>
+    <string name="main_switch">切换</string>
+    <string name="main_cease">停止</string>
+    <string name="main_dvr">DVR</string>
+    <string name="main_satellites_value">星数:%1$s</string>
+    <string name="main_dvr_value">DVR:%1$s</string>
+    <string name="main_cms_value">CMS:%1$s</string>
+    <string name="main_wifi_value">WIFI:%1$s</string>
+    <string name="main_4g_value">4G:%1$s</string>
+    <string name="main_gps_value">GPS:%1$s</string>
+    <string name="main_lan_value">有线:%1$s</string>
+    <string name="main_message_view">消息\n查看</string>
+    <string name="main_scheduling_query">排班\n查询</string>
+    <string name="main_menu">菜单</string>
+    <string name="main_speed">限速</string>
+    <string name="main_velocity">当前速度</string>
+    <string name="main_no_start">NO.起点站</string>
+    <string name="main_no_end">NO.终点站</string>
+    <string name="main_no">NO.第%1$s站</string>
+    <string name="main_home_station">本站:</string>
+    <string name="main_leave_for">开往:</string>
+    <string name="main_next_station">下站:</string>
+    <string name="main_mittertor">中门</string>
+    <string name="main_backingup">倒车</string>
+    <string name="main_avout">行驶记录仪AV out</string>
+    <string name="main_dlg_terminal_authorization">终端授权</string>
+    <string name="main_dlg_author_name">终端名称</string>
+    <string name="main_dlg_author_name_hint">作为在平台唯一名称</string>
+    <string name="main_dlg_author_ip">平台地址</string>
+    <string name="main_dlg_author_ip_vluae">39.104.66.194:8081</string>
+    <string name="main_dlg_author_ip_hint">例如(192.168.0.1:8080)</string>
+    <string name="main_dlg_author_user">平台账号</string>
+    <string name="main_dlg_author_user_hint">选填(默认admin账号)</string>
+    <string name="main_dlg_author_user_ip_tip">终端名称或地址不能为空</string>
+    <string name="main_dlg_author_ip_errer_tip">输入平台地址格式不对</string>
+    <string name="main_dlg_author_suss">已授权.</string>
+    <string name="main_dlg_author_errer_tip">该账号下的授权数量已用完</string>
+    <string name="main_dlg_author_ip_value">%1$s:%2$s</string>
+    <string name="main_dividing_line">分隔线</string>
+    <string name="main_bus_icon">公交小图标</string>
+    <string name="main_speed_company">km/h</string>
+    <string name="main_paycard_tip">请先导入站点资源!</string>
+
+    <string name="keyboard_quit">退出</string>
+    <string name="keyboard_open_door">开门视频</string>
+    <string name="keyboard_reversing">倒车视频</string>
+    <string name="keyboard_close_video">关闭视频</string>
+    <string name="keyboard_f1">F1</string>
+    <string name="keyboard_f2">F2</string>
+    <string name="keyboard_f3">F3</string>
+    <string name="keyboard_f4">F4</string>
+    <string name="keyboard_f5">F5</string>
+    <string name="keyboard_f6">F6</string>
+    <string name="keyboard_f7">F7</string>
+    <string name="keyboard_f8">F8</string>
+    <string name="keyboard_f9">F9</string>
+    <string name="keyboard_f0">F0</string>
+    <string name="keyboard_down">↓</string>
+    <string name="keyboard_upward">↑</string>
+    <string name="keyboard_esc">ESC</string>
+
+    <string name="dvr_keyboard_esc">ESC</string>
+    <string name="dvr_keyboard_del">DEL</string>
+    <string name="dvr_keyboard_ent">ENT</string>
+    <string name="dvr_keyboard_m">M</string>
+    <string name="dvr_keyboard_back">返&#160;&#160;回</string>
+    <string name="dvr_keyboard_number1">1</string>
+    <string name="dvr_keyboard_number2">2</string>
+    <string name="dvr_keyboard_number3">3</string>
+    <string name="dvr_keyboard_number4">4</string>
+    <string name="dvr_keyboard_number5">5</string>
+    <string name="dvr_keyboard_number6">6</string>
+    <string name="dvr_keyboard_number7">7</string>
+    <string name="dvr_keyboard_number8">8</string>
+    <string name="dvr_keyboard_number9">9</string>
+    <string name="dvr_keyboard_number0">0</string>
+    <string name="dvr_keyboard_left">←</string>
+    <string name="dvr_keyboard_right">→</string>
+    <string name="dvr_keyboard_down">↓</string>
+    <string name="dvr_keyboard_upward">↑</string>
+
+    <string name="main_line_en">SER.%1$s</string>
+    <string name="main_driver">司机：%1$s</string>
+    <string name="main_planned_time"><Data>第%1$s趟<![CDATA[ <br/>]]>计划时间<![CDATA[ <br/><font color="#ffffff">%2$s</font> ]]></Data></string>
+    <string name="main_planned_time_al808"><Data>预计发车<![CDATA[ <br/><font color="#ffffff">%1$s</font> <br/>]]>预计到站<![CDATA[ <br/><font color="#ffffff">%2$s</font> ]]></Data></string>
+
+    <string name="login_user_hint">请输入登录账号</string>
+    <string name="login_user">账号</string>
+    <string name="login_user_txt">admin</string>
+    <string name="login_pwd_hint">请输入登录密码</string>
+    <string name="login_pwd">密码</string>
+    <string name="login_but_name">登&#160;&#160;&#160;录</string>
+    <string name="login_notnull_hint">账号和密码不能为空</string>
+    <string name="login_error_hint">输入的账号或密码不对</string>
+    <string name="login_notnull_hint1">密码不能为空</string>
+    <string name="login_error_hint1">输入的密码不对</string>
+
+    <string name="menu_line_selection">线路选择</string>
+    <string name="menu_site_learning">站点学习</string>
+    <string name="menu_file_management">文件管理</string>
+    <string name="menu_system_set">系统设置</string>
+    <string name="menu_voice_call">语音通话</string>
+    <string name="menu_dispatching_center">调度中心</string>
+    <string name="menu_info_browsing">信息浏览</string>
+    <string name="menu_system_information">系统信息</string>
+
+    <string name="sys_info_version">版本信息</string>
+    <string name="sys_info_network">网络信息</string>
+    <string name="sys_info_hardware_version">硬件版本</string>
+    <string name="sys_info_software_version">软件版本</string>
+    <string name="sys_info_data_version">数据库版本</string>
+    <string name="sys_info_gps">GPS</string>
+    <string name="sys_info_lan">LAN</string>
+    <string name="sys_info_wifi">WIFI</string>
+    <string name="sys_info_4g">4G</string>
+    <string name="sys_info_server1">服务器1</string>
+    <string name="sys_info_server2">服务器2</string>
+
+    <string name="version_hardware">当前版本：%1$s</string>
+    <string name="version_software_number">当前数字版本：%1$s</string>
+    <string name="version_software_name">当前名称版本：%1$s</string>
+
+    <string name="basic_setup_newspaper">报站设置</string>
+    <string name="basic_setup_network">网络设置</string>
+    <string name="basic_setup_serial_port">外设设置</string>
+    <string name="basic_setup_tts">TTS设置</string>
+    <string name="basic_setup_language">语言设置</string>
+    <string name="basic_setup_other">其他设置</string>
+    <string name="basic_setup_wireless">无线和网络</string>
+
+    <string name="basic_newspaper_innervolume">车内音量</string>
+    <string name="basic_newspaper_outvolume">车外音量</string>
+    <string name="basic_newspaper_attribute">线路属性</string>
+    <string name="basic_newspaper_attribute_open">对开</string>
+    <string name="basic_newspaper_attribute_loop">环线</string>
+    <string name="basic_newspaper_attribute_anti">防反</string>
+    <string name="basic_newspaper_angle">是否开角度</string>
+    <string name="close">关闭</string>
+    <string name="open">打开</string>
+    <string name="basic_newspaper_dialect">是否播报方言</string>
+    <string name="basic_newspaper_english">是否播报英文</string>
+    <string name="basic_newspaper_external">是否开外音</string>
+    <string name="basic_newspaper_point">是否整点报时</string>
+    <string name="basic_newspaper_overtone">是否报超速音</string>
+    <string name="basic_tts_switch">是否TTS报站</string>
+    <string name="basic_tts_shouting">喊话音量</string>
+    <string name="basic_tts_dispatch">调度音量</string>
+
+    <string name="language_auto">自动</string>
+    <string name="language_cn">简体中文</string>
+    <string name="language_traditional">繁體中文</string>
+    <string name="language_en">英文</string>
+    <string name="language_ko">韩文</string>
+    <string name="language_es">西班牙文</string>
+    <string name="language_tip">您确定切换软件语言？切换成功后需重启设备才会生效.</string>
+
+    <string name="file_import">导入文件</string>
+    <string name="file_export">导出文件</string>
+    <string name="file_udisk_upgrade">U盘升级</string>
+    <string name="file_export_log">导出日志</string>
+    <string name="file_import_btn">导入</string>
+    <string name="file_export_btn">导出</string>
+    <string name="file_upgrade_btn">升级</string>
+    <string name="file_import_tip">确定导入报站文件?</string>
+    <string name="file_export_tip">确定导出报站文件?</string>
+    <string name="file_upgrade_tip">确定升级APP?</string>
+    <string name="file_upgrade_find">Apk文件：%1$s</string>
+    <string name="file_import_load_tip">导入报站数据,请务必不要做其他操作&#8230;</string>
+    <string name="file_export_load_tip">正在导出报站数据,请务必不要做其他操作&#8230;</string>
+    <string name="file_upgrade_load_tip">正在升级APP,请务必不要做其他操作&#8230;</string>
+    <string name="file_import_complete_suss">成功导入报站文件，请拔出U盘.</string>
+    <string name="file_import_complete_fail">导入报站文件失败,请重试！</string>
+    <string name="file_import_complete_fail1">没有检查到可导入报站文件！</string>
+    <string name="file_export_complete_suss">成功导出报站文件，请拔出U盘.</string>
+    <string name="file_export_complete_fail">导出报站文件失败,请重试！</string>
+    <string name="file_export_complete_fail1">没有检查到可导出U盘！</string>
+
+    <string name="file_export_log_tip">确定导出日志文件?</string>
+    <string name="file_export_log_complete_suss">成功导出日志文件，请拔出U盘.</string>
+    <string name="file_export_log_complete_fail">导出日志文件失败,请重试！</string>
+    <string name="file_export_log_complete_fail1">没有可导出的日志！</string>
+    <string name="file_export_log_load_tip">正在导出日志文件,请务必不要做其他操作&#8230;</string>
+
+    <string name="port_port_choice">串口</string>
+    <string name="port_protocol">协议</string>
+    <string name="port_protocol_hint">请选择使用的协议</string>
+    <string name="port_number_hint">请选择使用的串口号</string>
+    <string name="port_baud">波特率</string>
+    <string name="port_baud_hint">请选择使用的波特率</string>
+    <string name="port_port2321">串口：RS232&#8211;1</string>
+    <string name="port_port2322">串口：RS232&#8211;2</string>
+    <string name="port_port485">串口：RS485</string>
+    <string name="port_send_explain">测试串口连接设备是否可以接收到数据</string>
+    <string name="port_send">发送</string>
+    <string name="port_send_data_type">发送数据类型</string>
+    <string name="port_send_hint">请输入发送测试数据</string>
+    <string name="port_send_but_hint">请先打开串口开关</string>
+    <string name="port_ok_tip">您确定修改外设设置信息？修改成功后需重启设备才会生效.</string>
+    <string name="port_ok">修改成功！</string>
+
+    <string name="location_longitude">经度</string>
+    <string name="location_latitude">纬度</string>
+    <string name="location_speed">速度</string>
+    <string name="location_angle">方向角</string>
+
+    <string name="collection_site_learn">站点采集</string>
+    <string name="collection_line">线路名称</string>
+    <string name="collection_line_hint">请选择线路</string>
+    <string name="collection_line_wp_hint">选择线路</string>
+    <string name="collection_site_name">站点名称</string>
+    <string name="collection_order_number">站序</string>
+    <string name="collection_number">编号</string>
+    <string name="collection_site_name_hint">请选择站点</string>
+    <string name="collection_site_name_wp_hint">选择站点</string>
+    <string name="collection_line_direction">线路方向</string>
+    <string name="collection_direction_upstream">上行</string>
+    <string name="collection_direction_down">下行</string>
+    <string name="collection_select_direction">选择线路方向</string>
+    <string name="collection_other">其它采集</string>
+    <string name="collection_attribute">站点属性</string>
+    <string name="collection_attribute_hint">请选择站点属性</string>
+    <string name="collection_attribute_wp_hint">选择站点属性</string>
+    <string name="collection_dlg_msg">是否确定站点学习，确定将会修改站点属性GPS信息?</string>
+    <string name="collection_tip">没有站点属性，不能学习</string>
+    <string name="collection_tip1">当前没有找到可学习的线路</string>
+    <string name="collection_tip2">请先选择线路名称</string>
+
+    <string name="voice_call_ip">IP</string>
+    <string name="voice_call_state">状态:</string>
+    <string name="voice_call_ip_hint">请输入通话IP(如:192.168.0.1)</string>
+    <string name="voice_call_connect_but">连&#160;&#160;&#160;接</string>
+    <string name="voice_call_disconnect_txt">断开</string>
+
+    <string name="dispatch_center_attendance">司机考勤</string>
+    <string name="dispatch_center_dispatch">调度</string>
+    <string name="dispatch_center_goto_signin">上班签到</string>
+    <string name="dispatch_center_gooff_signin">下班签到</string>
+    <string name="dispatch_center_signin">签到</string>
+    <string name="dispatch_center_card_number">卡号:</string>
+    <string name="dispatch_center_name">姓名:</string>
+    <string name="dispatch_center_operation">加入运营</string>
+    <string name="dispatch_center_request_charging">请求充电</string>
+    <string name="dispatch_center_vehicle_failure">车辆故障</string>
+    <string name="dispatch_center_exit_operation">退出运营</string>
+
+    <string name="wireless_setup">点击进入系统页面设置</string>
+
+    <string name="collection_site_gps">站点GPS</string>
+    <string name="collection_current_gps">实时GPS</string>
+
+    <string name="network_dispatch_platform_set">公交调度平台服务器设置</string>
+    <string name="network_long_interval">心跳间隔</string>
+    <string name="network_long_interval_hint">请输入心跳间隔</string>
+    <string name="network_info_interval">信息间隔</string>
+    <string name="network_id">ID</string>
+    <string name="network_id_hint">请输入ID</string>
+    <string name="network_info_interval_hint">请输入信息间隔</string>
+    <string name="network_adwords_set">文件更新服务器设置</string>
+    <string name="network_adwords_ip">IP</string>
+    <string name="network_adwords_ip_hint">请输入接连IP</string>
+    <string name="network_adwords_port">端口</string>
+    <string name="network_adwords_port_hint">请输入接连端口</string>
+    <string name="network_adwords_interval">接口调用间隔</string>
+    <string name="network_adwords_interval_hint">请输入接口调用间隔</string>
+    <string name="network_errer_tip">网络设置所有输入框不能为空.</string>
+    <string name="network_dialog_tip">您确定修改网络设置信息？修改成功后需重启设备才会生效.</string>
+    <string name="network_dialog_ok_tip">修改成功！修改后需重启才会生效.</string>
+    <string name="network_adwords_user">平台账号</string>
+    <string name="network_adwords_user_hint">请输入平台账号</string>
+    <string name="network_adwords_switch">是否使用文件更新服务器</string>
+    <string name="network_company">秒</string>
+
+    <string name="newspaper_ok">修改成功！</string>
+    <string name="newspaper_ok_tip">您确定修改报站设置信息？</string>
+
+    <string name="tts_ok_tip">您确定修改TTS设置信息？</string>
+    <string name="tts_ok">修改成功！</string>
+
+    <string name="other_ok_tip">您确定修改设置信息？</string>
+
+    <string name="collection_save">保存</string>
+
+    <string name="paycard_fail">刷卡失败,请重试</string>
+    <string name="paycard_suss">刷卡成功</string>
+
+    <string name="confirm">确定</string>
+    <string name="cancel">取消</string>
+    <string name="affirm">确认</string>
+    <string name="restart">重启</string>
+    <string name="upstream">上行</string>
+    <string name="down">下行</string>
+    <string name="unconnected">未连接</string>
+    <string name="connected">已连接</string>
+    <string name="invalid">无效</string>
+    <string name="nosignal">无信号</string>
+    <string name="effective">有效</string>
+    <string name="wtrongest">最强</string>
+    <string name="stronger">较强</string>
+    <string name="weaker">较弱</string>
+    <string name="weak">微弱</string>
+    <string name="notopened">未打开</string>
+    <string name="undetected">未检测</string>
+    <string name="dateformat">yyyy年MM月dd日 HH:mm:ss</string>
+
+    <string name="loading">Loading&#8230;</string>
+    <string name="ingoto">进入</string>
+    <string name="arrow">箭头</string>
+    <string name="index">index</string>
+    <string name="save">保存</string>
+    <string name="del">删除</string>
+
+
+    <string-array name="arrayport">
+        <item>RS232&#8211;1</item>
+        <item>RS232&#8211;2</item>
+        <item>RS485</item>
+    </string-array>
+
+    <string-array name="arrayprotocol232">
+        <item>无</item>
+        <item>DVR</item>
+        <item>POS</item>
+    </string-array>
+
+    <string-array name="arrayprotocoldispatch">
+        <item>无</item>
+        <item>ALINK</item>
+        <item>AL808</item>
+    </string-array>
+
+    <string-array name="arraybaud">
+        <item>9600</item>
+        <item>19200</item>
+        <item>38400</item>
+        <item>51200</item>
+        <item>57600</item>
+        <item>115200</item>
+    </string-array>
+
+    <string-array name="arrayprotocoltype">
+        <item>无</item>
+        <item>通达</item>
+        <item>恒舞</item>
+        <item>武汉乐的</item>
+        <item>海梁</item>
+        <item>LED导程牌</item>
+        <item>LHXY</item>
+        <item>HW3</item>
+    </string-array>
+
+
+</resources>

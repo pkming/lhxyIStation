@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+        <RelativeLayout
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/d_52"
+            android:layout_marginLeft="@dimen/d_16"
+            android:layout_marginRight="@dimen/d_22"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerVertical="true"
+                android:text="@string/sys_info_hardware_version"
+                android:textColor="@color/c_ffffff"
+                android:textSize="22sp" />
+
+            <TextView
+                android:id="@+id/tvSVersionCode"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentRight="true"
+                tools:ignore="RelativeOverlap"
+                android:layout_centerVertical="true"
+                android:textColor="@color/c_ffffff"
+                android:textSize="20sp" />
+        </RelativeLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/d_1px"
+            android:layout_marginLeft="@dimen/d_22"
+            android:layout_marginRight="@dimen/d_22"
+            android:background="@color/c_ffffff" />
+
+        <RelativeLayout
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/d_52"
+            android:layout_marginLeft="@dimen/d_16"
+            android:layout_marginRight="@dimen/d_22"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerVertical="true"
+                android:text="@string/sys_info_software_version"
+                android:textColor="@color/c_ffffff"
+                android:textSize="22sp" />
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_alignParentRight="true"
+                android:gravity="center_vertical"
+                tools:ignore="RelativeOverlap"
+                android:layout_height="match_parent" android:orientation="horizontal">
+                <TextView
+                    android:id="@+id/tvVersionCode"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginRight="@dimen/d_22"
+                    android:textColor="@color/c_ffffff"
+                    android:textSize="20sp" />
+
+                <TextView
+                    android:id="@+id/tvVersionName"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/c_ffffff"
+                    android:textSize="20sp" />
+            </LinearLayout>
+
+
+        </RelativeLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/d_1px"
+        android:layout_marginLeft="@dimen/d_22"
+        android:layout_marginRight="@dimen/d_22"
+        android:background="@color/c_ffffff" />
+
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/d_52"
+        android:layout_marginLeft="@dimen/d_16"
+        android:layout_marginRight="@dimen/d_22"
+        android:orientation="horizontal">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerVertical="true"
+            android:text="@string/sys_info_data_version"
+            android:textColor="@color/c_ffffff"
+            android:textSize="22sp" />
+
+        <TextView
+            android:id="@+id/tvDataVersionCode"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentRight="true"
+            tools:ignore="RelativeOverlap"
+            android:layout_centerVertical="true"
+            android:textColor="@color/c_ffffff"
+            android:textSize="20sp" />
+
+
+    </RelativeLayout>
+
+
+</LinearLayout>

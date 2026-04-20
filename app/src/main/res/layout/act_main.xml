@@ -1,0 +1,802 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context="com.lhxy.istationdevice.ui.activity.MainActivity">
+
+
+    <LinearLayout
+        android:id="@+id/rlToolbar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <include layout="@layout/toolbar_state" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/d_1"
+            android:background="@color/c_ffffff" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_below="@id/rlToolbar"
+        android:orientation="horizontal">
+
+        <LinearLayout
+            android:id="@+id/rlOperation"
+            android:layout_width="0.0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:gravity="center_horizontal"
+            android:orientation="vertical">
+
+            <Button
+                android:id="@+id/butNewspaperStation"
+                android:layout_width="@dimen/d_80"
+                android:layout_height="@dimen/d_70"
+                android:layout_marginTop="@dimen/d_8"
+                android:background="@drawable/operation_bg"
+                android:soundEffectsEnabled="false"
+                android:text="@string/main_newspaper_station"
+                android:textColor="@color/c_000000"
+                android:textSize="24sp" />
+
+            <Button
+                android:id="@+id/butRepeat"
+                android:layout_width="@dimen/d_80"
+                android:layout_height="@dimen/d_70"
+                android:layout_marginTop="@dimen/d_8"
+                android:background="@drawable/operation_bg"
+                android:soundEffectsEnabled="false"
+                android:text="线路"
+                android:textColor="@color/c_000000"
+                android:textSize="24sp" />
+
+            <Button
+                android:id="@+id/butSwitch"
+                android:layout_width="@dimen/d_80"
+                android:layout_height="@dimen/d_70"
+                android:layout_marginTop="@dimen/d_10"
+                android:background="@drawable/operation_bg"
+                android:soundEffectsEnabled="false"
+                android:text="@string/main_switch"
+                android:textColor="@color/c_000000"
+                android:textSize="24sp" />
+
+            <Button
+                android:id="@+id/butKeyboard"
+                android:layout_width="@dimen/d_80"
+                android:layout_height="@dimen/d_70"
+                android:layout_marginTop="@dimen/d_10"
+                android:background="@drawable/keyboard_arrow"
+                android:soundEffectsEnabled="false" />
+
+            <Button
+                android:id="@+id/butCease"
+                android:layout_width="@dimen/d_80"
+                android:layout_height="@dimen/d_70"
+                android:layout_marginTop="@dimen/d_8"
+                android:background="@drawable/operation_bg"
+                android:soundEffectsEnabled="false"
+                android:text="@string/main_cease"
+                android:textColor="@color/c_000000"
+                android:textSize="24sp" />
+
+            <Button
+                android:id="@+id/butVideo"
+                android:layout_width="@dimen/d_80"
+                android:layout_height="@dimen/d_70"
+                android:layout_marginTop="@dimen/d_8"
+                android:background="@drawable/operation_bg"
+                android:soundEffectsEnabled="false"
+                android:text="报警开"
+                android:textColor="@color/c_000000"
+                android:textSize="24sp" />
+
+            <Button
+                android:id="@+id/butMenu"
+                android:layout_width="@dimen/d_80"
+                android:layout_height="@dimen/d_70"
+                android:layout_marginTop="@dimen/d_8"
+                android:background="@drawable/operation_bg"
+                android:soundEffectsEnabled="false"
+                android:text="@string/main_menu"
+                android:textColor="@color/c_000000"
+                android:textSize="24sp" />
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/lyNumberkeyboard"
+            android:layout_width="0.0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:gravity="center_vertical"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:baselineAligned="false"
+                android:orientation="horizontal">
+
+                <LinearLayout
+                    android:layout_width="0.0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <Button
+                        android:id="@+id/butNumberF1"
+                        android:layout_width="match_parent"
+                        android:layout_height="@dimen/d_50"
+                        android:layout_margin="@dimen/d_6"
+                        android:background="@drawable/btn_keyboard_white_bg"
+                        android:soundEffectsEnabled="false"
+                        android:text="@string/keyboard_f1"
+                        android:textColor="@color/c_000000"
+                        android:textSize="26sp"
+                        android:textStyle="bold" />
+
+                    <Button
+                        android:id="@+id/butNumberF3"
+                        android:layout_width="match_parent"
+                        android:layout_height="@dimen/d_50"
+                        android:layout_margin="@dimen/d_6"
+                        android:background="@drawable/btn_keyboard_white_bg"
+                        android:soundEffectsEnabled="false"
+                        android:text="@string/keyboard_f3"
+                        android:textColor="@color/c_000000"
+                        android:textSize="26sp"
+                        android:textStyle="bold" />
+
+                    <Button
+                        android:id="@+id/butNumberF5"
+                        android:layout_width="match_parent"
+                        android:layout_height="@dimen/d_50"
+                        android:layout_margin="@dimen/d_6"
+                        android:background="@drawable/btn_keyboard_white_bg"
+                        android:soundEffectsEnabled="false"
+                        android:text="@string/keyboard_f5"
+                        android:textColor="@color/c_000000"
+                        android:textSize="26sp"
+                        android:textStyle="bold" />
+
+                    <Button
+                        android:id="@+id/butNumberF7"
+                        android:layout_width="match_parent"
+                        android:layout_height="@dimen/d_50"
+                        android:layout_margin="@dimen/d_6"
+                        android:background="@drawable/btn_keyboard_white_bg"
+                        android:soundEffectsEnabled="false"
+                        android:text="@string/keyboard_f7"
+                        android:textColor="@color/c_000000"
+                        android:textSize="26sp"
+                        android:textStyle="bold" />
+
+                    <Button
+                        android:id="@+id/butNumberF9"
+                        android:layout_width="match_parent"
+                        android:layout_height="@dimen/d_50"
+                        android:layout_margin="@dimen/d_6"
+                        android:background="@drawable/btn_keyboard_white_bg"
+                        android:soundEffectsEnabled="false"
+                        android:text="@string/keyboard_f9"
+                        android:textColor="@color/c_000000"
+                        android:textSize="26sp"
+                        android:textStyle="bold" />
+
+                    <Button
+                        android:id="@+id/butMainUp"
+                        android:layout_width="match_parent"
+                        android:layout_height="@dimen/d_50"
+                        android:layout_margin="@dimen/d_6"
+                        android:background="@drawable/btn_keyboard_white_bg"
+                        android:soundEffectsEnabled="false"
+                        android:text="@string/keyboard_upward"
+                        android:textColor="@color/c_000000"
+                        android:textSize="30sp"
+                        android:textStyle="bold" />
+
+                    <Button
+                        android:id="@+id/butMainMsg"
+                        android:layout_width="match_parent"
+                        android:layout_height="@dimen/d_60"
+                        android:layout_margin="@dimen/d_6"
+                        android:background="@drawable/btn_keyboard_white_bg"
+                        android:soundEffectsEnabled="false"
+                        android:text="@string/main_message_view"
+                        android:textColor="@color/c_000000"
+                        android:textSize="20sp"
+                        android:textStyle="bold" />
+
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="0.0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <Button
+                        android:id="@+id/butNumberF2"
+                        android:layout_width="match_parent"
+                        android:layout_height="@dimen/d_50"
+                        android:layout_margin="@dimen/d_6"
+                        android:background="@drawable/btn_keyboard_white_bg"
+                        android:soundEffectsEnabled="false"
+                        android:text="@string/keyboard_f2"
+                        android:textColor="@color/c_000000"
+                        android:textSize="26sp"
+                        android:textStyle="bold" />
+
+                    <Button
+                        android:id="@+id/butNumberF4"
+                        android:layout_width="match_parent"
+                        android:layout_height="@dimen/d_50"
+                        android:layout_margin="@dimen/d_6"
+                        android:background="@drawable/btn_keyboard_white_bg"
+                        android:soundEffectsEnabled="false"
+                        android:text="@string/keyboard_f4"
+                        android:textColor="@color/c_000000"
+                        android:textSize="26sp"
+                        android:textStyle="bold" />
+
+                    <Button
+                        android:id="@+id/butNumberF6"
+                        android:layout_width="match_parent"
+                        android:layout_height="@dimen/d_50"
+                        android:layout_margin="@dimen/d_6"
+                        android:background="@drawable/btn_keyboard_white_bg"
+                        android:soundEffectsEnabled="false"
+                        android:text="@string/keyboard_f6"
+                        android:textColor="@color/c_000000"
+                        android:textSize="26sp"
+                        android:textStyle="bold" />
+
+                    <Button
+                        android:id="@+id/butNumberF8"
+                        android:layout_width="match_parent"
+                        android:layout_height="@dimen/d_50"
+                        android:layout_margin="@dimen/d_6"
+                        android:background="@drawable/btn_keyboard_white_bg"
+                        android:soundEffectsEnabled="false"
+                        android:text="@string/keyboard_f8"
+                        android:textColor="@color/c_000000"
+                        android:textSize="26sp"
+                        android:textStyle="bold" />
+
+                    <Button
+                        android:id="@+id/butNumberF0"
+                        android:layout_width="match_parent"
+                        android:layout_height="@dimen/d_50"
+                        android:layout_margin="@dimen/d_6"
+                        android:background="@drawable/btn_keyboard_white_bg"
+                        android:soundEffectsEnabled="false"
+                        android:text="@string/keyboard_f0"
+                        android:textColor="@color/c_000000"
+                        android:textSize="26sp"
+                        android:textStyle="bold" />
+
+                    <Button
+                        android:id="@+id/butMainDown"
+                        android:layout_width="match_parent"
+                        android:layout_height="@dimen/d_50"
+                        android:layout_margin="@dimen/d_6"
+                        android:background="@drawable/btn_keyboard_white_bg"
+                        android:soundEffectsEnabled="false"
+                        android:text="@string/keyboard_down"
+                        android:textColor="@color/c_000000"
+                        android:textSize="30sp"
+                        android:textStyle="bold" />
+
+                    <Button
+                        android:id="@+id/butMainQuery"
+                        android:layout_width="match_parent"
+                        android:layout_height="@dimen/d_60"
+                        android:layout_margin="@dimen/d_6"
+                        android:background="@drawable/btn_keyboard_white_bg"
+                        android:soundEffectsEnabled="false"
+                        android:text="@string/main_scheduling_query"
+                        android:textColor="@color/c_000000"
+                        android:textSize="20sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <Button
+                android:id="@+id/butESC"
+                android:layout_width="match_parent"
+                android:layout_height="@dimen/d_70"
+                android:layout_margin="@dimen/d_6"
+                android:background="@drawable/btn_keyboard_white_bg"
+                android:soundEffectsEnabled="false"
+                android:text="@string/keyboard_esc"
+                android:textColor="@color/c_000000"
+                android:textSize="30sp"
+                android:textStyle="bold" />
+
+        </LinearLayout>
+
+
+        <ImageView
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:background="@drawable/lines"
+            android:contentDescription="@string/main_dividing_line" />
+
+        <RelativeLayout
+            android:layout_width="0.0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="3">
+
+
+            <!--<TextView-->
+            <!--android:id="@+id/tvDatetime"-->
+            <!--android:layout_width="wrap_content"-->
+            <!--android:layout_height="wrap_content"-->
+            <!--android:layout_centerHorizontal="true"-->
+            <!--android:layout_marginTop="@dimen/d_20"-->
+            <!--android:background="@drawable/txt_main_datatime"-->
+            <!--android:gravity="center"-->
+            <!--android:paddingLeft="@dimen/d_10"-->
+            <!--android:paddingTop="@dimen/d_14"-->
+            <!--android:paddingRight="@dimen/d_10"-->
+            <!--android:paddingBottom="@dimen/d_14"-->
+            <!--android:textColor="@color/c_000000"-->
+            <!--android:textSize="28sp"-->
+            <!--android:textStyle="bold" />-->
+
+            <TextClock
+                android:id="@+id/tvDatetime"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerHorizontal="true"
+                android:layout_marginTop="@dimen/d_20"
+                android:background="@drawable/txt_main_datatime"
+                android:format24Hour="@string/dateformat"
+                android:gravity="center"
+                android:paddingLeft="@dimen/d_10"
+                android:paddingTop="@dimen/d_14"
+                android:paddingRight="@dimen/d_10"
+                android:paddingBottom="@dimen/d_14"
+                android:textColor="@color/c_000000"
+                android:textSize="28sp"
+                android:textStyle="bold"
+                tools:ignore="NewApi" />
+
+            <RelativeLayout
+                android:id="@+id/rlSpeedLimit"
+                android:layout_width="match_parent"
+                android:layout_height="@dimen/d_160"
+                android:layout_below="@id/tvDatetime"
+                android:layout_marginTop="@dimen/d_20">
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_alignParentBottom="true"
+                    android:layout_marginLeft="@dimen/d_20"
+                    android:orientation="vertical"
+                    tools:ignore="all">
+
+                    <TextView
+                        android:id="@+id/tvSpeedLimit"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/shape_red_oval"
+                        android:gravity="center"
+                        android:padding="@dimen/d_12"
+                        android:textColor="@color/c_000000"
+                        android:textSize="70sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center"
+                        android:text="@string/main_speed"
+                        android:textColor="@color/c_f1ff2d"
+                        android:textSize="20sp" />
+
+                </LinearLayout>
+
+                <!--<LinearLayout-->
+                <!--android:layout_width="wrap_content"-->
+                <!--android:layout_height="wrap_content"-->
+                <!--android:layout_alignParentRight="true"-->
+                <!--android:layout_centerVertical="true"-->
+                <!--android:layout_marginRight="@dimen/d_40"-->
+                <!--android:orientation="vertical">-->
+
+                <!--<com.lhxy.istationdevice.common.widget.SpeedControlView-->
+                <!--android:id="@+id/scMileage"-->
+                <!--android:layout_width="100px"-->
+                <!--android:layout_height="100px" />-->
+
+                <!--<TextView-->
+                <!--android:layout_width="wrap_content"-->
+                <!--android:layout_height="wrap_content"-->
+                <!--android:layout_gravity="center"-->
+                <!--android:layout_toRightOf="@id/tvSpeedLimit"-->
+                <!--android:text="当前速度"-->
+                <!--android:textColor="@color/c_ff0000"-->
+                <!--android:textSize="20sp" />-->
+                <!--</LinearLayout>-->
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_alignParentRight="true"
+                    android:layout_alignParentBottom="true"
+                    android:layout_marginRight="@dimen/d_40"
+                    android:orientation="vertical"
+                    android:visibility="gone"
+                    tools:ignore="all">
+
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:id="@+id/tvMileage"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:textColor="@color/c_ffffff"
+                            android:textSize="86sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="bottom"
+                            android:layout_marginBottom="@dimen/d_10"
+                            android:text="@string/main_speed_company"
+                            android:textColor="@color/c_ffffff"
+                            android:textSize="20sp" />
+
+                    </LinearLayout>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center"
+                        android:text="@string/main_velocity"
+                        android:textColor="@color/c_f1ff2d"
+                        android:textSize="20sp" />
+                </LinearLayout>
+
+
+            </RelativeLayout>
+
+            <RelativeLayout
+                android:id="@+id/rlLineInfo"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_below="@id/rlSpeedLimit"
+                android:layout_marginLeft="@dimen/d_20"
+                android:layout_marginTop="@dimen/d_16"
+                android:layout_marginRight="@dimen/d_30"
+                tools:ignore="all">
+
+                <TextView
+                    android:id="@+id/tvLineName"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/c_f1ff2d"
+                    android:textSize="40sp" />
+
+            </RelativeLayout>
+
+            <RelativeLayout
+                android:id="@+id/rlLineInfo1"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_below="@id/rlLineInfo"
+                android:layout_marginLeft="@dimen/d_20"
+                android:layout_marginRight="@dimen/d_30"
+                tools:ignore="all">
+
+                <TextView
+                    android:id="@+id/tvLineNO"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/c_f1ff2d"
+                    android:textSize="40sp"
+                    tools:ignore="all" />
+
+                <TextView
+                    android:id="@+id/tvLineDirection"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_alignParentRight="true"
+                    android:textColor="@color/c_f1ff2d"
+                    android:textSize="40sp"
+                    tools:ignore="all" />
+
+            </RelativeLayout>
+
+
+            <RelativeLayout
+                android:id="@+id/lySwitchInfo"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_below="@id/rlLineInfo1"
+                android:layout_marginLeft="@dimen/d_20"
+                android:layout_marginTop="@dimen/d_30"
+                android:visibility="visible"
+                tools:ignore="all">
+
+                <TextView
+                    android:id="@+id/tvHomeNextStation"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/c_2a76ae"
+                    android:textSize="36sp"
+                    android:textStyle="bold"
+                    tools:text="本站:" />
+
+                <RelativeLayout
+                    android:id="@+id/rlHomeNextStationName"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_toRightOf="@id/tvHomeNextStation">
+
+                </RelativeLayout>
+
+                <TextView
+                    android:id="@+id/tvEndBus"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_below="@id/tvHomeNextStation"
+                    android:text="@string/main_leave_for"
+                    android:textColor="@color/c_2a76ae"
+                    android:textSize="36sp"
+                    android:textStyle="bold"
+                    tools:ignore="all" />
+
+                <RelativeLayout
+                    android:id="@+id/rlEndBusName"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_below="@id/tvHomeNextStation"
+                    android:layout_toRightOf="@id/tvEndBus">
+
+                </RelativeLayout>
+            </RelativeLayout>
+
+        </RelativeLayout>
+
+        <ImageView
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:background="@drawable/lines"
+            android:contentDescription="@string/main_dividing_line" />
+
+        <RelativeLayout
+            android:layout_width="0.0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="3">
+
+            <LinearLayout
+                android:id="@+id/lyBusIcon"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerVertical="true"
+                android:layout_marginLeft="@dimen/d_6"
+                android:orientation="vertical"
+                android:visibility="gone"
+                tools:ignore="all">
+
+                <ImageView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="@mipmap/icon_bus_red"
+                    android:contentDescription="@string/main_bus_icon" />
+
+                <ImageView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/d_10"
+                    android:layout_marginBottom="@dimen/d_10"
+                    android:background="@mipmap/icon_bus"
+                    android:contentDescription="@string/main_bus_icon" />
+
+                <ImageView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="@mipmap/icon_bus_green"
+                    android:contentDescription="@string/main_bus_icon" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/lyLine"
+                android:layout_width="match_parent"
+                android:layout_height="@dimen/d_480"
+                android:layout_centerVertical="true"
+                android:layout_marginLeft="@dimen/d_6"
+                android:layout_toRightOf="@id/lyBusIcon"
+                android:orientation="vertical"
+                android:paddingLeft="@dimen/d_16"
+                android:paddingRight="@dimen/d_0"
+                tools:ignore="all" />
+
+            <TextView
+                android:id="@+id/tvShouting"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentRight="true"
+                android:layout_marginTop="@dimen/d_30"
+                android:layout_marginRight="@dimen/d_20"
+                android:textColor="@color/c_ffffff"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                tools:ignore="all" />
+
+            <TextView
+                android:id="@+id/tvInfoTips"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_below="@id/tvShouting"
+                android:layout_alignParentRight="true"
+                android:layout_marginTop="@dimen/d_10"
+                android:layout_marginRight="@dimen/d_20"
+                android:textColor="@color/c_ffffff"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                tools:ignore="all" />
+
+            <LinearLayout
+                android:id="@+id/lyPlannedTime"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentRight="true"
+                android:layout_centerVertical="true"
+                android:orientation="vertical"
+                android:visibility="gone"
+                tools:ignore="all">
+
+                <LinearLayout
+                    android:layout_width="120dp"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/tvPlannedTime1"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textColor="@color/c_0077ff"
+                        android:textSize="24sp"
+                        tools:ignore="all" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/tvDriver"
+                    android:layout_width="120dp"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/c_f1ff2d"
+                    android:textSize="18sp"
+                    tools:text="@string/main_driver" />
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:id="@+id/tvPlannedTime2"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:drawableRight="@drawable/longitudinal_position_orange"
+                        android:textColor="@color/c_0077ff"
+                        android:textSize="18sp"
+                        tools:ignore="all" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:id="@+id/tvPlannedTime3"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:drawableRight="@drawable/longitudinal_position_red"
+                        android:textColor="@color/c_0077ff"
+                        android:textSize="18sp"
+                        tools:ignore="all" />
+                </LinearLayout>
+
+            </LinearLayout>
+        </RelativeLayout>
+
+
+    </LinearLayout>
+
+
+    <RelativeLayout
+        android:id="@+id/lyVideoInfo"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_marginLeft="@dimen/d_120"
+        android:layout_marginTop="@dimen/d_40"
+        android:orientation="vertical"
+        android:visibility="visible"
+        tools:ignore="all">
+
+        <LinearLayout
+            android:id="@+id/lyVideoImage"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="horizontal"
+            tools:ignore="all">
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_alignParentBottom="true"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="当前速度:"
+                android:textColor="@color/c_f1ff2d"
+                android:textSize="30sp"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/tvVideoMileage"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginRight="20dp"
+                android:textColor="@color/c_ffffff"
+                android:textSize="40sp"
+                android:visibility="gone" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="20dp"
+                android:text="限速:"
+                android:textColor="@color/c_f1ff2d"
+                android:textSize="30sp" />
+
+            <TextView
+                android:id="@+id/tvVideoSpeedLimit"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@color/c_ffffff"
+                android:textSize="40sp" />
+        </LinearLayout>
+
+        <TextClock
+            android:id="@+id/tvDatetimeNew"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentRight="true"
+            android:layout_gravity="center"
+            android:format24Hour="@string/dateformat"
+            android:gravity="center"
+            android:textColor="@color/c_ff0000"
+            android:textSize="40sp"
+            tools:ignore="NewApi" />
+
+
+    </RelativeLayout>
+
+</RelativeLayout>

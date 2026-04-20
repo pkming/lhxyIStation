@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/d_58"
+        android:layout_marginTop="@dimen/d_20"
+        android:gravity="center_vertical"
+        android:paddingLeft="@dimen/d_16"
+        android:paddingRight="@dimen/d_36">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/basic_tts_switch"
+            tools:ignore="RelativeOverlap"
+            android:layout_centerVertical="true"
+            android:textColor="@color/c_ffffff"
+            android:textSize="22sp" />
+
+        <Switch
+            android:id="@+id/sTTS"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:showText="true"
+            android:switchTextAppearance="@style/SwitchTheme"
+            android:textOff="@string/close"
+            android:textOn="@string/open"
+            android:thumb="@drawable/switch_custom_thumb_selector"
+            android:track="@drawable/switch_custom_track_selector"
+            android:layout_alignParentRight="true" />
+
+    </RelativeLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/d_1px"
+        android:layout_marginLeft="@dimen/d_22"
+        android:layout_marginRight="@dimen/d_22"
+        android:background="@color/c_ffffff" />
+
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/d_80"
+        android:paddingLeft="@dimen/d_16"
+        android:paddingRight="@dimen/d_36">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerVertical="true"
+            android:text="@string/basic_newspaper_innervolume"
+            android:textColor="@color/c_ffffff"
+            android:textSize="22sp" />
+
+        <SeekBar
+            android:id="@+id/sbTTSInnerVolume"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="@dimen/d_15"
+            android:maxHeight="@dimen/d_15"
+            android:progressDrawable="@drawable/layer_seekbar"
+            android:thumb="@drawable/shape_seekbar_thumb"
+            android:layout_centerVertical="true"
+            android:layout_marginLeft="@dimen/d_90"
+            android:max="15"
+            android:progress="50" />
+
+    </RelativeLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/d_1px"
+        android:layout_marginLeft="@dimen/d_22"
+        android:layout_marginRight="@dimen/d_22"
+        android:background="@color/c_ffffff" />
+
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/d_80"
+        android:paddingLeft="@dimen/d_16"
+        android:paddingRight="@dimen/d_36">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerVertical="true"
+            android:text="@string/basic_newspaper_outvolume"
+            android:textColor="@color/c_ffffff"
+            android:textSize="22sp" />
+
+        <SeekBar
+            android:id="@+id/sbTTSOutsideVolume"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="@dimen/d_15"
+            android:maxHeight="@dimen/d_15"
+            android:progressDrawable="@drawable/layer_seekbar"
+            android:thumb="@drawable/shape_seekbar_thumb"
+            android:layout_centerVertical="true"
+            android:layout_marginLeft="@dimen/d_90"
+            android:max="15"
+            android:progress="50" />
+
+    </RelativeLayout>
+
+    <Button
+        android:id="@+id/butAffirm"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="@dimen/d_30"
+        android:layout_marginTop="@dimen/d_50"
+        android:layout_marginRight="@dimen/d_30"
+        android:background="@drawable/btn_login_bg"
+        android:text="@string/affirm"
+        android:textColor="@color/c_000000"
+        android:textSize="24sp"
+        android:textStyle="bold" />
+
+
+</LinearLayout>

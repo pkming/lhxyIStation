@@ -1,0 +1,6 @@
+<resources>
+    <style name="Theme.IStationShell" parent="Theme.Material3.Light.NoActionBar">
+        <item name="android:statusBarColor">#0F172A</item>
+        <item name="android:navigationBarColor">#F3F4F6</item>
+    </style>
+</resources>

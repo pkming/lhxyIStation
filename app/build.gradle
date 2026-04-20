@@ -1,0 +1,69 @@
+plugins {
+    id 'com.android.application'
+}
+
+def runtimeConfigDir = new File(rootProject.projectDir, "config")
+def generatedConfigAssetsDir = new File(buildDir, "generated/shell-config-assets")
+def templateConfigFile = new File(runtimeConfigDir, "terminal-config.template.json")
+def localConfigFile = new File(runtimeConfigDir, "terminal-config.local.json")
+def bundledStationResourceFile = new File(rootProject.projectDir, "docs/SourceFile.zip")
+
+android {
+    namespace 'com.lhxy.istationdevice.android11.app'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "com.lhxy.istationdevice.android11"
+        minSdk 26
+        targetSdk 35
+        versionCode 1
+        versionName "0.1.0"
+    }
+
+    buildFeatures {
+        viewBinding true
+    }
+
+    sourceSets {
+        main {
+            assets.srcDir generatedConfigAssetsDir
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+tasks.register("prepareShellRuntimeConfig", Copy) {
+    from(localConfigFile.exists() ? localConfigFile : templateConfigFile)
+    into(generatedConfigAssetsDir)
+    rename { "terminal-config.json" }
+}
+
+tasks.register("prepareBundledStationResources", Copy) {
+    onlyIf {
+        bundledStationResourceFile.exists()
+    }
+    from(bundledStationResourceFile)
+    into(new File(generatedConfigAssetsDir, "station-resources"))
+}
+
+tasks.named("preBuild").configure {
+    dependsOn("prepareShellRuntimeConfig")
+    dependsOn("prepareBundledStationResources")
+}
+
+dependencies {
+    implementation project(':modules:core')
+    implementation project(':modules:domain')
+    implementation project(':modules:protocol')
+    implementation project(':modules:device-api')
+    implementation project(':modules:device-m90')
+    implementation project(':modules:runtime')
+    implementation project(':modules:debug-tools')
+
+    implementation 'androidx.appcompat:appcompat:1.7.0'
+    implementation 'com.google.android.material:material:1.12.0'
+}

@@ -1,0 +1,22 @@
+plugins {
+    id 'com.android.library'
+}
+
+android {
+    namespace 'com.lhxy.istationdevice.android11.protocol'
+    compileSdk 35
+
+    defaultConfig {
+        minSdk 26
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation project(':modules:core')
+}
+

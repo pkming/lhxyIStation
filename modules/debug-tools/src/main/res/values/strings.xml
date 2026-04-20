@@ -1,0 +1,52 @@
+<resources>
+    <string name="debug_title">调试工具</string>
+    <string name="debug_refresh">刷新</string>
+    <string name="debug_reset_config">重置运行配置</string>
+    <string name="debug_clear">清空</string>
+    <string name="debug_export">导出调试包</string>
+    <string name="debug_replay_display">回放屏显</string>
+    <string name="debug_replay_jt808">回放 808</string>
+    <string name="debug_replay_all">全量回放</string>
+    <string name="debug_run_self_check">执行终端自检</string>
+    <string name="debug_self_check_default">终端自检：
+- 还没有执行自检</string>
+    <string name="debug_business_module">业务模块</string>
+    <string name="debug_run_selected_module">跑当前模块</string>
+    <string name="debug_run_all_modules">跑全部模块</string>
+    <string name="debug_module_status_default">业务模块状态：
+- 还没有刷新模块状态</string>
+    <string name="debug_hex_hint">输入 HEX 报文或原始 NMEA 文本</string>
+    <string name="debug_serial_channel">串口通道</string>
+    <string name="debug_socket_channel">Socket 通道</string>
+    <string name="debug_open_serial">打开串口</string>
+    <string name="debug_close_serial">关闭串口</string>
+    <string name="debug_connect_socket">连接 Socket</string>
+    <string name="debug_disconnect_socket">断开 Socket</string>
+    <string name="debug_bind_gps_monitor">绑定 GPS 监听</string>
+    <string name="debug_unbind_gps_monitor">解绑 GPS 监听</string>
+    <string name="debug_gpio_pin">GPIO 引脚</string>
+    <string name="debug_camera_channel">Camera 通道</string>
+    <string name="debug_read_gpio">读 GPIO</string>
+    <string name="debug_gpio_high">写高电平</string>
+    <string name="debug_gpio_low">写低电平</string>
+    <string name="debug_open_camera">开 Camera</string>
+    <string name="debug_close_camera">关 Camera</string>
+    <string name="debug_read_rfid">读 RFID</string>
+    <string name="debug_sync_time">同步当前时间</string>
+    <string name="debug_request_reboot">请求重启</string>
+    <string name="debug_channel_status_default">通道状态：
+- 当前还没选中可用通道</string>
+    <string name="debug_device_status_default">底座状态：
+- 还没有刷新设备状态</string>
+    <string name="debug_gps_monitor_default">GPS 监听：
+- 还没有绑定或还没收到定位数据</string>
+    <string name="debug_send_serial">发选中串口</string>
+    <string name="debug_send_socket">发选中 Socket</string>
+    <string name="debug_inspect_jt808">解析 808 HEX</string>
+    <string name="debug_inspect_gps">解析 GPS NMEA</string>
+    <string name="debug_inspect_result_default">解析结果：
+- 还没有执行 808 HEX 解析</string>
+    <string name="debug_gps_inspect_result_default">GPS 解析结果：
+- 还没有执行 GPS 解析</string>
+    <string name="debug_status_idle">状态：还没有执行调试动作。</string>
+</resources>

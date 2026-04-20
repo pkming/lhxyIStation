@@ -1,0 +1,203 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <include layout="@layout/toolbar" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/d_1"
+        android:background="@color/c_ffffff" />
+
+
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/d_80"
+        android:orientation="vertical"
+        android:paddingLeft="@dimen/d_16"
+        android:paddingRight="@dimen/d_16">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerVertical="true"
+            android:text="@string/file_import"
+            android:textColor="@color/c_ffffff"
+            tools:ignore="RelativeOverlap"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+
+        <Button
+            android:id="@+id/butImport"
+            android:layout_width="@dimen/d_140"
+            android:layout_height="wrap_content"
+            android:layout_alignParentRight="true"
+            android:layout_centerVertical="true"
+            android:layout_marginRight="@dimen/d_40"
+            tools:ignore="all"
+            android:background="@drawable/btn_basic_setup_bg"
+            android:text="@string/file_import_btn"
+            android:textColor="@color/c_000000"
+            android:textSize="24sp"
+            android:textStyle="bold" />
+
+    </RelativeLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/d_1px"
+        android:layout_marginLeft="@dimen/d_22"
+        android:layout_marginRight="@dimen/d_22"
+        android:background="@color/c_ffffff" />
+
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/d_80"
+        android:orientation="vertical"
+        android:paddingLeft="@dimen/d_16"
+        android:paddingRight="@dimen/d_16">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerVertical="true"
+            tools:ignore="RelativeOverlap"
+            android:text="@string/file_export"
+            android:textColor="@color/c_ffffff"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+
+        <Button
+            android:id="@+id/butExport"
+            android:layout_width="@dimen/d_140"
+            android:layout_height="wrap_content"
+            android:layout_alignParentRight="true"
+            android:layout_centerVertical="true"
+            android:layout_marginRight="@dimen/d_40"
+            tools:ignore="all"
+            android:background="@drawable/btn_basic_setup_bg"
+            android:text="@string/file_export_btn"
+            android:textColor="@color/c_000000"
+            android:textSize="24sp"
+            android:textStyle="bold" />
+
+    </RelativeLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/d_1px"
+        android:layout_marginLeft="@dimen/d_22"
+        android:layout_marginRight="@dimen/d_22"
+        android:background="@color/c_ffffff" />
+
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/d_80"
+        android:orientation="vertical"
+        android:paddingLeft="@dimen/d_16"
+        android:paddingRight="@dimen/d_16">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerVertical="true"
+            tools:ignore="RelativeOverlap"
+            android:text="@string/file_udisk_upgrade"
+            android:textColor="@color/c_ffffff"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tvUpgradeFile"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerInParent="true"
+            tools:ignore="RelativeOverlap"
+            android:textColor="@color/c_b5b5b5"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <Button
+            android:id="@+id/butUpgrade"
+            android:layout_width="@dimen/d_140"
+            android:layout_height="wrap_content"
+            android:layout_alignParentRight="true"
+            android:layout_centerVertical="true"
+            tools:ignore="all"
+            android:layout_marginRight="@dimen/d_40"
+            android:background="@drawable/btn_upgrade_bg"
+            android:enabled="false"
+            android:text="@string/file_upgrade_btn"
+            android:textColor="@color/c_414141"
+            android:textSize="24sp"
+            android:textStyle="bold" />
+
+    </RelativeLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/d_1px"
+        android:layout_marginLeft="@dimen/d_22"
+        android:layout_marginRight="@dimen/d_22"
+        android:background="@color/c_ffffff" />
+
+    <RelativeLayout
+        android:id="@+id/rlExportLog"
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/d_80"
+        android:orientation="vertical"
+        android:paddingLeft="@dimen/d_16"
+        android:paddingRight="@dimen/d_16">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerVertical="true"
+            tools:ignore="RelativeOverlap"
+            android:text="@string/file_export_log"
+            android:textColor="@color/c_ffffff"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+
+        <Button
+            android:id="@+id/butExportLog"
+            android:layout_width="@dimen/d_140"
+            android:layout_height="wrap_content"
+            android:layout_alignParentRight="true"
+            android:layout_centerVertical="true"
+            tools:ignore="all"
+            android:layout_marginRight="@dimen/d_40"
+            android:background="@drawable/btn_upgrade_bg"
+            android:enabled="false"
+            android:text="@string/file_export_btn"
+            android:textColor="@color/c_414141"
+            android:textSize="24sp"
+            android:textStyle="bold" />
+
+    </RelativeLayout>
+
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <TextView
+            android:id="@+id/tvFileTips"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentBottom="true"
+            android:layout_centerHorizontal="true"
+            android:layout_marginBottom="@dimen/d_50"
+            android:background="@drawable/txt_tips_bg"
+            android:paddingLeft="@dimen/d_16"
+            android:paddingTop="@dimen/d_10"
+            android:paddingRight="@dimen/d_16"
+            android:paddingBottom="@dimen/d_10"
+            android:textColor="@color/c_ffffff"
+            android:textSize="18sp"
+            android:visibility="gone" />
+    </RelativeLayout>
+
+</LinearLayout>

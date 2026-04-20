@@ -1,0 +1,10 @@
+*.iml
+.gradle/
+local.properties
+captures/
+.idea/
+build/
+*/build/
+config/terminal-config.local.json
+.DS_Store
+.venv/

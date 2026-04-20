@@ -1,0 +1,580 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <Button
+        android:id="@+id/butCollectionOperation"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_marginLeft="@dimen/d_22"
+        android:layout_marginTop="@dimen/d_10"
+        android:layout_marginRight="@dimen/d_22"
+        android:layout_marginBottom="@dimen/d_40"
+        android:background="@drawable/btn_login_bg"
+        android:text="@string/collection_save"
+        android:textColor="@color/c_ffffff"
+        android:textSize="20sp" />
+
+
+    <com.lhxy.istationdevice.common.widget.CustomScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_above="@id/butCollectionOperation">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <RelativeLayout
+                android:layout_width="match_parent"
+                android:layout_height="@dimen/d_52"
+                android:layout_marginTop="@dimen/d_10"
+                android:layout_marginRight="@dimen/d_10">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_centerVertical="true"
+                    android:layout_marginLeft="@dimen/d_22"
+                    tools:ignore="RelativeOverlap"
+                    android:text="@string/collection_line"
+                    android:textColor="@color/c_ffffff"
+                    android:textSize="22sp" />
+
+                <TextView
+                    android:id="@+id/tvCollectionLineName"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:layout_alignParentRight="true"
+                    android:layout_centerVertical="true"
+                    android:layout_marginLeft="@dimen/d_160"
+                    android:layout_marginRight="@dimen/d_22"
+                    android:drawableRight="@drawable/icon_direction"
+                    android:drawablePadding="@dimen/d_10"
+                    android:gravity="center_vertical|right"
+                    android:text="@string/collection_line_hint"
+                    android:textColor="@color/c_e5e5e5"
+                    android:textSize="22sp" />
+
+            </RelativeLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="@dimen/d_1px"
+                android:layout_marginLeft="@dimen/d_22"
+                android:layout_marginRight="@dimen/d_22"
+                android:background="@color/c_ffffff" />
+
+            <RelativeLayout
+                android:layout_width="match_parent"
+                android:layout_height="@dimen/d_52"
+                android:layout_marginRight="@dimen/d_10">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_centerVertical="true"
+                    android:layout_marginLeft="@dimen/d_22"
+                    android:text="@string/collection_line_direction"
+                    android:textColor="@color/c_ffffff"
+                    android:textSize="22sp" />
+
+                <RadioGroup
+                    android:id="@+id/rgCollectionDirection"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:layout_alignParentRight="true"
+                    tools:ignore="RelativeOverlap"
+                    android:layout_marginRight="@dimen/d_22"
+                    android:orientation="horizontal">
+
+                    <RadioButton
+                        android:id="@+id/rbDirectionUpstream"
+                        android:layout_width="wrap_content"
+                        android:layout_height="match_parent"
+                        android:layout_gravity="center_vertical"
+                        android:layout_marginRight="@dimen/d_22"
+                        android:button="@null"
+                        android:drawableLeft="@drawable/radio_bg"
+                        android:drawablePadding="@dimen/d_4"
+                        android:text="@string/collection_direction_upstream"
+                        android:textColor="@color/c_ffffff"
+                        android:textSize="20sp" />
+
+                    <RadioButton
+                        android:id="@+id/rbDirectionDown"
+                        android:layout_width="wrap_content"
+                        android:layout_height="match_parent"
+                        android:layout_gravity="center_vertical"
+                        android:button="@null"
+                        android:drawableLeft="@drawable/radio_bg"
+                        android:drawablePadding="@dimen/d_4"
+                        android:text="@string/collection_direction_down"
+                        android:textColor="@color/c_ffffff"
+                        android:textSize="20sp" />
+                </RadioGroup>
+            </RelativeLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="@dimen/d_1px"
+                android:layout_marginLeft="@dimen/d_22"
+                android:layout_marginRight="@dimen/d_22"
+                android:background="@color/c_ffffff" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <RelativeLayout
+                    android:layout_width="0.0dp"
+                    android:layout_height="@dimen/d_52"
+                    android:layout_weight="1">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_centerVertical="true"
+                        tools:ignore="RelativeOverlap"
+                        android:layout_marginLeft="@dimen/d_22"
+                        android:text="@string/collection_site_name"
+                        android:textColor="@color/c_ffffff"
+                        android:textSize="22sp" />
+
+                    <TextView
+                        android:id="@+id/tvCollectionSiteName"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:layout_alignParentRight="true"
+                        android:layout_centerVertical="true"
+                        android:layout_marginLeft="@dimen/d_160"
+                        android:layout_marginRight="@dimen/d_22"
+                        android:drawableRight="@drawable/icon_direction"
+                        android:drawablePadding="@dimen/d_10"
+                        android:gravity="center_vertical|right"
+                        android:text="@string/collection_site_name_hint"
+                        android:textColor="@color/c_e5e5e5"
+                        android:textSize="22sp" />
+
+                </RelativeLayout>
+
+                <View
+                    android:layout_width="@dimen/d_1"
+                    android:layout_height="@dimen/d_52"
+                    android:layout_marginLeft="@dimen/d_10"
+                    android:layout_marginRight="@dimen/d_10"
+                    android:background="@color/c_ffffff">
+
+                </View>
+
+                <RelativeLayout
+                    android:layout_width="0.0dp"
+                    android:layout_height="@dimen/d_52"
+                    android:layout_marginRight="@dimen/d_10"
+                    android:layout_weight="1">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_centerVertical="true"
+                        android:layout_marginLeft="@dimen/d_22"
+                        android:text="@string/collection_order_number"
+                        android:textColor="@color/c_ffffff"
+                        android:textSize="22sp" />
+
+                    <TextView
+                        android:id="@+id/tvCollectionOrderNumber"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        tools:ignore="RelativeOverlap"
+                        android:layout_alignParentRight="true"
+                        android:layout_centerVertical="true"
+                        android:layout_marginLeft="@dimen/d_160"
+                        android:layout_marginRight="@dimen/d_50"
+                        android:drawablePadding="@dimen/d_10"
+                        android:gravity="center_vertical|right"
+                        android:textColor="@color/c_e5e5e5"
+                        android:textSize="22sp" />
+                </RelativeLayout>
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:baselineAligned="false"
+                android:layout_marginTop="@dimen/d_20"
+                android:orientation="horizontal">
+
+                <RelativeLayout
+                    android:layout_width="0.0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginLeft="@dimen/d_6"
+                    android:layout_marginRight="@dimen/d_6"
+                    android:layout_weight="1"
+                    android:background="@drawable/study_region_bg"
+                    android:paddingTop="@dimen/d_10">
+
+                    <TextView
+                        android:id="@+id/tvSiteGpsTitle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:paddingLeft="@dimen/d_22"
+                        android:paddingRight="@dimen/d_0"
+                        android:text="@string/collection_site_gps"
+                        android:textColor="@color/c_ffffff"
+                        android:textSize="16sp" />
+
+                    <RelativeLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_below="@id/tvSiteGpsTitle"
+                        android:layout_marginTop="@dimen/d_6">
+
+                        <View
+                            android:id="@+id/vStudy1"
+                            android:layout_width="match_parent"
+                            android:layout_height="@dimen/d_1px"
+                            android:background="@color/c_ffffff" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="@dimen/d_48"
+                            android:layout_below="@id/vStudy1"
+                            android:layout_marginLeft="@dimen/d_22"
+                            android:gravity="center_vertical"
+                            android:text="@string/location_longitude"
+                            android:textColor="@color/c_ffffff"
+                            android:textSize="22sp" />
+
+                        <TextView
+                            android:id="@+id/tvLongitude"
+                            android:layout_width="wrap_content"
+                            android:layout_height="@dimen/d_48"
+                            android:layout_below="@id/vStudy1"
+                            android:layout_alignParentRight="true"
+                            android:layout_marginRight="@dimen/d_22"
+                            android:gravity="center_vertical"
+                            android:textColor="@color/c_ffffff"
+                            android:textSize="20sp" />
+
+                        <View
+                            android:id="@+id/vLineSite1"
+                            android:layout_width="match_parent"
+                            android:layout_height="@dimen/d_1px"
+                            android:layout_below="@id/tvLongitude"
+                            android:layout_marginLeft="@dimen/d_22"
+                            android:layout_marginRight="@dimen/d_22"
+                            android:background="@color/c_ffffff" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="@dimen/d_48"
+                            android:layout_below="@id/vLineSite1"
+                            android:layout_marginLeft="@dimen/d_22"
+                            android:gravity="center_vertical"
+                            android:text="@string/location_latitude"
+                            android:textColor="@color/c_ffffff"
+                            android:textSize="22sp" />
+
+                        <TextView
+                            android:id="@+id/tvLatitude"
+                            android:layout_width="wrap_content"
+                            android:layout_height="@dimen/d_48"
+                            android:layout_below="@id/vLineSite1"
+                            android:layout_alignParentRight="true"
+                            android:layout_marginRight="@dimen/d_22"
+                            android:gravity="center_vertical"
+                            android:textColor="@color/c_ffffff"
+                            android:textSize="20sp" />
+
+                        <View
+                            android:id="@+id/vLineSite2"
+                            android:layout_width="match_parent"
+                            android:layout_height="@dimen/d_1px"
+                            android:layout_below="@id/tvLatitude"
+                            android:layout_marginLeft="@dimen/d_22"
+                            android:layout_marginRight="@dimen/d_22"
+                            android:background="@color/c_ffffff" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="@dimen/d_48"
+                            android:layout_below="@id/vLineSite2"
+                            android:layout_marginLeft="@dimen/d_22"
+                            android:gravity="center_vertical"
+                            android:text="@string/location_speed"
+                            android:visibility="gone"
+                            android:textColor="@color/c_ffffff"
+                            android:textSize="22sp" />
+
+                        <TextView
+                            android:id="@+id/tvSpeed"
+                            android:layout_width="wrap_content"
+                            android:layout_height="@dimen/d_48"
+                            android:layout_below="@id/vLineSite2"
+                            android:layout_alignParentRight="true"
+                            android:layout_marginRight="@dimen/d_22"
+                            android:gravity="center_vertical"
+                            android:visibility="gone"
+                            android:textColor="@color/c_ffffff"
+                            android:textSize="20sp" />
+
+                        <View
+                            android:id="@+id/vLineSite3"
+                            android:layout_width="match_parent"
+                            android:layout_height="@dimen/d_1px"
+                            android:layout_below="@id/tvSpeed"
+                            android:layout_marginLeft="@dimen/d_22"
+                            android:layout_marginRight="@dimen/d_22"
+                            android:background="@color/c_ffffff" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="@dimen/d_48"
+                            android:layout_below="@id/vLineSite3"
+                            android:layout_marginLeft="@dimen/d_22"
+                            android:gravity="center_vertical"
+                            android:text="@string/location_angle"
+                            android:textColor="@color/c_ffffff"
+                            android:textSize="22sp" />
+
+                        <TextView
+                            android:id="@+id/tvAngle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="@dimen/d_48"
+                            android:layout_below="@id/vLineSite3"
+                            android:layout_alignParentRight="true"
+                            android:layout_marginRight="@dimen/d_22"
+                            android:gravity="center_vertical"
+                            android:textColor="@color/c_ffffff"
+                            android:textSize="20sp" />
+
+                        <View
+                            android:id="@+id/vLineSite4"
+                            android:layout_width="match_parent"
+                            android:layout_height="@dimen/d_1px"
+                            android:layout_below="@id/tvAngle"
+                            android:layout_marginLeft="@dimen/d_22"
+                            android:layout_marginRight="@dimen/d_22"
+                            android:background="@color/c_ffffff" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="@dimen/d_48"
+                            android:layout_below="@id/vLineSite4"
+                            android:layout_marginLeft="@dimen/d_22"
+                            android:gravity="center_vertical"
+                            android:text="海拔"
+                            android:textColor="@color/c_ffffff"
+                            android:textSize="22sp" />
+
+                        <TextView
+                            android:id="@+id/tvAltitude"
+                            android:layout_width="wrap_content"
+                            android:layout_height="@dimen/d_48"
+                            android:layout_below="@id/vLineSite4"
+                            android:layout_alignParentRight="true"
+                            android:layout_marginRight="@dimen/d_22"
+                            android:gravity="center_vertical"
+                            android:textColor="@color/c_ffffff"
+                            android:textSize="20sp" />
+
+                    </RelativeLayout>
+
+                </RelativeLayout>
+
+                <RelativeLayout
+                    android:layout_width="0.0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginLeft="@dimen/d_6"
+                    android:layout_marginRight="@dimen/d_6"
+                    android:layout_weight="1"
+                    android:background="@drawable/study_region_bg"
+                    android:paddingTop="@dimen/d_10">
+
+                    <TextView
+                        android:id="@+id/tvCurrentGpsTitle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:paddingLeft="@dimen/d_22"
+                        android:paddingRight="@dimen/d_0"
+                        android:text="@string/collection_current_gps"
+                        android:textColor="@color/c_ffffff"
+                        android:textSize="16sp" />
+
+                    <RelativeLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_below="@id/tvCurrentGpsTitle"
+                        android:layout_marginTop="@dimen/d_6">
+
+                        <View
+                            android:id="@+id/vStudy2"
+                            android:layout_width="match_parent"
+                            android:layout_height="@dimen/d_1px"
+                            android:background="@color/c_ffffff" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="@dimen/d_48"
+                            android:layout_below="@id/vStudy2"
+                            android:layout_marginLeft="@dimen/d_22"
+                            android:gravity="center_vertical"
+                            android:text="@string/location_longitude"
+                            android:textColor="@color/c_ffffff"
+                            android:textSize="22sp" />
+
+                        <TextView
+                            android:id="@+id/tvCurrentLongitude"
+                            android:layout_width="wrap_content"
+                            android:layout_height="@dimen/d_48"
+                            android:layout_below="@id/vStudy2"
+                            android:layout_alignParentRight="true"
+                            android:layout_marginRight="@dimen/d_22"
+                            android:gravity="center_vertical"
+                            android:textColor="@color/c_ffffff"
+                            android:textSize="20sp" />
+
+                        <View
+                            android:id="@+id/vLineCurrent1"
+                            android:layout_width="match_parent"
+                            android:layout_height="@dimen/d_1px"
+                            android:layout_below="@id/tvCurrentLongitude"
+                            android:layout_marginLeft="@dimen/d_22"
+                            android:layout_marginRight="@dimen/d_22"
+                            android:background="@color/c_e5e5e5" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="@dimen/d_48"
+                            android:layout_below="@id/vLineCurrent1"
+                            android:layout_marginLeft="@dimen/d_22"
+                            android:gravity="center_vertical"
+                            android:text="@string/location_latitude"
+                            android:textColor="@color/c_ffffff"
+                            android:textSize="22sp" />
+
+                        <TextView
+                            android:id="@+id/tvCurrentLatitude"
+                            android:layout_width="wrap_content"
+                            android:layout_height="@dimen/d_48"
+                            android:layout_below="@id/vLineCurrent1"
+                            android:layout_alignParentRight="true"
+                            android:layout_marginRight="@dimen/d_22"
+                            android:gravity="center_vertical"
+                            android:textColor="@color/c_ffffff"
+                            android:textSize="20sp" />
+
+
+                        <View
+                            android:id="@+id/vLineCurrent2"
+                            android:layout_width="match_parent"
+                            android:layout_height="@dimen/d_1px"
+                            android:layout_below="@id/tvCurrentLatitude"
+                            android:layout_marginLeft="@dimen/d_22"
+                            android:layout_marginRight="@dimen/d_22"
+                            android:background="@color/c_ffffff" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="@dimen/d_48"
+                            android:layout_below="@id/vLineCurrent2"
+                            android:layout_marginLeft="@dimen/d_22"
+                            android:gravity="center_vertical"
+                            android:text="@string/location_speed"
+                            android:visibility="gone"
+                            android:textColor="@color/c_ffffff"
+                            android:textSize="22sp" />
+
+                        <TextView
+                            android:id="@+id/tvCurrentSpeed"
+                            android:layout_width="wrap_content"
+                            android:layout_height="@dimen/d_48"
+                            android:layout_below="@id/vLineCurrent2"
+                            android:layout_alignParentRight="true"
+                            android:layout_marginRight="@dimen/d_22"
+                            android:gravity="center_vertical"
+                            android:visibility="gone"
+                            android:textColor="@color/c_ffffff"
+                            android:textSize="20sp" />
+
+                        <View
+                            android:id="@+id/vLineCurrent3"
+                            android:layout_width="match_parent"
+                            android:layout_height="@dimen/d_1px"
+                            android:layout_below="@id/tvCurrentSpeed"
+                            android:layout_marginLeft="@dimen/d_22"
+                            android:layout_marginRight="@dimen/d_22"
+                            android:background="@color/c_ffffff" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="@dimen/d_48"
+                            android:layout_below="@id/vLineCurrent3"
+                            android:layout_marginLeft="@dimen/d_22"
+                            android:gravity="center_vertical"
+                            android:text="@string/location_angle"
+                            android:textColor="@color/c_ffffff"
+                            android:textSize="22sp" />
+
+                        <TextView
+                            android:id="@+id/tvCurrentAngle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="@dimen/d_48"
+                            android:layout_below="@id/vLineCurrent3"
+                            android:layout_alignParentRight="true"
+                            android:layout_marginRight="@dimen/d_22"
+                            android:gravity="center_vertical"
+                            android:textColor="@color/c_ffffff"
+                            android:textSize="20sp" />
+
+                        <View
+                            android:id="@+id/vLineCurrent4"
+                            android:layout_width="match_parent"
+                            android:layout_height="@dimen/d_1px"
+                            android:layout_below="@id/tvCurrentAngle"
+                            android:layout_marginLeft="@dimen/d_22"
+                            android:layout_marginRight="@dimen/d_22"
+                            android:background="@color/c_ffffff" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="@dimen/d_48"
+                            android:layout_below="@id/vLineCurrent4"
+                            android:layout_marginLeft="@dimen/d_22"
+                            android:gravity="center_vertical"
+                            android:text="海拔"
+                            android:textColor="@color/c_ffffff"
+                            android:textSize="22sp" />
+
+                        <TextView
+                            android:id="@+id/tvCurrentAltitude"
+                            android:layout_width="wrap_content"
+                            android:layout_height="@dimen/d_48"
+                            android:layout_below="@id/vLineCurrent4"
+                            android:layout_alignParentRight="true"
+                            android:layout_marginRight="@dimen/d_22"
+                            android:gravity="center_vertical"
+                            android:textColor="@color/c_ffffff"
+                            android:textSize="20sp" />
+
+                    </RelativeLayout>
+
+                </RelativeLayout>
+
+
+            </LinearLayout>
+
+
+        </LinearLayout>
+
+    </com.lhxy.istationdevice.common.widget.CustomScrollView>
+
+
+</RelativeLayout>
