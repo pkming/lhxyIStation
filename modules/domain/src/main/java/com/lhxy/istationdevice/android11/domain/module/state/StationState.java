@@ -118,12 +118,26 @@ public final class StationState {
         return directionText;
     }
 
+    public void setDirectionText(String directionText) {
+        if (directionText == null || directionText.trim().isEmpty()) {
+            return;
+        }
+        this.directionText = directionText.trim();
+    }
+
     public String getCurrentStation() {
         return currentStation;
     }
 
     public String getNextStation() {
         return nextStation;
+    }
+
+    public String getPreviousStation() {
+        if (stationCursor <= 0 || stationCursor > routeStations.size() - 1) {
+            return "-";
+        }
+        return routeStations.get(stationCursor - 1);
     }
 
     public String getTerminalStation() {
@@ -152,6 +166,34 @@ public final class StationState {
 
     public int getReportCount() {
         return reportCount;
+    }
+
+    public void applyLineProfile(String lineName, String directionText, List<String> stations) {
+        if (lineName != null && !lineName.trim().isEmpty()) {
+            this.lineName = lineName.trim();
+        }
+        if (directionText != null && !directionText.trim().isEmpty()) {
+            this.directionText = directionText.trim();
+        }
+        routeStations.clear();
+        if (stations != null) {
+            for (String station : stations) {
+                if (station != null && !station.trim().isEmpty()) {
+                    routeStations.add(station.trim());
+                }
+            }
+        }
+        stationCursor = -1;
+        reportCount = 0;
+        currentStation = "-";
+        reportPhase = "待发";
+        if (routeStations.isEmpty()) {
+            nextStation = "-";
+            terminalStation = "-";
+            return;
+        }
+        nextStation = routeStations.get(0);
+        terminalStation = routeStations.get(routeStations.size() - 1);
     }
 
     public String describe() {

@@ -9,6 +9,7 @@
     <string name="voicecall_title">语音通话</string>
     <string name="dispatchcenter_title">调度中心</string>
     <string name="infobrows_title">信息浏览</string>
+    <string name="legacy_refresh">刷新</string>
 
     <string name="line_not_tip">没有线路选择~</string>
     <string name="line_line_name">线路名称</string>
@@ -39,6 +40,7 @@
     <string name="main_no_end">NO.终点站</string>
     <string name="main_no">NO.第%1$s站</string>
     <string name="main_home_station">本站:</string>
+    <string name="main_previous_station">上一站:</string>
     <string name="main_leave_for">开往:</string>
     <string name="main_next_station">下站:</string>
     <string name="main_mittertor">中门</string>
@@ -140,6 +142,7 @@
     <string name="version_hardware">当前版本：%1$s</string>
     <string name="version_software_number">当前数字版本：%1$s</string>
     <string name="version_software_name">当前名称版本：%1$s</string>
+    <string name="version_data_number">当前数据库版本：%1$s</string>
 
     <string name="basic_setup_newspaper">报站设置</string>
     <string name="basic_setup_network">网络设置</string>

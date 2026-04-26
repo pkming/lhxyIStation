@@ -68,7 +68,7 @@ public final class LegacySystemVersionFragment extends Fragment {
             tvVersionName.setText(getString(R.string.version_software_name, softwareName));
         }
         if (tvDataVersionCode != null) {
-            tvDataVersionCode.setText(getString(R.string.version_hardware, dataVersion));
+            tvDataVersionCode.setText(getString(R.string.version_data_number, dataVersion));
         }
     }
 

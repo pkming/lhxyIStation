@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TextView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/tvInfoLine"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:paddingLeft="@dimen/d_16"
+    android:paddingTop="@dimen/d_8"
+    android:paddingRight="@dimen/d_16"
+    android:paddingBottom="@dimen/d_8"
+    android:textColor="@color/c_ffffff"
+    android:textSize="16sp" />

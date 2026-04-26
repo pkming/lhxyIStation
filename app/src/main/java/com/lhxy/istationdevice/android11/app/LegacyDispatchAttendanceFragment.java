@@ -6,11 +6,13 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.RadioButton;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 
 import com.lhxy.istationdevice.android11.domain.module.ModuleRunResult;
@@ -19,12 +21,17 @@ import com.lhxy.istationdevice.android11.domain.module.TerminalBusinessModule;
 import com.lhxy.istationdevice.android11.domain.module.state.SignInState;
 import com.lhxy.istationdevice.android11.runtime.ShellRuntime;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
+
 /**
  * 旧版调度中心-司机考勤页。
  * <p>
  * 保留旧布局，直接把签到模块状态和动作挂进来。
  */
 public final class LegacyDispatchAttendanceFragment extends Fragment {
+    private TextView tvSummary;
     private TextView tvDriverId;
     private TextView tvDriverName;
     private RadioButton rbGoToSignIn;
@@ -40,6 +47,7 @@ public final class LegacyDispatchAttendanceFragment extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
+        ensureSummaryView(view);
         tvDriverId = view.findViewById(R.id.tvDriverID);
         tvDriverName = view.findViewById(R.id.tvDriverName);
         rbGoToSignIn = view.findViewById(R.id.rb_radio_goto_signin);
@@ -88,6 +96,13 @@ public final class LegacyDispatchAttendanceFragment extends Fragment {
                     ? getString(R.string.dispatch_center_gooff_signin)
                     : getString(R.string.dispatch_center_goto_signin));
         }
+        if (tvSummary != null) {
+            tvSummary.setText(
+                    "状态: " + state.getAttendanceMode()
+                            + "\n次数: " + state.getAttendanceCount()
+                            + "\n时间: " + formatTime(state.getLastAttendanceTimeMillis())
+            );
+        }
     }
 
     private SignInBusinessModule requireSignInModule() {
@@ -100,5 +115,29 @@ public final class LegacyDispatchAttendanceFragment extends Fragment {
 
     private String buildTraceId(String actionKey) {
         return "legacy-attendance-" + actionKey + "-" + System.currentTimeMillis();
+    }
+
+    private void ensureSummaryView(@NonNull View root) {
+        if (!(root instanceof LinearLayout) || getContext() == null) {
+            return;
+        }
+        LinearLayout container = (LinearLayout) root;
+        TextView summary = new TextView(getContext());
+        summary.setTextColor(ContextCompat.getColor(requireContext(), R.color.c_fafafa));
+        summary.setTextSize(16f);
+        summary.setPadding(dp(16), dp(8), dp(16), dp(10));
+        container.addView(summary, 1);
+        tvSummary = summary;
+    }
+
+    private int dp(int value) {
+        return Math.round(value * requireContext().getResources().getDisplayMetrics().density);
+    }
+
+    private String formatTime(long timeMillis) {
+        if (timeMillis <= 0L) {
+            return "-";
+        }
+        return new SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(new Date(timeMillis));
     }
 }

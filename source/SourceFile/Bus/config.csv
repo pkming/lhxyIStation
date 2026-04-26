@@ -1,0 +1,32 @@
+配置项,配置值,说明
+NetDispatchID,609,调度平台ID
+NetDispatchIP,211.154.159.34,调度平台IP
+NetDispatchPort,7000,调度平台端口
+NetDdispatchHeartbeatInterval,10,调度平台心跳间隔(单位秒)
+NetDispatchInfoInterval,15,调度平台信息间隔(单位秒)
+IfNetAdvert,否,是否使用文件平台
+NetAdvertUser,admin,"文件平台账号,默认:admin"
+NetAdvertIP,39.104.66.194,文件平台IP
+NetAdvertPort,8081,文件平台端口
+NetAdvertInterfaceInterval,10,文件平台接口调用间隔(单位秒)
+IfSound,否,是否开外音
+IfEnglish,否,是否播报英文
+IfDialect,否,是否播报方言
+IfIntegralPoint,否,是否整点播报
+IfSpeed,否,是否报超速音
+IfAngle,否,是否开角度
+InnerVolume,7,车内音量(音量范围 1~15)
+ExternalVolume,7,车外音量(音量范围 1~15)
+NetDispatchProtocol,ALINK,"网络调度平台协议(无,ALINK)"
+RS232-1Protocol,DVR,"串口协议(无,DVR,POS)"
+RS232-2Protocol,无,"串口协议(无,DVR,POS)"
+RS485Protocol,LED导程牌,"串口协议(无,通达,恒舞,海梁,LED导程牌)"
+RS232-1Baud,9600,"串口波特率,默认:9600"
+RS232-2Baud,9600,"串口波特率,默认:9600"
+RS485Baud,9600,"串口波特率,默认:9600"
+IfTTSReportStation,否,是否TTS报站
+TTSInnerVolume,14,TTS车内音量(音量范围 1~15)
+TTSExternalVolume,15,TTS车外音量(音量范围 1~15)
+ShoutingVolume,88,喊话音量(音量范围 1~100)
+DispatchVolume,15,调度音量(音量范围 1~15)
+LanguageSettings,0,"语言设置(0:自动,1:中文,2:繁体,3:英文)"

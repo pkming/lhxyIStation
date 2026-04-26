@@ -23,11 +23,25 @@ final class LegacyStationResourceStateRepository {
     }
 
     static void markImported(@NonNull Context context, @NonNull String source, @NonNull String lineName) {
+        updateState(context, true, source, lineName);
+    }
+
+    static void updateLineSelection(@NonNull Context context, @NonNull String source, @NonNull String lineName) {
+        StationResourceState current = getState(context);
+        updateState(context, current.isImported(), source, lineName);
+    }
+
+    private static void updateState(
+            @NonNull Context context,
+            boolean imported,
+            @NonNull String source,
+            @NonNull String lineName
+    ) {
         Context appContext = context.getApplicationContext();
         ShellConfig current = ShellConfigRepository.get(appContext);
         ShellConfig.BasicSetupConfig basicSetup = current.getBasicSetupConfig();
         ShellConfig.ResourceImportSettings resourceImportSettings = new ShellConfig.ResourceImportSettings(
-                true,
+                imported,
                 safe(source),
                 safe(lineName),
                 System.currentTimeMillis()

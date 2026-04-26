@@ -24,14 +24,17 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
 
 import com.lhxy.istationdevice.android11.core.AppLogCenter;
+import com.lhxy.istationdevice.android11.core.Hexs;
 import com.lhxy.istationdevice.android11.core.LogCategory;
 import com.lhxy.istationdevice.android11.core.LogLevel;
 import com.lhxy.istationdevice.android11.core.TraceIds;
 import com.lhxy.istationdevice.android11.domain.config.ShellConfig;
 import com.lhxy.istationdevice.android11.domain.config.ShellConfigRepository;
 import com.lhxy.istationdevice.android11.deviceapi.SerialMode;
+import com.lhxy.istationdevice.android11.deviceapi.SerialPortConfig;
 import com.lhxy.istationdevice.android11.runtime.ShellRuntime;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -180,10 +183,13 @@ public final class LegacyBasicSetupSectionFragment extends Fragment {
         bindSpinner(view, R.id.spPortNumber1, portOptions, "RS485");
         checkRadio(view, R.id.rgDataType, R.id.rbTxtType);
         bindText(view, R.id.etPortData, "TEST-485");
+        showControlRow(view.findViewById(R.id.spPortNumber1));
+        showControlRow(view.findViewById(R.id.rgDataType));
+        showControlRow(view.findViewById(R.id.butSend));
 
         View send = view.findViewById(R.id.butSend);
         if (send != null) {
-            send.setOnClickListener(v -> toast("已发送串口测试数据，真实收发后面接。"));
+            send.setOnClickListener(v -> sendSerialTest(view));
         }
         Button save = view.findViewById(R.id.butPortAffirm);
         if (save != null) {
@@ -499,6 +505,57 @@ public final class LegacyBasicSetupSectionFragment extends Fragment {
         ShellRuntime.get().applyConfig(requireContext(), updated);
     }
 
+    private void sendSerialTest(View root) {
+        String traceId = TraceIds.next("legacy-basic-serial-test");
+        try {
+            ShellConfig shellConfig = requireConfig();
+            ShellConfig.SerialChannel channel = resolveSerialTestChannel(
+                    shellConfig,
+                    readSpinnerValue(root, R.id.spPortNumber1, "RS485")
+            );
+            int baudRate = resolveSerialTestBaud(root, channel);
+            byte[] payload = readSerialTestPayload(root);
+            SerialPortConfig serialPortConfig = new SerialPortConfig(
+                    channel.getPortName(),
+                    baudRate,
+                    channel.getMode()
+            );
+            if (!ShellRuntime.get().getSerialPortAdapter().isOpen(channel.getPortName())) {
+                ShellRuntime.get().getSerialPortAdapter().open(serialPortConfig, traceId);
+            }
+            ShellRuntime.get().getSerialPortAdapter().send(channel.getPortName(), payload, traceId);
+            AppLogCenter.log(
+                    LogCategory.UI,
+                    LogLevel.INFO,
+                    "LegacyBasicSetupSection",
+                    "串口测试发送 -> " + channel.getKey()
+                            + "/" + channel.getPortName()
+                            + " @" + baudRate
+                            + " [" + (isHexDataType(root) ? "HEX" : "TXT") + "] "
+                            + Hexs.toHex(payload),
+                    traceId
+            );
+            toast(
+                    "已发送串口测试数据到 "
+                            + mapSerialChoiceLabel(channel.getKey())
+                            + "，字节数="
+                            + payload.length
+                            + "，模式="
+                            + channel.getMode().toConfigValue(),
+                    true
+            );
+        } catch (Exception e) {
+            AppLogCenter.log(
+                    LogCategory.ERROR,
+                    LogLevel.ERROR,
+                    "LegacyBasicSetupSection",
+                    "串口测试发送失败: " + e.getMessage(),
+                    traceId
+            );
+            toast("串口测试发送失败: " + safeMessage(e));
+        }
+    }
+
     private ShellConfig requireConfig() {
         ShellConfig config = ShellRuntime.get().getActiveConfig();
         if (config == null) {
@@ -687,6 +744,64 @@ public final class LegacyBasicSetupSectionFragment extends Fragment {
             return Integer.parseInt(readSpinnerValue(root, spinnerId, String.valueOf(defaultValue)));
         } catch (Exception ignore) {
             return defaultValue;
+        }
+    }
+
+    private ShellConfig.SerialChannel resolveSerialTestChannel(ShellConfig config, String selectedPort) {
+        String normalized = selectedPort == null ? "" : selectedPort.trim().toUpperCase();
+        if (normalized.contains("232") && normalized.contains("1")) {
+            return config.requireSerialChannel("rs232_1");
+        }
+        if (normalized.contains("232") && normalized.contains("2")) {
+            return config.requireSerialChannel("rs232_2");
+        }
+        return config.requireSerialChannel("rs485_1");
+    }
+
+    private int resolveSerialTestBaud(View root, ShellConfig.SerialChannel channel) {
+        if ("rs232_1".equals(channel.getKey())) {
+            return parseSpinnerNumber(root, R.id.spPortBaud2321, channel.getBaudRate());
+        }
+        if ("rs232_2".equals(channel.getKey())) {
+            return parseSpinnerNumber(root, R.id.spPortBaud2322, channel.getBaudRate());
+        }
+        return parseSpinnerNumber(root, R.id.spPortBaud485, channel.getBaudRate());
+    }
+
+    private byte[] readSerialTestPayload(View root) {
+        String source = readRequiredText(root, R.id.etPortData, "发送数据");
+        if (isHexDataType(root)) {
+            byte[] payload = Hexs.fromHex(source);
+            if (payload.length == 0) {
+                throw new IllegalArgumentException("HEX 内容为空");
+            }
+            return payload;
+        }
+        return source.getBytes(StandardCharsets.UTF_8);
+    }
+
+    private boolean isHexDataType(View root) {
+        RadioButton hexButton = root.findViewById(R.id.rbHexType);
+        return hexButton != null && hexButton.isChecked();
+    }
+
+    private String mapSerialChoiceLabel(String channelKey) {
+        if ("rs232_1".equals(channelKey)) {
+            return "RS232-1";
+        }
+        if ("rs232_2".equals(channelKey)) {
+            return "RS232-2";
+        }
+        return "RS485";
+    }
+
+    private void showControlRow(@Nullable View target) {
+        if (target == null) {
+            return;
+        }
+        target.setVisibility(View.VISIBLE);
+        if (target.getParent() instanceof View) {
+            ((View) target.getParent()).setVisibility(View.VISIBLE);
         }
     }
 

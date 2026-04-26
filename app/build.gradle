@@ -7,6 +7,9 @@ def generatedConfigAssetsDir = new File(buildDir, "generated/shell-config-assets
 def templateConfigFile = new File(runtimeConfigDir, "terminal-config.template.json")
 def localConfigFile = new File(runtimeConfigDir, "terminal-config.local.json")
 def bundledStationResourceFile = new File(rootProject.projectDir, "docs/SourceFile.zip")
+def sourceStationResourceDir = new File(rootProject.projectDir, "source/SourceFile")
+def generatedStationArchiveDir = new File(buildDir, "generated/station-resource-archive")
+def generatedStationArchiveFile = new File(generatedStationArchiveDir, "SourceFile.zip")
 
 android {
     namespace 'com.lhxy.istationdevice.android11.app'
@@ -42,12 +45,39 @@ tasks.register("prepareShellRuntimeConfig", Copy) {
     rename { "terminal-config.json" }
 }
 
-tasks.register("prepareBundledStationResources", Copy) {
-    onlyIf {
-        bundledStationResourceFile.exists()
+tasks.register("prepareBundledStationResources") {
+    doLast {
+        File targetDir = new File(generatedConfigAssetsDir, "station-resources")
+        if (!targetDir.exists()) {
+            targetDir.mkdirs()
+        }
+        File targetZip = new File(targetDir, "SourceFile.zip")
+        if (targetZip.exists()) {
+            targetZip.delete()
+        }
+        if (sourceStationResourceDir.exists()) {
+            if (!generatedStationArchiveDir.exists()) {
+                generatedStationArchiveDir.mkdirs()
+            }
+            if (generatedStationArchiveFile.exists()) {
+                generatedStationArchiveFile.delete()
+            }
+            ant.zip(destfile: generatedStationArchiveFile) {
+                fileset(dir: sourceStationResourceDir.parentFile, includes: "SourceFile/**")
+            }
+            copy {
+                from(generatedStationArchiveFile)
+                into(targetDir)
+            }
+            return
+        }
+        if (bundledStationResourceFile.exists()) {
+            copy {
+                from(bundledStationResourceFile)
+                into(targetDir)
+            }
+        }
     }
-    from(bundledStationResourceFile)
-    into(new File(generatedConfigAssetsDir, "station-resources"))
 }
 
 tasks.named("preBuild").configure {

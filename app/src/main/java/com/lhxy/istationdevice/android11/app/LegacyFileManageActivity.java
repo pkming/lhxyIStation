@@ -36,9 +36,10 @@ public final class LegacyFileManageActivity extends LegacyBaseActivity {
     protected void onPageReady(Bundle savedInstanceState) {
         bindImportAction();
         bindExportAction();
-        bindAction(R.id.butUpgrade, R.string.file_udisk_upgrade, R.string.file_upgrade_tip);
-        bindAction(R.id.butExportLog, R.string.file_export_log, R.string.file_export_log_tip);
+        bindUpgradeAction();
+        bindExportLogAction();
         renderResourceStatus(null);
+        renderUpgradeHint();
     }
 
     private void bindImportAction() {
@@ -67,6 +68,34 @@ public final class LegacyFileManageActivity extends LegacyBaseActivity {
                 R.string.file_export_load_tip,
                 "export_station_resources"
         ));
+    }
+
+    private void bindUpgradeAction() {
+        Button button = findViewById(R.id.butUpgrade);
+        if (button == null) {
+            return;
+        }
+        button.setEnabled(true);
+        button.setTextColor(ContextCompat.getColor(this, R.color.c_000000));
+        button.setOnClickListener(v -> new AlertDialog.Builder(this)
+                .setMessage(R.string.file_upgrade_tip)
+                .setPositiveButton(R.string.confirm, (dialog, which) -> runUpgradeAsync())
+                .setNegativeButton(android.R.string.cancel, null)
+                .show());
+    }
+
+    private void bindExportLogAction() {
+        Button button = findViewById(R.id.butExportLog);
+        if (button == null) {
+            return;
+        }
+        button.setEnabled(true);
+        button.setTextColor(ContextCompat.getColor(this, R.color.c_000000));
+        button.setOnClickListener(v -> new AlertDialog.Builder(this)
+                .setMessage(R.string.file_export_log_tip)
+                .setPositiveButton(R.string.confirm, (dialog, which) -> runFileActionAsync("export_bundle", getString(R.string.file_export_log_load_tip)))
+                .setNegativeButton(android.R.string.cancel, null)
+                .show());
     }
 
     private void bindAction(int buttonId, int titleResId, int tipResId) {
@@ -137,7 +166,13 @@ public final class LegacyFileManageActivity extends LegacyBaseActivity {
                 TerminalBusinessModule stationModule = ShellRuntime.get().getModuleHub().findModule("station");
                 if (stationModule instanceof StationBusinessModule) {
                     LegacyStationResourceStateRepository.StationResourceState state = LegacyStationResourceStateRepository.getState(this);
-                    ((StationBusinessModule) stationModule).getStationState().setLineName(state.getLineName());
+                    StationState stationState = ((StationBusinessModule) stationModule).getStationState();
+                    LegacyLineCatalog.LineProfile profile = LegacyLineCatalog.findByName(this, state.getLineName());
+                    stationState.applyLineProfile(
+                            profile.getLineName(),
+                            stationState.getDirectionText(),
+                            profile.stationsForDirection(stationState.getDirectionText())
+                    );
                 }
                 TextView fileTips = findViewById(R.id.tvFileTips);
                 if (fileTips != null) {
@@ -148,15 +183,26 @@ public final class LegacyFileManageActivity extends LegacyBaseActivity {
         }, "legacy-file-manage-" + actionKey).start();
     }
 
-    private String resolveCurrentLineName() {
-        TerminalBusinessModule module = ShellRuntime.get().getModuleHub().findModule("station");
-        if (module instanceof StationBusinessModule) {
-            StationState stationState = ((StationBusinessModule) module).getStationState();
-            String lineName = stationState.getLineName();
-            if (lineName != null && !lineName.trim().isEmpty()) {
-                return lineName.trim();
-            }
+    private void runUpgradeAsync() {
+        TextView tips = findViewById(R.id.tvFileTips);
+        if (tips != null) {
+            tips.setVisibility(View.VISIBLE);
+            tips.setText(R.string.file_upgrade_load_tip);
         }
-        return "101路";
+        new Thread(() -> {
+            TerminalBusinessModule module = ShellRuntime.get().getModuleHub().findModule("upgrade");
+            ModuleRunResult result = module == null
+                    ? ModuleRunResult.failure("upgrade", "升级", "升级模块未注册", "当前没有找到 upgrade 模块")
+                    : module.runSample(TraceIds.next("legacy-file-manage-upgrade"));
+            runOnUiThread(() -> renderResourceStatus(result.describeBlock()));
+        }, "legacy-file-manage-upgrade").start();
+    }
+
+    private void renderUpgradeHint() {
+        TextView upgradeFile = findViewById(R.id.tvUpgradeFile);
+        if (upgradeFile == null) {
+            return;
+        }
+        upgradeFile.setText(getString(R.string.file_upgrade_find, "mock-upgrade-demo"));
     }
 }

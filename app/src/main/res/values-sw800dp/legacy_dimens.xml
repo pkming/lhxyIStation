@@ -1,0 +1,9 @@
+<resources>
+    <dimen name="d_40">52dp</dimen>
+    <dimen name="d_50">56dp</dimen>
+    <dimen name="d_54">62dp</dimen>
+    <dimen name="d_60">68dp</dimen>
+    <dimen name="d_70">88dp</dimen>
+    <dimen name="d_80">96dp</dimen>
+    <dimen name="d_270">340dp</dimen>
+</resources>

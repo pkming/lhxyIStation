@@ -2,11 +2,14 @@ package com.lhxy.istationdevice.android11.domain.file;
 
 import android.content.Context;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -26,6 +29,7 @@ import java.util.zip.ZipOutputStream;
  * 让 Android 11 下在没有完整外部存储权限时仍能完成离线导入验证。
  */
 public final class StationResourceArchiveUseCase {
+    private static final Charset LEGACY_CSV_CHARSET = Charset.forName("GB18030");
     private static final String LEGACY_IMPORT_RELATIVE_DIR = "BusRes/BusImport";
     private static final String LEGACY_EXPORT_RELATIVE_DIR = "BusRes/BusExport";
     private static final String ARCHIVE_ZIP_NAME = "SourceFile.zip";
@@ -327,6 +331,13 @@ public final class StationResourceArchiveUseCase {
 
     private LinkedHashSet<String> deriveLineCandidates(List<File> extractedFiles) {
         LinkedHashSet<String> values = new LinkedHashSet<>();
+        File lineInfoFile = findExtractedFile(extractedFiles, "lineInfo.csv");
+        if (lineInfoFile != null) {
+            values.addAll(parseLineNamesFromLineInfo(lineInfoFile));
+        }
+        if (!values.isEmpty()) {
+            return values;
+        }
         for (File file : extractedFiles) {
             String name = file.getName();
             String lowerName = name.toLowerCase(Locale.ROOT);
@@ -337,6 +348,9 @@ public final class StationResourceArchiveUseCase {
             if (baseName.endsWith("Remind")) {
                 baseName = baseName.substring(0, baseName.length() - "Remind".length());
             }
+            if ((baseName.endsWith("S") || baseName.endsWith("X")) && baseName.length() > 1) {
+                baseName = baseName.substring(0, baseName.length() - 1);
+            }
             if (baseName.equalsIgnoreCase("config") || baseName.equalsIgnoreCase("lineInfo") || baseName.trim().isEmpty()) {
                 continue;
             }
@@ -345,9 +359,56 @@ public final class StationResourceArchiveUseCase {
         return values;
     }
 
+    private File findExtractedFile(List<File> extractedFiles, String fileName) {
+        for (File file : extractedFiles) {
+            if (fileName.equalsIgnoreCase(file.getName())) {
+                return file;
+            }
+        }
+        return null;
+    }
+
+    private LinkedHashSet<String> parseLineNamesFromLineInfo(File file) {
+        LinkedHashSet<String> values = new LinkedHashSet<>();
+        if (file == null || !file.exists()) {
+            return values;
+        }
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(file), LEGACY_CSV_CHARSET))) {
+            String line;
+            boolean header = true;
+            while ((line = reader.readLine()) != null) {
+                String normalized = stripBom(line).trim();
+                if (normalized.isEmpty()) {
+                    continue;
+                }
+                if (header) {
+                    header = false;
+                    continue;
+                }
+                String[] columns = normalized.split(",");
+                if (columns.length > 1) {
+                    String lineName = stripBom(columns[1]).replace("\"", "").trim();
+                    if (!lineName.isEmpty()) {
+                        values.add(lineName);
+                    }
+                }
+            }
+        } catch (Exception ignore) {
+            return values;
+        }
+        return values;
+    }
+
     private String stripSuffix(String value) {
         int index = value.lastIndexOf('.');
         return index > 0 ? value.substring(0, index) : value;
+    }
+
+    private String stripBom(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.startsWith("\uFEFF") ? value.substring(1) : value;
     }
 
     private void writeSummary(

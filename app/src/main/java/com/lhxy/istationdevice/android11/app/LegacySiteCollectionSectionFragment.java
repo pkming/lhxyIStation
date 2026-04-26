@@ -27,7 +27,6 @@ import com.lhxy.istationdevice.android11.domain.module.state.StationState;
 import com.lhxy.istationdevice.android11.protocol.gps.GpsFixSnapshot;
 import com.lhxy.istationdevice.android11.runtime.ShellRuntime;
 
-import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -43,9 +42,6 @@ public final class LegacySiteCollectionSectionFragment extends Fragment {
 
     private static final String SECTION_SITE = "SITE";
     private static final String SECTION_OTHER = "OTHER";
-
-    private static final List<String> SAMPLE_LINES = Arrays.asList("101路", "102路", "K7支线");
-    private static final List<String> SAMPLE_ATTRIBUTES = Arrays.asList("到站提醒", "转弯提醒", "限速提醒", "进站提醒");
 
     private String selectedLineName = "101路";
     private int selectedSiteIndex;
@@ -81,7 +77,8 @@ public final class LegacySiteCollectionSectionFragment extends Fragment {
 
     private void bindSiteCollection(View view) {
         StationState stationState = requireStationState();
-        selectedLineName = valueOrDefault(stationState.getLineName(), SAMPLE_LINES.get(0));
+        selectedLineName = resolveCurrentLineName(stationState);
+        applySelectedLineProfile(stationState.getDirectionText());
 
         TextView tvLineName = view.findViewById(R.id.tvCollectionLineName);
         TextView tvSiteName = view.findViewById(R.id.tvCollectionSiteName);
@@ -103,7 +100,8 @@ public final class LegacySiteCollectionSectionFragment extends Fragment {
 
     private void bindOtherCollection(View view) {
         StationState stationState = requireStationState();
-        selectedLineName = valueOrDefault(stationState.getLineName(), SAMPLE_LINES.get(0));
+        selectedLineName = resolveCurrentLineName(stationState);
+        applySelectedLineProfile(stationState.getDirectionText());
 
         TextView tvLineName = view.findViewById(R.id.tvCollectionOtherLineName);
         TextView tvAttributeName = view.findViewById(R.id.tvCollectionOtherSiteName);
@@ -138,6 +136,10 @@ public final class LegacySiteCollectionSectionFragment extends Fragment {
         }
         if (radioGroup != null) {
             radioGroup.setOnCheckedChangeListener((group, checkedId) -> {
+                String selectedDirection = checkedId == R.id.rbDirectionDown || checkedId == R.id.rbOtherDirectionDown
+                        ? "下行"
+                        : "上行";
+                applySelectedLineProfile(selectedDirection);
                 selectedSiteIndex = 0;
                 selectedAttributeIndex = 0;
                 View root = getView();
@@ -168,10 +170,9 @@ public final class LegacySiteCollectionSectionFragment extends Fragment {
             return;
         }
         tvLineName.setOnClickListener(v -> {
-            // 旧项目这里是滚轮选择器；当前先用循环切换把页面路径和状态联动跑通。
-            int index = SAMPLE_LINES.indexOf(selectedLineName);
-            int nextIndex = index < 0 ? 0 : (index + 1) % SAMPLE_LINES.size();
-            selectedLineName = SAMPLE_LINES.get(nextIndex);
+            // 旧项目这里是滚轮选择器；当前先用统一线路目录循环切换，把页面路径和状态联动跑通。
+            selectedLineName = LegacyLineCatalog.nextOf(requireContext(), selectedLineName).getLineName();
+            applySelectedLineProfile(requireStationState().getDirectionText());
             View root = getView();
             if (root == null) {
                 return;
@@ -200,7 +201,8 @@ public final class LegacySiteCollectionSectionFragment extends Fragment {
         }
         targetView.setOnClickListener(v -> {
             if (otherSection) {
-                selectedAttributeIndex = (selectedAttributeIndex + 1) % SAMPLE_ATTRIBUTES.size();
+                List<String> candidates = buildOtherCandidates();
+                selectedAttributeIndex = (selectedAttributeIndex + 1) % candidates.size();
             } else {
                 selectedSiteIndex = (selectedSiteIndex + 1) % buildSiteCandidates().size();
             }
@@ -250,10 +252,11 @@ public final class LegacySiteCollectionSectionFragment extends Fragment {
             @Nullable TextView tvAttributeName,
             @Nullable TextView tvOrderNumber
     ) {
-        String attribute = SAMPLE_ATTRIBUTES.get(Math.min(selectedAttributeIndex, SAMPLE_ATTRIBUTES.size() - 1));
+        List<String> candidates = buildOtherCandidates();
+        String attribute = candidates.get(Math.min(selectedAttributeIndex, candidates.size() - 1));
         bindText(tvLineName, selectedLineName);
         bindText(tvAttributeName, attribute);
-        bindText(tvOrderNumber, String.valueOf(Math.min(selectedAttributeIndex, SAMPLE_ATTRIBUTES.size() - 1) + 1));
+        bindText(tvOrderNumber, String.valueOf(Math.min(selectedAttributeIndex, candidates.size() - 1) + 1));
         renderGpsPanels(
                 root,
                 learnedSnapshot,
@@ -302,12 +305,20 @@ public final class LegacySiteCollectionSectionFragment extends Fragment {
         ShellRuntime runtime = ShellRuntime.get();
         GpsSerialMonitor gpsMonitor = runtime.getGpsSerialMonitor();
         learnedSnapshot = gpsMonitor.getLatestSnapshot();
+        applySelectedLineProfile(requireStationState().getDirectionText());
         // 旧项目这里会把当前 GPS 位置写回站点/属性数据；
         // 当前先把“保存并推进下一项”的页面语义挂到 station 模块动作上。
         ModuleRunResult result = runtime.getModuleHub()
                 .runAction("station", "advance_station", TraceIds.next(otherSection ? "legacy-other-collection" : "legacy-site-collection"));
+        boolean switchedDirection = false;
         if (otherSection) {
-            selectedAttributeIndex = (selectedAttributeIndex + 1) % SAMPLE_ATTRIBUTES.size();
+            int nextIndex = selectedAttributeIndex + 1;
+            if (nextIndex >= buildOtherCandidates().size()) {
+                switchedDirection = switchDirectionForLearning();
+                selectedAttributeIndex = 0;
+            } else {
+                selectedAttributeIndex = nextIndex;
+            }
             renderOtherCollection(
                     root,
                     root.findViewById(R.id.tvCollectionOtherLineName),
@@ -315,7 +326,13 @@ public final class LegacySiteCollectionSectionFragment extends Fragment {
                     root.findViewById(R.id.tvCollectionOtherOrderNumber)
             );
         } else {
-            selectedSiteIndex = (selectedSiteIndex + 1) % buildSiteCandidates().size();
+            int nextIndex = selectedSiteIndex + 1;
+            if (nextIndex >= buildSiteCandidates().size()) {
+                switchedDirection = switchDirectionForLearning();
+                selectedSiteIndex = 0;
+            } else {
+                selectedSiteIndex = nextIndex;
+            }
             renderSiteCollection(
                     root,
                     root.findViewById(R.id.tvCollectionLineName),
@@ -330,18 +347,25 @@ public final class LegacySiteCollectionSectionFragment extends Fragment {
                 result.describeInline(),
                 TraceIds.next("legacy-site-collection-ui")
         );
-        toast(result.isSuccess()
+        String message = result.isSuccess()
                 ? getString(R.string.legacy_site_collection_saved)
-                : getString(R.string.legacy_site_collection_save_failed));
+                : getString(R.string.legacy_site_collection_save_failed);
+        if (switchedDirection) {
+            message = message + " " + getString(R.string.legacy_site_collection_switched_direction, requireStationState().getDirectionText());
+        }
+        toast(message);
     }
 
     private List<String> buildSiteCandidates() {
-        StationState stationState = requireStationState();
-        return Arrays.asList(
-                valueOrDefault(stationState.getCurrentStation(), "火车站"),
-                valueOrDefault(stationState.getNextStation(), "市政府"),
-                valueOrDefault(stationState.getTerminalStation(), "科技园")
-        );
+        LegacyLineCatalog.LineProfile profile = LegacyLineCatalog.findByName(requireContext(), selectedLineName);
+        List<String> candidates = profile.stationsForDirection(requireStationState().getDirectionText());
+        return candidates.isEmpty() ? java.util.Arrays.asList("火车站", "市政府", "科技园") : candidates;
+    }
+
+    private List<String> buildOtherCandidates() {
+        LegacyLineCatalog.LineProfile profile = LegacyLineCatalog.findByName(requireContext(), selectedLineName);
+        List<String> candidates = profile.remindersForDirection(requireStationState().getDirectionText());
+        return candidates.isEmpty() ? java.util.Arrays.asList("到站提醒", "转弯提醒", "限速提醒", "进站提醒") : candidates;
     }
 
     private StationState requireStationState() {
@@ -354,6 +378,46 @@ public final class LegacySiteCollectionSectionFragment extends Fragment {
 
     private String requireSection() {
         return requireArguments().getString(ARG_SECTION, SECTION_SITE);
+    }
+
+    private String resolveCurrentLineName(StationState stationState) {
+        String stationLine = stationState.getLineName();
+        if (stationLine != null && !stationLine.trim().isEmpty() && !"-".equals(stationLine.trim())) {
+            return LegacyLineCatalog.findByName(requireContext(), stationLine.trim()).getLineName();
+        }
+        LegacyStationResourceStateRepository.StationResourceState state = LegacyStationResourceStateRepository.getState(requireContext());
+        if (state.getLineName() != null && !state.getLineName().trim().isEmpty() && !"-".equals(state.getLineName().trim())) {
+            return LegacyLineCatalog.findByName(requireContext(), state.getLineName().trim()).getLineName();
+        }
+        return LegacyLineCatalog.first(requireContext()).getLineName();
+    }
+
+    private void applySelectedLineProfile(String directionText) {
+        StationState stationState = requireStationState();
+        String resolvedDirection = valueOrDefault(directionText, "上行");
+        LegacyLineCatalog.LineProfile profile = LegacyLineCatalog.findByName(requireContext(), selectedLineName);
+        stationState.applyLineProfile(profile.getLineName(), resolvedDirection, profile.stationsForDirection(resolvedDirection));
+        LegacyStationResourceStateRepository.updateLineSelection(requireContext(), "site-collection", profile.getLineName());
+    }
+
+    private boolean switchDirectionForLearning() {
+        StationState stationState = requireStationState();
+        String currentDirection = valueOrDefault(stationState.getDirectionText(), "上行");
+        String nextDirection = currentDirection.contains("下") ? "上行" : "下行";
+        applySelectedLineProfile(nextDirection);
+        View root = getView();
+        if (root == null) {
+            return true;
+        }
+        RadioButton rbUpstream = root.findViewById(SECTION_OTHER.equals(requireSection()) ? R.id.rbOtherDirectionUpstream : R.id.rbDirectionUpstream);
+        RadioButton rbDownstream = root.findViewById(SECTION_OTHER.equals(requireSection()) ? R.id.rbOtherDirectionDown : R.id.rbDirectionDown);
+        if (rbUpstream != null) {
+            rbUpstream.setChecked(nextDirection.contains("上"));
+        }
+        if (rbDownstream != null) {
+            rbDownstream.setChecked(nextDirection.contains("下"));
+        }
+        return true;
     }
 
     private void bindText(@Nullable TextView textView, @Nullable String value) {
