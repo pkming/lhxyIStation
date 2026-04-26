@@ -2,9 +2,11 @@ package com.lhxy.istationdevice.android11.domain.module;
 
 import com.lhxy.istationdevice.android11.deviceapi.CameraAdapter;
 import com.lhxy.istationdevice.android11.deviceapi.GpioAdapter;
+import com.lhxy.istationdevice.android11.deviceapi.SerialPortAdapter;
 import com.lhxy.istationdevice.android11.domain.DeviceFoundationUseCase;
 import com.lhxy.istationdevice.android11.domain.config.ShellConfig;
 import com.lhxy.istationdevice.android11.domain.dispatch.DvrSerialDispatchUseCase;
+import com.lhxy.istationdevice.android11.domain.dvr.DvrSerialMonitor;
 
 /**
  * 摄像头 / DVR 模块
@@ -16,7 +18,9 @@ public final class CameraDvrBusinessModule extends AbstractTerminalBusinessModul
     private final DeviceFoundationUseCase deviceFoundationUseCase;
     private final CameraAdapter cameraAdapter;
     private final GpioAdapter gpioAdapter;
+    private final SerialPortAdapter serialPortAdapter;
     private final DvrSerialDispatchUseCase dvrSerialDispatchUseCase;
+    private final DvrSerialMonitor dvrSerialMonitor;
     private String lastCameraKey = "-";
     private String lastDvrKey = "-";
     private String lastTouchPoint = "-";
@@ -28,12 +32,25 @@ public final class CameraDvrBusinessModule extends AbstractTerminalBusinessModul
             DeviceFoundationUseCase deviceFoundationUseCase,
             CameraAdapter cameraAdapter,
             GpioAdapter gpioAdapter,
-            DvrSerialDispatchUseCase dvrSerialDispatchUseCase
+            SerialPortAdapter serialPortAdapter,
+            DvrSerialDispatchUseCase dvrSerialDispatchUseCase,
+            DvrSerialMonitor dvrSerialMonitor
     ) {
         this.deviceFoundationUseCase = deviceFoundationUseCase;
         this.cameraAdapter = cameraAdapter;
         this.gpioAdapter = gpioAdapter;
+        this.serialPortAdapter = serialPortAdapter;
         this.dvrSerialDispatchUseCase = dvrSerialDispatchUseCase;
+        this.dvrSerialMonitor = dvrSerialMonitor;
+    }
+
+    @Override
+    protected void onContextUpdated() {
+        try {
+            dvrSerialMonitor.sync(serialPortAdapter, requireShellConfig(), "camera-dvr-context");
+        } catch (Exception ignore) {
+            // 保持页面动作可用，联调阶段通过状态和日志继续看。
+        }
     }
 
     @Override
@@ -63,6 +80,7 @@ public final class CameraDvrBusinessModule extends AbstractTerminalBusinessModul
                     + " / pinId=" + gpioPin.getPinId()
                     + "\n- DVR 串口主链=" + yesNo(dvrSerialDispatchUseCase.canUse(shellConfig)) + " / lastDvrKey=" + lastDvrKey
                     + " / lastTouch=" + lastTouchPoint
+                    + "\n- " + dvrSerialMonitor.describeStatus()
                     + "\n- Camera available=" + yesNo(cameraAdapter.isAvailable())
                     + "\n- lastCamera=" + lastCameraKey + " / opened=" + yesNo(defaultCameraOpened) + " / lastGpioValue=" + lastGpioValue
                     + "\n- " + describeActionMemory();
@@ -83,6 +101,15 @@ public final class CameraDvrBusinessModule extends AbstractTerminalBusinessModul
         }
         if ("close_default_camera".equals(actionKey)) {
             return openOrCloseDefaultCamera(traceId, false);
+        }
+        if ("close_video".equals(actionKey)) {
+            return closeLastCamera(traceId);
+        }
+        if (actionKey != null && actionKey.startsWith("open_camera_")) {
+            return openOrCloseCameraChannel(actionKey.substring("open_camera_".length()), traceId, true);
+        }
+        if (actionKey != null && actionKey.startsWith("close_camera_")) {
+            return openOrCloseCameraChannel(actionKey.substring("close_camera_".length()), traceId, false);
         }
         if (actionKey != null && actionKey.startsWith("dvr_key_")) {
             return sendDvrKey(actionKey, traceId);
@@ -131,9 +158,42 @@ public final class CameraDvrBusinessModule extends AbstractTerminalBusinessModul
         }
     }
 
+    private ModuleRunResult openOrCloseCameraChannel(String cameraKey, String traceId, boolean open) {
+        try {
+            ShellConfig shellConfig = requireShellConfig();
+            if (cameraKey == null || cameraKey.trim().isEmpty()) {
+                return failure("Camera 通道动作执行失败", new IllegalArgumentException("cameraKey 为空"));
+            }
+            String safeCameraKey = cameraKey.trim();
+            if (open) {
+                deviceFoundationUseCase.openCamera(cameraAdapter, shellConfig, safeCameraKey, traceId);
+            } else {
+                deviceFoundationUseCase.closeCamera(cameraAdapter, shellConfig, safeCameraKey, traceId);
+            }
+            lastCameraKey = safeCameraKey;
+            defaultCameraOpened = open;
+            return success(open ? "已打开 Camera 通道" : "已关闭 Camera 通道", "Camera=" + safeCameraKey);
+        } catch (Exception e) {
+            return failure("Camera 通道动作执行失败", e);
+        }
+    }
+
+    private ModuleRunResult closeLastCamera(String traceId) {
+        String cameraKey = lastCameraKey;
+        if (cameraKey == null || cameraKey.trim().isEmpty() || "-".equals(cameraKey)) {
+            try {
+                cameraKey = requireShellConfig().getDebugReplay().getCameraChannelKey();
+            } catch (Exception e) {
+                return failure("关闭视频失败", e);
+            }
+        }
+        return openOrCloseCameraChannel(cameraKey, traceId, false);
+    }
+
     private ModuleRunResult sendDvrKey(String actionKey, String traceId) {
         try {
             ShellConfig shellConfig = requireShellConfig();
+            dvrSerialMonitor.sync(serialPortAdapter, shellConfig, traceId + "-dvr-sync");
             if (!dvrSerialDispatchUseCase.canUse(shellConfig)) {
                 return failure("DVR 键位发送失败", new IllegalStateException("当前不是 RS232-1/DVR 模式"));
             }
@@ -154,6 +214,7 @@ public final class CameraDvrBusinessModule extends AbstractTerminalBusinessModul
     private ModuleRunResult sendDvrTouch(String actionKey, String traceId) {
         try {
             ShellConfig shellConfig = requireShellConfig();
+            dvrSerialMonitor.sync(serialPortAdapter, shellConfig, traceId + "-dvr-sync");
             if (!dvrSerialDispatchUseCase.canUse(shellConfig)) {
                 return failure("DVR 触摸发送失败", new IllegalStateException("当前不是 RS232-1/DVR 模式"));
             }

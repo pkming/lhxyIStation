@@ -8,6 +8,8 @@ package com.lhxy.istationdevice.android11.protocol.gps;
 public final class GpsFixSnapshot {
     private final String sourceSentence;
     private final boolean valid;
+    private final int fixQuality;
+    private final int fixType;
     private final String time;
     private final String date;
     private final String latitudeRaw;
@@ -24,6 +26,8 @@ public final class GpsFixSnapshot {
     public GpsFixSnapshot(
             String sourceSentence,
             boolean valid,
+            int fixQuality,
+            int fixType,
             String time,
             String date,
             String latitudeRaw,
@@ -39,6 +43,8 @@ public final class GpsFixSnapshot {
     ) {
         this.sourceSentence = sourceSentence;
         this.valid = valid;
+        this.fixQuality = fixQuality;
+        this.fixType = fixType;
         this.time = time;
         this.date = date;
         this.latitudeRaw = latitudeRaw;
@@ -59,6 +65,14 @@ public final class GpsFixSnapshot {
 
     public boolean isValid() {
         return valid;
+    }
+
+    public int getFixQuality() {
+        return fixQuality;
+    }
+
+    public int getFixType() {
+        return fixType;
     }
 
     public String getTime() {
@@ -109,11 +123,24 @@ public final class GpsFixSnapshot {
         return usedSatellites;
     }
 
+    public String describeSummary() {
+        return "GPS valid=" + valid
+                + " fixQuality=" + fixQuality
+                + " fixType=" + describeFixType()
+                + " sat=" + usedSatellites
+                + " lat=" + valueOrDash(latitudeDecimal)
+                + " lon=" + valueOrDash(longitudeDecimal)
+                + " alt=" + valueOrDash(altitudeMeters)
+                + " speedKnots=" + valueOrDash(speedKnots);
+    }
+
     /**
      * 用于调试页和日志的简要文本。
      */
     public String describe() {
         return "GPS:\n- valid=" + valid
+                + "\n- fixQuality=" + fixQuality
+                + "\n- fixType=" + describeFixType()
                 + "\n- time=" + valueOrDash(time)
                 + "\n- date=" + valueOrDash(date)
                 + "\n- latitude=" + valueOrDash(latitudeDecimal) + " (" + valueOrDash(latitudeRaw) + " " + valueOrDash(latitudeHemisphere) + ")"
@@ -122,6 +149,19 @@ public final class GpsFixSnapshot {
                 + "\n- course=" + valueOrDash(course)
                 + "\n- altitudeMeters=" + valueOrDash(altitudeMeters)
                 + "\n- usedSatellites=" + usedSatellites;
+    }
+
+    private String describeFixType() {
+        if (fixType == 1) {
+            return "1(no-fix)";
+        }
+        if (fixType == 2) {
+            return "2(2D)";
+        }
+        if (fixType == 3) {
+            return "3(3D)";
+        }
+        return String.valueOf(fixType);
     }
 
     private String valueOrDash(String value) {

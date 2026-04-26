@@ -42,6 +42,21 @@ public final class SignInState {
         lastAttendanceTimeMillis = System.currentTimeMillis();
     }
 
+    public void applyDriverIdentity(String rawCardNo, String rawDriverName) {
+        String normalizedCard = normalizeCard(rawCardNo);
+        if (!"00000000".equals(normalizedCard)) {
+            cardNo = normalizedCard;
+        }
+        if (rawDriverName != null && !rawDriverName.trim().isEmpty() && !"-".equals(rawDriverName.trim())) {
+            driverName = rawDriverName.trim();
+        }
+        if (!signedIn) {
+            signedIn = true;
+            attendanceMode = "上班签到";
+        }
+        lastAttendanceTimeMillis = System.currentTimeMillis();
+    }
+
     public String getCardNo() {
         return cardNo;
     }

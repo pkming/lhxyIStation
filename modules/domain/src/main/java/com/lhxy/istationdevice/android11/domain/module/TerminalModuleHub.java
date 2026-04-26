@@ -12,6 +12,7 @@ import com.lhxy.istationdevice.android11.domain.DeviceFoundationUseCase;
 import com.lhxy.istationdevice.android11.domain.ProtocolReplayUseCase;
 import com.lhxy.istationdevice.android11.domain.config.ShellConfig;
 import com.lhxy.istationdevice.android11.domain.dispatch.DvrSerialDispatchUseCase;
+import com.lhxy.istationdevice.android11.domain.dvr.DvrSerialMonitor;
 import com.lhxy.istationdevice.android11.domain.gps.GpsSerialMonitor;
 import com.lhxy.istationdevice.android11.domain.socket.Jt808SocketMonitor;
 
@@ -30,6 +31,7 @@ import java.util.function.Supplier;
  */
 public final class TerminalModuleHub {
     private final Map<String, TerminalBusinessModule> modules = new LinkedHashMap<>();
+    private final DvrSerialMonitor dvrSerialMonitor;
 
     public TerminalModuleHub(
             SerialPortAdapter serialPortAdapter,
@@ -47,11 +49,26 @@ public final class TerminalModuleHub {
         ProtocolReplayUseCase protocolReplayUseCase = new ProtocolReplayUseCase();
         DeviceFoundationUseCase deviceFoundationUseCase = new DeviceFoundationUseCase();
         DvrSerialDispatchUseCase dvrSerialDispatchUseCase = new DvrSerialDispatchUseCase(serialPortAdapter);
+        DispatchBusinessModule dispatchModule =
+                new DispatchBusinessModule(protocolReplayUseCase, socketClientAdapter, jt808SocketMonitor, dvrSerialDispatchUseCase);
+        StationBusinessModule stationModule =
+                new StationBusinessModule(protocolReplayUseCase, serialPortAdapter, gpsSerialMonitor, dvrSerialDispatchUseCase);
+        SignInBusinessModule signInModule =
+                new SignInBusinessModule(protocolReplayUseCase, socketClientAdapter, rfidAdapter, dvrSerialDispatchUseCase);
+        dvrSerialMonitor = new DvrSerialMonitor(dispatchModule.getDispatchState(), signInModule.getSignInState());
+        CameraDvrBusinessModule cameraModule = new CameraDvrBusinessModule(
+                deviceFoundationUseCase,
+                cameraAdapter,
+                gpioAdapter,
+                serialPortAdapter,
+                dvrSerialDispatchUseCase,
+                dvrSerialMonitor
+        );
 
-        register(new DispatchBusinessModule(protocolReplayUseCase, socketClientAdapter, jt808SocketMonitor, dvrSerialDispatchUseCase));
-        register(new StationBusinessModule(protocolReplayUseCase, serialPortAdapter, gpsSerialMonitor, dvrSerialDispatchUseCase));
-        register(new SignInBusinessModule(protocolReplayUseCase, socketClientAdapter, rfidAdapter, dvrSerialDispatchUseCase));
-        register(new CameraDvrBusinessModule(deviceFoundationUseCase, cameraAdapter, gpioAdapter, dvrSerialDispatchUseCase));
+        register(dispatchModule);
+        register(stationModule);
+        register(signInModule);
+        register(cameraModule);
         register(new UpgradeBusinessModule(protocolReplayUseCase, socketClientAdapter, systemOps));
         register(new FileBusinessModule(
                 exportDirSupplier,
@@ -60,6 +77,10 @@ public final class TerminalModuleHub {
                 foundationStatusSupplier,
                 moduleStatusSupplier
         ));
+    }
+
+    public DvrSerialMonitor getDvrSerialMonitor() {
+        return dvrSerialMonitor;
     }
 
     private void register(TerminalBusinessModule module) {

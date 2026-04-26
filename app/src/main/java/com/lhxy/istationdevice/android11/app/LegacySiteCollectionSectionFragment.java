@@ -28,6 +28,7 @@ import com.lhxy.istationdevice.android11.protocol.gps.GpsFixSnapshot;
 import com.lhxy.istationdevice.android11.runtime.ShellRuntime;
 
 import java.util.List;
+import java.util.Locale;
 
 /**
  * 旧版站点学习右侧内容区宿主。
@@ -436,7 +437,14 @@ public final class LegacySiteCollectionSectionFragment extends Fragment {
     }
 
     private String formatSpeed(@Nullable GpsFixSnapshot snapshot) {
-        return snapshot == null ? "-" : valueOrDefault(snapshot.getSpeedKnots(), "-");
+        if (snapshot == null || snapshot.getSpeedKnots() == null || snapshot.getSpeedKnots().trim().isEmpty()) {
+            return "-";
+        }
+        try {
+            return String.format(Locale.US, "%.2f", Double.parseDouble(snapshot.getSpeedKnots().trim()) * 1.852d);
+        } catch (Exception ignored) {
+            return "-";
+        }
     }
 
     private String formatAngle(@Nullable GpsFixSnapshot snapshot) {

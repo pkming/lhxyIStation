@@ -294,6 +294,7 @@ public final class ShellConfigLoader {
         gpioPins.put("outer_audio", new ShellConfig.GpioPin("outer_audio", "GPIO1_B2", "", 0, "外音"));
         gpioPins.put("inner_speaker", new ShellConfig.GpioPin("inner_speaker", "GPIO0_D6", "", 0, "内喇叭"));
         gpioPins.put("io1", new ShellConfig.GpioPin("io1", "GPIO1_D0", "", 1, "IO1"));
+        gpioPins.put("io2", new ShellConfig.GpioPin("io2", "GPIO1_D1", "", 0, "IO2 / 中门开"));
         gpioPins.put("io5", new ShellConfig.GpioPin("io5", "GPIO1_D4", "", 0, "IO5"));
 
         Map<String, ShellConfig.CameraChannel> cameraChannels = new LinkedHashMap<>();

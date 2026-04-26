@@ -24,8 +24,11 @@ public final class GpsNmeaParser {
         if (trimmed.startsWith("$GPRMC") || trimmed.startsWith("$GNRMC") || trimmed.startsWith("$BDRMC")) {
             return parseRmc(trimmed, previousSnapshot);
         }
-        if (trimmed.startsWith("$GNGGA") || trimmed.startsWith("$BDGGA")) {
+        if (trimmed.startsWith("$GPGGA") || trimmed.startsWith("$GNGGA") || trimmed.startsWith("$BDGGA")) {
             return parseGga(trimmed, previousSnapshot);
+        }
+        if (trimmed.startsWith("$GPGSA") || trimmed.startsWith("$GNGSA") || trimmed.startsWith("$BDGSA")) {
+            return parseGsa(trimmed, previousSnapshot);
         }
         return previousSnapshot;
     }
@@ -59,6 +62,8 @@ public final class GpsNmeaParser {
         return new GpsFixSnapshot(
                 sentence,
                 "A".equalsIgnoreCase(safeField(fields, 2)),
+                previousSnapshot == null ? 0 : previousSnapshot.getFixQuality(),
+                previousSnapshot == null ? 0 : previousSnapshot.getFixType(),
                 safeField(fields, 1),
                 safeField(fields, 9),
                 latitudeRaw,
@@ -86,11 +91,15 @@ public final class GpsNmeaParser {
         String longitudeHemisphere = safeField(fields, 5);
 
         int usedSatellites = parseInt(safeField(fields, 7));
-        String altitudeMeters = safeField(fields, 9);
+        String altitudeMeters = safeDecimalField(fields, 9);
+        int fixQuality = parseInt(safeField(fields, 6));
+        boolean valid = fixQuality > 0 || (safeField(fields, 6).isEmpty() && previousSnapshot != null && previousSnapshot.isValid());
 
         return new GpsFixSnapshot(
                 sentence,
-                previousSnapshot != null && previousSnapshot.isValid(),
+                valid,
+                fixQuality,
+                previousSnapshot == null ? 0 : previousSnapshot.getFixType(),
                 previousSnapshot == null ? safeField(fields, 1) : valueOrPrevious(safeField(fields, 1), previousSnapshot.getTime()),
                 previousSnapshot == null ? "" : previousSnapshot.getDate(),
                 valueOrPrevious(latitudeRaw, previousSnapshot == null ? "" : previousSnapshot.getLatitudeRaw()),
@@ -103,6 +112,35 @@ public final class GpsNmeaParser {
                 previousSnapshot == null ? "" : previousSnapshot.getCourse(),
                 altitudeMeters.isEmpty() ? previousSnapshot == null ? "0" : previousSnapshot.getAltitudeMeters() : altitudeMeters,
                 usedSatellites <= 0 ? previousSnapshot == null ? 0 : previousSnapshot.getUsedSatellites() : usedSatellites
+        );
+    }
+
+    private GpsFixSnapshot parseGsa(String sentence, GpsFixSnapshot previousSnapshot) {
+        String[] fields = sentence.split(",", -1);
+        if (fields.length < 3) {
+            return previousSnapshot;
+        }
+
+        int fixType = parseInt(safeField(fields, 2));
+        boolean valid = fixType >= 2 || (fixType == 0 && previousSnapshot != null && previousSnapshot.isValid());
+
+        return new GpsFixSnapshot(
+                sentence,
+                valid,
+                previousSnapshot == null ? 0 : previousSnapshot.getFixQuality(),
+                fixType,
+                previousSnapshot == null ? "" : previousSnapshot.getTime(),
+                previousSnapshot == null ? "" : previousSnapshot.getDate(),
+                previousSnapshot == null ? "" : previousSnapshot.getLatitudeRaw(),
+                previousSnapshot == null ? "" : previousSnapshot.getLatitudeHemisphere(),
+                previousSnapshot == null ? "" : previousSnapshot.getLatitudeDecimal(),
+                previousSnapshot == null ? "" : previousSnapshot.getLongitudeRaw(),
+                previousSnapshot == null ? "" : previousSnapshot.getLongitudeHemisphere(),
+                previousSnapshot == null ? "" : previousSnapshot.getLongitudeDecimal(),
+                previousSnapshot == null ? "" : previousSnapshot.getSpeedKnots(),
+                previousSnapshot == null ? "" : previousSnapshot.getCourse(),
+                previousSnapshot == null ? "0" : previousSnapshot.getAltitudeMeters(),
+                previousSnapshot == null ? 0 : previousSnapshot.getUsedSatellites()
         );
     }
 
@@ -145,6 +183,19 @@ public final class GpsNmeaParser {
         }
         int checksumIndex = value.indexOf('*');
         return checksumIndex >= 0 ? value.substring(0, checksumIndex).trim() : value.trim();
+    }
+
+    private String safeDecimalField(String[] fields, int index) {
+        String value = safeField(fields, index);
+        if (value.isEmpty()) {
+            return "";
+        }
+        try {
+            Double.parseDouble(value);
+            return value;
+        } catch (Exception ignored) {
+            return "";
+        }
     }
 
     private String valueOrPrevious(String value, String previous) {

@@ -1,7 +1,6 @@
 package com.lhxy.istationdevice.android11.domain.gps;
 
 import com.lhxy.istationdevice.android11.core.AppLogCenter;
-import com.lhxy.istationdevice.android11.core.Hexs;
 import com.lhxy.istationdevice.android11.core.LogCategory;
 import com.lhxy.istationdevice.android11.core.LogLevel;
 import com.lhxy.istationdevice.android11.deviceapi.SerialPortAdapter;
@@ -10,6 +9,7 @@ import com.lhxy.istationdevice.android11.domain.config.ShellConfig;
 import com.lhxy.istationdevice.android11.protocol.gps.GpsFixSnapshot;
 import com.lhxy.istationdevice.android11.protocol.gps.GpsStreamParser;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 /**
@@ -19,11 +19,18 @@ import java.util.List;
  */
 public final class GpsSerialMonitor {
     private static final String TAG = "GpsSerialMonitor";
+    private static final long RAW_LOG_INTERVAL_MS = 10_000L;
+    private static final long FIX_LOG_INTERVAL_MS = 10_000L;
+    private static final int INITIAL_RAW_LOG_LIMIT = 3;
 
     private final GpsStreamParser streamParser = new GpsStreamParser();
     private volatile String attachedChannelKey;
     private volatile String attachedPortName;
     private volatile GpsFixSnapshot latestSnapshot;
+    private long rawPacketCount;
+    private long lastRawLogTimeMs;
+    private long lastFixLogTimeMs;
+    private GpsFixSnapshot lastLoggedSnapshot;
 
     /**
      * 绑定 GPS 串口监听。
@@ -34,6 +41,7 @@ public final class GpsSerialMonitor {
         }
         streamParser.reset();
         latestSnapshot = null;
+        resetLogState();
         attachedChannelKey = serialChannel.getKey();
         attachedPortName = serialChannel.getPortName();
         serialPortAdapter.setReceiveListener(serialChannel.getPortName(), buildListener(traceId));
@@ -55,6 +63,7 @@ public final class GpsSerialMonitor {
         }
         serialPortAdapter.removeReceiveListener(portName);
         streamParser.reset();
+        resetLogState();
         attachedChannelKey = null;
         attachedPortName = null;
         latestSnapshot = null;
@@ -111,28 +120,94 @@ public final class GpsSerialMonitor {
 
     private SerialReceiveListener buildListener(String traceId) {
         return (portName, payload) -> {
-            AppLogCenter.log(
-                    LogCategory.PROTOCOL_RX,
-                    LogLevel.DEBUG,
-                    TAG,
-                    "gps raw " + portName + " -> " + Hexs.toHex(payload),
-                    traceId + "-gps-raw"
-            );
+            logRawSampleIfNeeded(portName, payload, traceId);
             List<GpsFixSnapshot> snapshots = streamParser.accept(payload);
             for (GpsFixSnapshot snapshot : snapshots) {
                 latestSnapshot = snapshot;
-                AppLogCenter.log(
-                        LogCategory.BIZ,
-                        LogLevel.INFO,
-                        TAG,
-                        snapshot.describe(),
-                        traceId + "-gps-fix"
-                );
+                logFixIfNeeded(snapshot, traceId);
             }
         };
     }
 
+    private void resetLogState() {
+        rawPacketCount = 0;
+        lastRawLogTimeMs = 0;
+        lastFixLogTimeMs = 0;
+        lastLoggedSnapshot = null;
+    }
+
+    private void logRawSampleIfNeeded(String portName, byte[] payload, String traceId) {
+        rawPacketCount++;
+        long now = System.currentTimeMillis();
+        boolean initialSample = rawPacketCount <= INITIAL_RAW_LOG_LIMIT;
+        boolean waitingForFix = latestSnapshot == null || !latestSnapshot.isValid();
+        boolean intervalReached = now - lastRawLogTimeMs >= RAW_LOG_INTERVAL_MS;
+        if (!initialSample && !(waitingForFix && intervalReached)) {
+            return;
+        }
+        lastRawLogTimeMs = now;
+        AppLogCenter.log(
+                LogCategory.PROTOCOL_RX,
+                LogLevel.DEBUG,
+                TAG,
+                "gps raw sample " + portName
+                        + " packet=" + rawPacketCount
+                        + " bytes=" + (payload == null ? 0 : payload.length)
+                        + " ascii=\"" + previewAscii(payload) + "\"",
+                traceId + "-gps-raw"
+        );
+    }
+
+    private void logFixIfNeeded(GpsFixSnapshot snapshot, String traceId) {
+        if (snapshot == null) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        if (!shouldLogFix(snapshot, now)) {
+            return;
+        }
+        lastFixLogTimeMs = now;
+        lastLoggedSnapshot = snapshot;
+        AppLogCenter.log(
+                LogCategory.BIZ,
+                LogLevel.INFO,
+                TAG,
+                snapshot.describeSummary(),
+                traceId + "-gps-fix"
+        );
+    }
+
+    private boolean shouldLogFix(GpsFixSnapshot snapshot, long now) {
+        if (lastLoggedSnapshot == null) {
+            return true;
+        }
+        if (lastLoggedSnapshot.isValid() != snapshot.isValid()) {
+            return true;
+        }
+        if (lastLoggedSnapshot.getFixQuality() != snapshot.getFixQuality()) {
+            return true;
+        }
+        if (lastLoggedSnapshot.getFixType() != snapshot.getFixType()) {
+            return true;
+        }
+        if (Math.abs(lastLoggedSnapshot.getUsedSatellites() - snapshot.getUsedSatellites()) >= 2) {
+            return true;
+        }
+        return now - lastFixLogTimeMs >= FIX_LOG_INTERVAL_MS;
+    }
+
     private String valueOrDash(String value) {
         return value == null || value.trim().isEmpty() ? "-" : value.trim();
+    }
+
+    private String previewAscii(byte[] payload) {
+        if (payload == null || payload.length == 0) {
+            return "";
+        }
+        String text = new String(payload, StandardCharsets.US_ASCII)
+                .replace("\r", "\\r")
+                .replace("\n", "\\n");
+        int maxLength = 160;
+        return text.length() <= maxLength ? text : text.substring(0, maxLength) + "...";
     }
 }

@@ -318,7 +318,13 @@ public final class DvrSerialDispatchUseCase {
     }
 
     private int stationNo(StationState stationState) {
-        String current = stationState == null ? "-" : emptyAsDash(stationState.getCurrentStation());
+        if (stationState == null) {
+            return 0;
+        }
+        if (stationState.getCurrentStationNo() >= 0) {
+            return stationState.getCurrentStationNo() + 1;
+        }
+        String current = emptyAsDash(stationState.getCurrentStation());
         return "-".equals(current) ? 0 : Math.max(1, stationState.getReportCount());
     }
 

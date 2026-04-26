@@ -1,5 +1,7 @@
 package com.lhxy.istationdevice.android11.deviceapi;
 
+import android.view.Surface;
+
 /**
  * Camera 抽象接口
  * <p>
@@ -19,6 +21,10 @@ public interface CameraAdapter {
      * 打开一个逻辑 Camera 通道。
      */
     void open(String cameraId, String traceId);
+
+    default void openPreview(String cameraId, Surface surface, int width, int height, String traceId) {
+        open(cameraId, traceId);
+    }
 
     /**
      * 关闭一个逻辑 Camera 通道。

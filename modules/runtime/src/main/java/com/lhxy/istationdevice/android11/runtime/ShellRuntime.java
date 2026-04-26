@@ -15,6 +15,7 @@ import com.lhxy.istationdevice.android11.devicem90.M90ManagedSerialPortAdapter;
 import com.lhxy.istationdevice.android11.devicem90.M90ManagedSocketClientAdapter;
 import com.lhxy.istationdevice.android11.devicem90.M90ManagedSystemOps;
 import com.lhxy.istationdevice.android11.domain.config.ShellConfig;
+import com.lhxy.istationdevice.android11.domain.dvr.DvrSerialMonitor;
 import com.lhxy.istationdevice.android11.domain.gps.GpsSerialMonitor;
 import com.lhxy.istationdevice.android11.domain.module.TerminalModuleHub;
 import com.lhxy.istationdevice.android11.domain.socket.Jt808SocketMonitor;
@@ -105,6 +106,10 @@ public final class ShellRuntime {
      */
     public GpsSerialMonitor getGpsSerialMonitor() {
         return gpsSerialMonitor;
+    }
+
+    public DvrSerialMonitor getDvrSerialMonitor() {
+        return moduleHub.getDvrSerialMonitor();
     }
 
     /**

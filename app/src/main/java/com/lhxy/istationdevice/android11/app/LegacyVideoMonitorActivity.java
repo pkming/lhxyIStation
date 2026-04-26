@@ -4,6 +4,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.MotionEvent;
+import android.view.SurfaceHolder;
+import android.view.SurfaceView;
 import android.view.View;
 import android.widget.Toast;
 
@@ -14,6 +16,7 @@ import com.lhxy.istationdevice.android11.core.AppLogCenter;
 import com.lhxy.istationdevice.android11.core.LogCategory;
 import com.lhxy.istationdevice.android11.core.LogLevel;
 import com.lhxy.istationdevice.android11.core.TraceIds;
+import com.lhxy.istationdevice.android11.domain.config.ShellConfig;
 import com.lhxy.istationdevice.android11.domain.module.ModuleRunResult;
 import com.lhxy.istationdevice.android11.runtime.ShellRuntime;
 
@@ -30,6 +33,10 @@ public final class LegacyVideoMonitorActivity extends AppCompatActivity {
     private static final int DVR_TOUCH_HEIGHT = 800;
     private static final long MOVE_REPORT_INTERVAL_MS = 40L;
     private long lastTouchMoveReportAt;
+    private SurfaceView previewSurface;
+    private boolean pageResumed;
+    private boolean previewOpened;
+    private String currentCameraKey;
 
     public static Intent createIntent(Context context, String source) {
         Intent intent = new Intent(context, LegacyVideoMonitorActivity.class);
@@ -42,6 +49,7 @@ public final class LegacyVideoMonitorActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.act_video_monitor);
         bindKeys();
+        bindCameraPreview();
         bindPreviewTouch();
         AppLogCenter.log(
                 LogCategory.UI,
@@ -55,17 +63,23 @@ public final class LegacyVideoMonitorActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        runCameraAction("open_default_camera", R.string.legacy_video_camera_opened, true);
+        pageResumed = true;
+        openPreviewIfReady(true);
     }
 
     @Override
     protected void onPause() {
-        runCameraAction("close_default_camera", R.string.legacy_video_camera_closed, false);
+        pageResumed = false;
+        closeActivePreview(false);
         super.onPause();
     }
 
     private void bindKeys() {
         bindKey(R.id.butBack, null);
+        bindCameraChannelButton(R.id.butMiddleDoorVideo, "middle_door");
+        bindCameraChannelButton(R.id.butReverseVideo, "reverse");
+        bindCameraChannelButton(R.id.butDvrVideo, "av_out");
+        bindCloseVideoButton(R.id.butCloseVideo);
         bindKey(R.id.butNumber1, "1");
         bindKey(R.id.butNumber2, "2");
         bindKey(R.id.butNumber3, "3");
@@ -115,6 +129,197 @@ public final class LegacyVideoMonitorActivity extends AppCompatActivity {
             return;
         }
         preview.setOnTouchListener((v, event) -> handlePreviewTouch(v, event));
+    }
+
+    private void bindCameraPreview() {
+        previewSurface = findViewById(R.id.core_surface);
+        if (previewSurface == null) {
+            return;
+        }
+        previewSurface.getHolder().addCallback(new SurfaceHolder.Callback() {
+            @Override
+            public void surfaceCreated(SurfaceHolder holder) {
+                openPreviewIfReady(true);
+            }
+
+            @Override
+            public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+                if (previewOpened) {
+                    return;
+                }
+                openPreviewIfReady(false);
+            }
+
+            @Override
+            public void surfaceDestroyed(SurfaceHolder holder) {
+                closeActivePreview(false);
+            }
+        });
+    }
+
+    private void openPreviewIfReady(boolean showToastOnSuccess) {
+        if (!pageResumed || previewSurface == null || previewOpened) {
+            return;
+        }
+        SurfaceHolder holder = previewSurface.getHolder();
+        if (holder == null || holder.getSurface() == null || !holder.getSurface().isValid()) {
+            return;
+        }
+        try {
+            ShellRuntime runtime = ShellRuntime.get();
+            ShellConfig shellConfig = runtime.getActiveConfig();
+            if (shellConfig == null) {
+                throw new IllegalStateException("Camera config is not ready");
+            }
+            openPreviewForChannel(resolveDefaultCameraKey(shellConfig), showToastOnSuccess);
+        } catch (Exception e) {
+            previewOpened = false;
+            Toast.makeText(this, "Camera 预览打开失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            AppLogCenter.log(
+                    LogCategory.ERROR,
+                    LogLevel.ERROR,
+                    "LegacyVideoMonitorActivity",
+                    "camera preview open failed: " + e.getMessage(),
+                    TraceIds.next("legacy-video-preview-error")
+            );
+        }
+    }
+
+    private String resolveDefaultCameraKey(ShellConfig shellConfig) {
+        if (currentCameraKey != null && !currentCameraKey.trim().isEmpty()) {
+            return currentCameraKey;
+        }
+        return shellConfig.getDebugReplay().getCameraChannelKey();
+    }
+
+    private void bindCameraChannelButton(int viewId, String cameraKey) {
+        View view = findViewById(viewId);
+        if (view == null) {
+            return;
+        }
+        view.setOnClickListener(v -> openCameraChannel(cameraKey, true));
+    }
+
+    private void bindCloseVideoButton(int viewId) {
+        View view = findViewById(viewId);
+        if (view == null) {
+            return;
+        }
+        view.setOnClickListener(v -> {
+            closeActivePreview(true);
+            ShellRuntime.get().getModuleHub().runAction(
+                    "camera_dvr",
+                    "close_video",
+                    TraceIds.next("legacy-video-close-video")
+            );
+        });
+    }
+
+    private void openCameraChannel(String cameraKey, boolean showToastOnSuccess) {
+        if (previewSurface == null) {
+            return;
+        }
+        SurfaceHolder holder = previewSurface.getHolder();
+        if (holder == null || holder.getSurface() == null || !holder.getSurface().isValid()) {
+            currentCameraKey = cameraKey;
+            return;
+        }
+        openPreviewForChannel(cameraKey, showToastOnSuccess);
+    }
+
+    private void openPreviewForChannel(String cameraKey, boolean showToastOnSuccess) {
+        if (cameraKey == null || cameraKey.trim().isEmpty() || previewSurface == null) {
+            return;
+        }
+        SurfaceHolder holder = previewSurface.getHolder();
+        if (holder == null || holder.getSurface() == null || !holder.getSurface().isValid()) {
+            currentCameraKey = cameraKey;
+            previewOpened = false;
+            return;
+        }
+        try {
+            String nextCameraKey = cameraKey.trim();
+            if (previewOpened && currentCameraKey != null && !currentCameraKey.equals(nextCameraKey)) {
+                closeActivePreview(false);
+            }
+            currentCameraKey = nextCameraKey;
+            ShellRuntime.get().getCameraAdapter().openPreview(
+                    currentCameraKey,
+                    holder.getSurface(),
+                    Math.max(1, previewSurface.getWidth()),
+                    Math.max(1, previewSurface.getHeight()),
+                    TraceIds.next("legacy-video-preview-" + currentCameraKey)
+            );
+            previewOpened = true;
+            ShellRuntime.get().getModuleHub().runAction(
+                    "camera_dvr",
+                    "open_camera_" + currentCameraKey,
+                    TraceIds.next("legacy-video-open-" + currentCameraKey)
+            );
+            if (showToastOnSuccess) {
+                Toast.makeText(
+                        this,
+                        getString(R.string.legacy_video_channel_opened, cameraLabel(currentCameraKey)),
+                        Toast.LENGTH_SHORT
+                ).show();
+            }
+        } catch (Exception e) {
+            previewOpened = false;
+            Toast.makeText(this, "Camera 预览打开失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            AppLogCenter.log(
+                    LogCategory.ERROR,
+                    LogLevel.ERROR,
+                    "LegacyVideoMonitorActivity",
+                    "camera preview open failed: " + cameraKey + " / " + e.getMessage(),
+                    TraceIds.next("legacy-video-preview-error")
+            );
+        }
+    }
+
+    private void closeActivePreview(boolean showToastOnSuccess) {
+        String cameraKey = currentCameraKey;
+        previewOpened = false;
+        if (cameraKey == null || cameraKey.trim().isEmpty()) {
+            if (showToastOnSuccess) {
+                Toast.makeText(this, R.string.legacy_video_channel_closed, Toast.LENGTH_SHORT).show();
+            }
+            return;
+        }
+        try {
+            ShellRuntime.get().getCameraAdapter().close(cameraKey, TraceIds.next("legacy-video-close-" + cameraKey));
+            ShellRuntime.get().getModuleHub().runAction(
+                    "camera_dvr",
+                    "close_camera_" + cameraKey,
+                    TraceIds.next("legacy-video-close-action-" + cameraKey)
+            );
+        } catch (Exception e) {
+            AppLogCenter.log(
+                    LogCategory.ERROR,
+                    LogLevel.WARN,
+                    "LegacyVideoMonitorActivity",
+                    "camera preview close failed: " + cameraKey + " / " + e.getMessage(),
+                    TraceIds.next("legacy-video-close-error")
+            );
+        }
+        if (showToastOnSuccess) {
+            Toast.makeText(this, R.string.legacy_video_channel_closed, Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private String cameraLabel(String cameraKey) {
+        if ("middle_door".equals(cameraKey)) {
+            return "中门";
+        }
+        if ("reverse".equals(cameraKey)) {
+            return "倒车";
+        }
+        if ("av_out".equals(cameraKey)) {
+            return "DVR";
+        }
+        if ("monitor".equals(cameraKey)) {
+            return "监控";
+        }
+        return cameraKey == null ? "-" : cameraKey;
     }
 
     private boolean handlePreviewTouch(View view, MotionEvent event) {

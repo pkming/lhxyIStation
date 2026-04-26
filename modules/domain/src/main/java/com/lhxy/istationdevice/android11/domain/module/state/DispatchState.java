@@ -95,6 +95,32 @@ public final class DispatchState {
         lastUpdateTimeMillis = System.currentTimeMillis();
     }
 
+    public void applyDvrDispatchRequest(
+            long msgSerialNo,
+            long lineGuid,
+            int directionCode,
+            int scheduleNo,
+            int timesNo,
+            String departureTime,
+            String lineName
+    ) {
+        activeProtocol = "RS232-1/DVR";
+        lastMsgSerialNo = Math.max(1L, msgSerialNo);
+        this.lineGuid = Math.max(0L, lineGuid);
+        this.timesNo = Math.max(0, timesNo);
+        joinedOperation = true;
+        dispatchedConfirmed = false;
+        startedBus = false;
+        requestedCharge = false;
+        reportedVehicleFailure = false;
+        this.scheduleNo = scheduleNo <= 0 ? "-" : String.valueOf(scheduleNo);
+        plannedDepartureTime = normalizeCompactTime(departureTime);
+        dispatchMessage = "收到新的调度信息，请按计划时间发车"
+                + ("-".equals(emptyAsDash(lineName)) ? "" : " / " + emptyAsDash(lineName))
+                + " / dir=" + directionCode;
+        lastUpdateTimeMillis = System.currentTimeMillis();
+    }
+
     public void acknowledgeNotice() {
         pendingNoticeAcked = true;
         dispatchMessage = "已确认下发公告，等待后续调度";
@@ -205,6 +231,14 @@ public final class DispatchState {
 
     private String formatTime(long timeMillis) {
         return new SimpleDateFormat("HH:mm", Locale.getDefault()).format(new Date(timeMillis));
+    }
+
+    private String normalizeCompactTime(String value) {
+        String safeValue = emptyAsDash(value);
+        if ("-".equals(safeValue) || safeValue.length() < 4) {
+            return "-";
+        }
+        return safeValue.substring(0, 2) + ":" + safeValue.substring(2, 4);
     }
 
     private String emptyAsDash(String value) {

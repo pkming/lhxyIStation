@@ -1,0 +1,101 @@
+
+
+                               AL-M90开发指南
+
+概述
+
+   此文介绍了AL-M90的系统配置以及在AL-
+   M90上进行开发可能需要调用的接口，写给想在AL-M90上开发APP的开发人员。
+
+系统介绍
+
+   AL-M90的基本配置：4核CPU                                      A55、1TOPS
+   NPU，4G通讯模块、网口、wifi6、RJ45、蓝牙5.0、BD/GPS模块、10.1寸电容屏（分
+   辨率：1280×800）、全触摸屏-
+   可外扩物理按键、2路RS232串口、2路RS485口、2路CAN、4路AHD(兼容CVBS)、WIFI，
+   网口，4路IO检测、2路15W功放输出、1路2W@8Ω功放输出、支持喊话手柄、TTS，TF
+   card、RFID、2路USB口、内置RTC、1路HDMI等。
+   电源：9~36V宽电压。
+   运行Android 11系统，请用Android Studio开发APP。
+
+接口介绍
+
+
+1 通讯
+
+   AL-M90可搭载4G通讯模块，提供安卓标准API接口给APP；
+   可通过ConnectivityManager查询网络状态，通过Socket和服务器进行长连接；
+   访问网络需要的权限：
+   <uses-permission
+   android:name="android.permission.ACCESS_NETWORK_STATE"/>
+   <uses-permission android:name="android.permission.INTERNET" />
+
+2 BD/GPS
+
+   AL-M90可搭载北斗/GPS模块，提供安卓标准API接口给APP；
+   1、可通过LocationManager查询是否定位、经纬度坐标、切换模式等；
+   访问位置需要的权限：
+   <uses-permission  android:name="android.permission.ACCESS_FINE_LOCATION"
+   />
+   APP第一次启动时还需要用下面的代码申请权限：
+   import static android.Manifest.permission.ACCESS_FINE_LOCATION;
+   private static final int REQUEST_LOCATION = 2;
+   if (ContextCompat.checkSelfPermission(this, ACCESS_FINE_LOCATION) !=
+           PackageManager.PERMISSION_GRANTED) {
+       ActivityCompat.requestPermissions(this,
+               new String[]{ACCESS_FINE_LOCATION}, REQUEST_LOCATION);
+   }
+   只有申请权限成功或已经申请成功过权限后，才能使用LocationManager；
+   2、可通过板载GPS模块，串口读取GPS数据；
+
+3 串口（485自主流控）
+
+        ttyS0----Keyboard
+        ttyS2----debug
+        ttyS3----RS232-1
+        ttyS4----RS232-2
+        ttyS5----GPS
+        ttyS7----RS485-1
+        ttyS9----RS485-2
+
+4 IO输入/输出
+
+        GPIO1_D0----IO1   GPIO1_D1----IO2   GPIO1_D2----IO3    GPIO1_D3----
+   IO4（默认高）
+        GPIO1_D4----IO5(默认低)
+        内音----GPIO1_B1  外音----GPIO1_B2  内喇叭----GPIO0_D6
+        喊话器内----GPIO3_A3    喊话器外---GPIO3_A4
+          GPIO3_A6控制耳机检测IO GPIO1_B0
+
+5 按键
+
+       串口协议
+
+6 刷卡
+
+       AL-M90可接RFID·刷卡模块，I2C-3；
+
+7 TTS
+
+       中英文默认是讯飞TTS，已内置离线语音包，可以直接用；
+       系统设置-系统-语言和输入法-高级-文件转语音（TTS）输出；
+
+8 模拟摄像头
+
+   AL-
+   M90可接4路模拟摄像头，摄像头支持CVBS和AHD，可通过安卓标准API接口（Camera,
+    SurfaceView等）实现视频预览、录像、拍照等功能。
+   CH1---CAMERA0  CH2---CAMERA1  CH3---CAMERA2  CH4---CAMERA3
+   访问摄像头需要的权限：
+   <uses-permission android:name="android.permission.CAMERA" />
+   <uses-feature android:name="android.hardware.camera" />
+   <uses-feature android:name="android.hardware.camera.autofocus" />
+
+  3.9 CAN
+
+   can0和can1，支持JNI
+
+系统签名
+
+生成系统签名文件
+   androiddebug文件，debug.keystore

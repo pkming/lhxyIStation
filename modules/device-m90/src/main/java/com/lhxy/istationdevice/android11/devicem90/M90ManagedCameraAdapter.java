@@ -1,6 +1,7 @@
 package com.lhxy.istationdevice.android11.devicem90;
 
 import android.content.Context;
+import android.view.Surface;
 
 import com.lhxy.istationdevice.android11.deviceapi.CameraAdapter;
 import com.lhxy.istationdevice.android11.deviceapi.DeviceMode;
@@ -30,6 +31,11 @@ public final class M90ManagedCameraAdapter implements CameraAdapter {
     @Override
     public void open(String cameraId, String traceId) {
         delegate().open(cameraId, traceId);
+    }
+
+    @Override
+    public void openPreview(String cameraId, Surface surface, int width, int height, String traceId) {
+        delegate().openPreview(cameraId, surface, width, height, traceId);
     }
 
     @Override

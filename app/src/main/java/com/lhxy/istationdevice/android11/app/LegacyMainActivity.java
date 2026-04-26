@@ -95,7 +95,7 @@ public final class LegacyMainActivity extends AppCompatActivity {
         setText(R.id.tvSatellites, getString(R.string.main_satellites_value, resolveSatellites(gpsSnapshot, stationState)));
         setText(R.id.tvLanState, getString(R.string.main_lan_value, resolveLanState(config)));
         setText(R.id.tvCMS, getString(R.string.main_cms_value, resolveCmsState(config, dispatchState)));
-        setText(R.id.tvDVR, getString(R.string.main_dvr_value, shellRuntime.getCameraAdapter().isAvailable()
+        setText(R.id.tvDVR, getString(R.string.main_dvr_value, shellRuntime.getDvrSerialMonitor().isOnline()
                 ? getString(R.string.effective)
                 : getString(R.string.invalid)));
         setText(R.id.tv4G, getString(R.string.main_4g_value, "--"));
@@ -106,7 +106,7 @@ public final class LegacyMainActivity extends AppCompatActivity {
         setText(R.id.tvLineDirection, valueOrDefault(stationState.getDirectionText(), "--"));
         setText(R.id.tvDriver, getString(R.string.main_driver, resolveDriverName(signInState)));
         setText(R.id.tvSpeedLimit, "00");
-        setText(R.id.tvVideoMileage, valueOrDefault(gpsSnapshot == null ? null : gpsSnapshot.getSpeedKnots(), "0") + "km/h");
+        setText(R.id.tvVideoMileage, formatSpeedKmh(gpsSnapshot) + "km/h");
         setText(R.id.tvVideoSpeedLimit, "0km/h");
         setText(R.id.tvShouting, resolveDispatchOwner(config));
         setText(R.id.tvInfoTips, resolveInfoTips(dispatchState, stationState));
@@ -476,5 +476,17 @@ public final class LegacyMainActivity extends AppCompatActivity {
             return primary.trim();
         }
         return fallback == null || fallback.trim().isEmpty() ? "--" : fallback.trim();
+    }
+
+    private String formatSpeedKmh(@Nullable GpsFixSnapshot snapshot) {
+        if (snapshot == null || snapshot.getSpeedKnots() == null || snapshot.getSpeedKnots().trim().isEmpty()) {
+            return "0";
+        }
+        try {
+            double speedKmh = Double.parseDouble(snapshot.getSpeedKnots().trim()) * 1.852d;
+            return String.format(Locale.US, "%.0f", speedKmh);
+        } catch (Exception ignored) {
+            return "0";
+        }
     }
 }

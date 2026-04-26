@@ -77,6 +77,12 @@
         "defaultValue": 1,
         "note": "IO1"
       },
+      "io2": {
+        "pinId": "GPIO1_D1",
+        "valuePath": "",
+        "defaultValue": 0,
+        "note": "IO2 / 中门开"
+      },
       "io5": {
         "pinId": "GPIO1_D4",
         "valuePath": "",

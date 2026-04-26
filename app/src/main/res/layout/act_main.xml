@@ -93,7 +93,7 @@
                 android:layout_marginTop="@dimen/d_8"
                 android:background="@drawable/operation_bg"
                 android:soundEffectsEnabled="false"
-                android:text="报警开"
+                android:text="@string/main_dvr"
                 android:textColor="@color/c_000000"
                 android:textSize="24sp" />
 

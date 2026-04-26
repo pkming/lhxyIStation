@@ -7,13 +7,13 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * 报站业务状态。
- * <p>
- * 统一保存线路、方向、本站、下站和 GPS 关键状态。
+ * Station business state shared by UI, DVR dispatch, and GPS auto-report.
  */
 public final class StationState {
     private final List<String> routeStations = new ArrayList<>();
+
     private String lineName = "101路";
+    private String lineAttribute = "对开";
     private String directionText = "上行";
     private String currentStation = "-";
     private String nextStation = "-";
@@ -22,8 +22,11 @@ public final class StationState {
     private String gpsChannelKey = "-";
     private String latitude = "-";
     private String longitude = "-";
+    private String lastReminder = "-";
     private int satellites;
     private int stationCursor = -1;
+    private int currentStationNo = -1;
+    private int currentStationType;
     private int reportCount;
 
     public StationState() {
@@ -32,42 +35,29 @@ public final class StationState {
         nextStation = routeStations.get(0);
     }
 
-    /**
-     * 按样例线路推进一站。
-     */
     public void advanceStation() {
         reportCount++;
         if (routeStations.isEmpty()) {
             currentStation = "-";
             nextStation = "-";
+            currentStationNo = -1;
             reportPhase = "待发";
             return;
         }
 
         if (stationCursor < 0) {
             stationCursor = 0;
-            currentStation = routeStations.get(0);
-            nextStation = routeStations.size() > 1 ? routeStations.get(1) : routeStations.get(0);
-            reportPhase = "起点发车";
-            return;
+        } else if (stationCursor < routeStations.size() - 1) {
+            stationCursor++;
         }
-
-        if (stationCursor >= routeStations.size() - 1) {
-            currentStation = routeStations.get(routeStations.size() - 1);
-            nextStation = "-";
-            reportPhase = "终点到站";
-            return;
-        }
-
-        stationCursor++;
+        currentStationNo = stationCursor;
+        currentStationType = 0;
         currentStation = routeStations.get(stationCursor);
         nextStation = stationCursor + 1 < routeStations.size() ? routeStations.get(stationCursor + 1) : "-";
-        reportPhase = stationCursor == routeStations.size() - 1 ? "终点到站" : "进站播报";
+        reportPhase = stationCursor == 0 ? "起点发车" : stationCursor == routeStations.size() - 1 ? "终点到站" : "进站播报";
+        lastReminder = "-";
     }
 
-    /**
-     * 重复播报当前站。
-     */
     public void repeatCurrentStation() {
         reportCount++;
         if ("-".equals(currentStation)) {
@@ -77,23 +67,14 @@ public final class StationState {
         reportPhase = "重复报站";
     }
 
-    /**
-     * 停止报站。
-     */
     public void stopReport() {
         reportPhase = "停止报站";
     }
 
-    /**
-     * 记录 GPS 监听状态。
-     */
     public void bindGps(String channelKey) {
         gpsChannelKey = emptyAsDash(channelKey);
     }
 
-    /**
-     * 用定位快照刷新状态。
-     */
     public void updateGps(GpsFixSnapshot snapshot) {
         if (snapshot == null) {
             return;
@@ -101,6 +82,44 @@ public final class StationState {
         latitude = emptyAsDash(snapshot.getLatitudeDecimal());
         longitude = emptyAsDash(snapshot.getLongitudeDecimal());
         satellites = snapshot.getUsedSatellites();
+    }
+
+    public void setLineAttribute(String lineAttribute) {
+        this.lineAttribute = emptyAsDash(lineAttribute);
+    }
+
+    public void recordAutoStation(int stationNo, String stationName, int stationType) {
+        reportCount++;
+        currentStationNo = Math.max(stationNo, -1);
+        currentStationType = stationType;
+        stationCursor = currentStationNo;
+        currentStation = emptyAsDash(stationName);
+        nextStation = stationCursor + 1 >= 0 && stationCursor + 1 < routeStations.size()
+                ? routeStations.get(stationCursor + 1)
+                : "-";
+        if (stationType == 1) {
+            reportPhase = stationCursor >= routeStations.size() - 1 ? "终点预报" : "出站预报";
+        } else if (stationCursor == 0) {
+            reportPhase = "起点发车";
+        } else if (stationCursor >= routeStations.size() - 1) {
+            reportPhase = "终点到站";
+        } else {
+            reportPhase = "进站播报";
+        }
+        if (stationCursor >= 0 && stationCursor < routeStations.size()) {
+            terminalStation = routeStations.get(routeStations.size() - 1);
+        }
+        lastReminder = "-";
+    }
+
+    public void recordReminder(String reminderName) {
+        lastReminder = emptyAsDash(reminderName);
+        reportPhase = "友情提醒";
+    }
+
+    public void recordDirectionSwitch(String directionText, List<String> stations) {
+        applyLineProfile(lineName, directionText, stations);
+        reportPhase = "自动切向";
     }
 
     public String getLineName() {
@@ -112,6 +131,10 @@ public final class StationState {
             return;
         }
         this.lineName = lineName.trim();
+    }
+
+    public String getLineAttribute() {
+        return lineAttribute;
     }
 
     public String getDirectionText() {
@@ -168,6 +191,18 @@ public final class StationState {
         return reportCount;
     }
 
+    public int getCurrentStationNo() {
+        return currentStationNo;
+    }
+
+    public int getCurrentStationType() {
+        return currentStationType;
+    }
+
+    public String getLastReminder() {
+        return lastReminder;
+    }
+
     public void applyLineProfile(String lineName, String directionText, List<String> stations) {
         if (lineName != null && !lineName.trim().isEmpty()) {
             this.lineName = lineName.trim();
@@ -184,8 +219,11 @@ public final class StationState {
             }
         }
         stationCursor = -1;
+        currentStationNo = -1;
+        currentStationType = 0;
         reportCount = 0;
         currentStation = "-";
+        lastReminder = "-";
         reportPhase = "待发";
         if (routeStations.isEmpty()) {
             nextStation = "-";
@@ -198,10 +236,14 @@ public final class StationState {
 
     public String describe() {
         return "line=" + emptyAsDash(lineName)
+                + "\n- attribute=" + emptyAsDash(lineAttribute)
                 + "\n- direction=" + emptyAsDash(directionText)
                 + "\n- currentStation=" + emptyAsDash(currentStation)
                 + "\n- nextStation=" + emptyAsDash(nextStation)
+                + "\n- stationNo=" + currentStationNo
+                + "\n- stationType=" + currentStationType
                 + "\n- phase=" + emptyAsDash(reportPhase)
+                + "\n- reminder=" + emptyAsDash(lastReminder)
                 + "\n- gpsChannel=" + emptyAsDash(gpsChannelKey)
                 + "\n- gpsLatLng=" + emptyAsDash(latitude) + "," + emptyAsDash(longitude)
                 + "\n- satellites=" + satellites;

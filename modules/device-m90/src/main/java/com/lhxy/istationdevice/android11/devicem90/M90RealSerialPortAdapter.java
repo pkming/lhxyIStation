@@ -16,6 +16,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 /**
  * M90 真串口适配器
@@ -26,6 +27,9 @@ import java.util.concurrent.Executors;
  */
 public final class M90RealSerialPortAdapter implements SerialPortAdapter {
     private static final String TAG = "M90RealSerial";
+    private static final long RX_LOG_INTERVAL_MS = 10_000L;
+    private static final int INITIAL_RX_LOG_LIMIT = 3;
+
     private final Map<String, SerialSession> sessions = new ConcurrentHashMap<>();
     private final Map<String, SerialReceiveListener> listeners = new ConcurrentHashMap<>();
 
@@ -114,6 +118,7 @@ public final class M90RealSerialPortAdapter implements SerialPortAdapter {
                 throw new IllegalStateException("串口节点不存在: " + portPath);
             }
 
+            configurePort(portPath, config.getBaudRate(), traceId);
             RandomAccessFile randomAccessFile = new RandomAccessFile(deviceFile, "rw");
             FileInputStream inputStream = new FileInputStream(randomAccessFile.getFD());
             FileOutputStream outputStream = new FileOutputStream(randomAccessFile.getFD());
@@ -128,7 +133,7 @@ public final class M90RealSerialPortAdapter implements SerialPortAdapter {
                     LogCategory.DEVICE,
                     LogLevel.INFO,
                     TAG,
-                    "real open " + portPath + " @" + config.getBaudRate() + "，当前版本未接入波特率控制",
+                    "real open " + portPath + " @" + config.getBaudRate(),
                     traceId
             );
             session.startReadLoop(traceId);
@@ -146,6 +151,44 @@ public final class M90RealSerialPortAdapter implements SerialPortAdapter {
         return trimmed.startsWith("/") ? trimmed : "/dev/" + trimmed;
     }
 
+    private void configurePort(String portPath, int baudRate, String traceId) {
+        Process process = null;
+        try {
+            process = new ProcessBuilder(
+                    "stty",
+                    "-F",
+                    portPath,
+                    String.valueOf(baudRate),
+                    "raw",
+                    "-echo",
+                    "-echoe",
+                    "-echok",
+                    "-icanon",
+                    "min",
+                    "1",
+                    "time",
+                    "0"
+            ).redirectErrorStream(true).start();
+            if (!process.waitFor(2, TimeUnit.SECONDS)) {
+                process.destroy();
+                AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, TAG, "stty timeout on " + portPath + " @" + baudRate, traceId);
+                return;
+            }
+            int exitCode = process.exitValue();
+            if (exitCode == 0) {
+                AppLogCenter.log(LogCategory.DEVICE, LogLevel.INFO, TAG, "stty applied " + portPath + " @" + baudRate, traceId);
+            } else {
+                AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, TAG, "stty failed on " + portPath + " @" + baudRate + ", exit=" + exitCode, traceId);
+            }
+        } catch (Exception e) {
+            AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, TAG, "stty unavailable on " + portPath + ": " + e.getMessage(), traceId);
+        } finally {
+            if (process != null) {
+                process.destroy();
+            }
+        }
+    }
+
     private final class SerialSession {
         private final ExecutorService executor = Executors.newSingleThreadExecutor();
         private volatile RandomAccessFile randomAccessFile;
@@ -154,6 +197,8 @@ public final class M90RealSerialPortAdapter implements SerialPortAdapter {
         private volatile String portPath;
         private volatile int baudRate;
         private volatile Thread readerThread;
+        private long receiveCount;
+        private long lastReceiveLogTimeMs;
 
         private boolean isOpen() {
             return randomAccessFile != null;
@@ -185,13 +230,19 @@ public final class M90RealSerialPortAdapter implements SerialPortAdapter {
 
                         byte[] payload = new byte[length];
                         System.arraycopy(buffer, 0, payload, 0, length);
-                        AppLogCenter.log(
-                                LogCategory.PROTOCOL_RX,
-                                LogLevel.DEBUG,
-                                TAG,
-                                "real recv on " + currentPortPath + " @" + baudRate + ": " + Hexs.toHex(payload),
-                                readTraceId
-                        );
+                        if (shouldLogReceive()) {
+                            AppLogCenter.log(
+                                    LogCategory.PROTOCOL_RX,
+                                    LogLevel.DEBUG,
+                                    TAG,
+                                    "real recv sample on " + currentPortPath
+                                            + " @" + baudRate
+                                            + " packet=" + receiveCount
+                                            + " bytes=" + payload.length
+                                            + ": " + Hexs.toHex(payload),
+                                    readTraceId
+                            );
+                        }
                         SerialReceiveListener listener = listeners.get(currentPortPath);
                         if (listener != null) {
                             listener.onReceive(currentPortPath, payload.clone());
@@ -210,6 +261,16 @@ public final class M90RealSerialPortAdapter implements SerialPortAdapter {
             thread.setDaemon(true);
             readerThread = thread;
             thread.start();
+        }
+
+        private boolean shouldLogReceive() {
+            receiveCount++;
+            long now = System.currentTimeMillis();
+            if (receiveCount <= INITIAL_RX_LOG_LIMIT || now - lastReceiveLogTimeMs >= RX_LOG_INTERVAL_MS) {
+                lastReceiveLogTimeMs = now;
+                return true;
+            }
+            return false;
         }
 
         private void closeQuietly() {
@@ -235,6 +296,8 @@ public final class M90RealSerialPortAdapter implements SerialPortAdapter {
                 // ignore
             }
             readerThread = null;
+            receiveCount = 0;
+            lastReceiveLogTimeMs = 0;
             randomAccessFile = null;
             inputStream = null;
             outputStream = null;
