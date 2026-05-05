@@ -39,6 +39,72 @@
             android:background="@color/c_ffffff" />
 
         <RelativeLayout
+            android:id="@+id/itemDispatchConfirmDispatch"
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/d_52"
+            android:layout_marginLeft="@dimen/d_16"
+            android:layout_marginRight="@dimen/d_22"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerVertical="true"
+                android:text="@string/dispatch_center_confirm_dispatch"
+                android:textColor="@color/c_ffffff"
+                android:textSize="22sp"
+                tools:ignore="RelativeOverlap" />
+
+            <ImageView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentRight="true"
+                android:layout_centerVertical="true"
+                android:contentDescription="@string/ingoto"
+                android:src="@drawable/icon_direction" />
+        </RelativeLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/d_1px"
+            android:layout_marginLeft="@dimen/d_22"
+            android:layout_marginRight="@dimen/d_22"
+            android:background="@color/c_ffffff" />
+
+        <RelativeLayout
+            android:id="@+id/itemDispatchAckNotice"
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/d_52"
+            android:layout_marginLeft="@dimen/d_16"
+            android:layout_marginRight="@dimen/d_22"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerVertical="true"
+                android:text="@string/dispatch_center_ack_notice"
+                android:textColor="@color/c_ffffff"
+                android:textSize="22sp"
+                tools:ignore="RelativeOverlap" />
+
+            <ImageView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentRight="true"
+                android:layout_centerVertical="true"
+                android:contentDescription="@string/ingoto"
+                android:src="@drawable/icon_direction" />
+        </RelativeLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/d_1px"
+            android:layout_marginLeft="@dimen/d_22"
+            android:layout_marginRight="@dimen/d_22"
+            android:background="@color/c_ffffff" />
+
+        <RelativeLayout
             android:id="@+id/itemDispatchRequestCharge"
             android:layout_width="match_parent"
             android:layout_height="@dimen/d_52"
@@ -95,6 +161,39 @@
                 android:layout_height="wrap_content" android:src="@drawable/icon_direction" />
         </RelativeLayout>
 
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/d_1px"
+            android:layout_marginLeft="@dimen/d_22"
+            android:layout_marginRight="@dimen/d_22"
+            android:background="@color/c_ffffff" />
+
+        <RelativeLayout
+            android:id="@+id/itemDispatchStartBus"
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/d_52"
+            android:layout_marginLeft="@dimen/d_16"
+            android:layout_marginRight="@dimen/d_22"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerVertical="true"
+                android:text="@string/dispatch_center_start_bus"
+                android:textColor="@color/c_ffffff"
+                android:textSize="22sp"
+                tools:ignore="RelativeOverlap" />
+
+            <ImageView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentRight="true"
+                android:layout_centerVertical="true"
+                android:contentDescription="@string/ingoto"
+                android:src="@drawable/icon_direction" />
+        </RelativeLayout>
 
         <View
             android:layout_width="match_parent"

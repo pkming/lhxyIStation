@@ -93,7 +93,7 @@
                 android:layout_marginTop="@dimen/d_8"
                 android:background="@drawable/operation_bg"
                 android:soundEffectsEnabled="false"
-                android:text="@string/main_dvr"
+                android:text="@string/main_warning_on"
                 android:textColor="@color/c_000000"
                 android:textSize="24sp" />
 

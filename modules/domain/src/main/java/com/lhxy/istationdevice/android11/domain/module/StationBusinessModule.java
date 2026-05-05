@@ -2,9 +2,12 @@ package com.lhxy.istationdevice.android11.domain.module;
 
 import android.content.Context;
 
+import java.util.Calendar;
+
 import com.lhxy.istationdevice.android11.core.AppLogCenter;
 import com.lhxy.istationdevice.android11.core.LogCategory;
 import com.lhxy.istationdevice.android11.core.LogLevel;
+import com.lhxy.istationdevice.android11.deviceapi.GpioAdapter;
 import com.lhxy.istationdevice.android11.deviceapi.SerialPortAdapter;
 import com.lhxy.istationdevice.android11.domain.ProtocolReplayUseCase;
 import com.lhxy.istationdevice.android11.domain.config.ShellConfig;
@@ -14,9 +17,10 @@ import com.lhxy.istationdevice.android11.domain.gps.LegacyGpsAutoReportEngine;
 import com.lhxy.istationdevice.android11.domain.gps.LegacyGpsRouteCatalog;
 import com.lhxy.istationdevice.android11.domain.gps.LegacyGpsRouteResource;
 import com.lhxy.istationdevice.android11.domain.module.state.StationState;
+import com.lhxy.istationdevice.android11.domain.station.LegacyStationAudioUseCase;
+import com.lhxy.istationdevice.android11.domain.station.LegacyStationDisplayUseCase;
 import com.lhxy.istationdevice.android11.protocol.gps.GpsFixSnapshot;
 
-import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -30,10 +34,13 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
     private final ProtocolReplayUseCase protocolReplayUseCase;
     private final SerialPortAdapter serialPortAdapter;
     private final GpsSerialMonitor gpsSerialMonitor;
+    private final DispatchBusinessModule dispatchBusinessModule;
     private final DvrSerialDispatchUseCase dvrSerialDispatchUseCase;
     private final StationState stationState = new StationState();
     private final LegacyGpsRouteCatalog gpsRouteCatalog = new LegacyGpsRouteCatalog();
     private final LegacyGpsAutoReportEngine gpsAutoReportEngine = new LegacyGpsAutoReportEngine();
+    private final LegacyStationDisplayUseCase stationDisplayUseCase;
+    private final LegacyStationAudioUseCase stationAudioUseCase;
 
     private ScheduledExecutorService periodicGpsReportExecutor;
     private ScheduledExecutorService autoGpsReportExecutor;
@@ -42,17 +49,25 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
     private long lastPeriodicGpsReportTimeMs;
     private long autoGpsReportCount;
     private long lastAutoGpsReportTimeMs;
+    private long speedingStartTimeMs;
+    private long lastSpeedWarningTimeMs;
+    private long lastNowTimeKey = -1L;
 
     public StationBusinessModule(
             ProtocolReplayUseCase protocolReplayUseCase,
             SerialPortAdapter serialPortAdapter,
+            GpioAdapter gpioAdapter,
             GpsSerialMonitor gpsSerialMonitor,
+            DispatchBusinessModule dispatchBusinessModule,
             DvrSerialDispatchUseCase dvrSerialDispatchUseCase
     ) {
         this.protocolReplayUseCase = protocolReplayUseCase;
         this.serialPortAdapter = serialPortAdapter;
         this.gpsSerialMonitor = gpsSerialMonitor;
+        this.dispatchBusinessModule = dispatchBusinessModule;
         this.dvrSerialDispatchUseCase = dvrSerialDispatchUseCase;
+        this.stationDisplayUseCase = new LegacyStationDisplayUseCase(serialPortAdapter);
+        this.stationAudioUseCase = new LegacyStationAudioUseCase(gpioAdapter);
     }
 
     @Override
@@ -72,6 +87,11 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
 
     public StationState getStationState() {
         return stationState;
+    }
+
+    public void reloadRouteResources() {
+        gpsRouteCatalog.clearCache();
+        syncRouteProfileIfNeeded();
     }
 
     @Override
@@ -110,7 +130,7 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
 
     @Override
     public ModuleRunResult runSample(String traceId) {
-        return replayAndBindGps(traceId, true);
+        return advanceStation(traceId);
     }
 
     @Override
@@ -121,13 +141,41 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
         if ("advance_station".equals(actionKey)) {
             return advanceStation(traceId);
         }
+        if ("backward_station".equals(actionKey)) {
+            return retreatStation(traceId);
+        }
+        if ("switch_direction".equals(actionKey)) {
+            return switchDirection(traceId);
+        }
         if ("repeat_station".equals(actionKey)) {
             return repeatStation(traceId);
         }
         if ("stop_station".equals(actionKey)) {
             return stopStation();
         }
+        if (actionKey != null && actionKey.startsWith("service_tone_")) {
+            return playServiceTone(actionKey, traceId);
+        }
         return unsupportedAction(actionKey);
+    }
+
+    private ModuleRunResult playServiceTone(String actionKey, String traceId) {
+        try {
+            int serviceNo = Integer.parseInt(actionKey.substring("service_tone_".length()));
+            if (serviceNo < 0 || serviceNo > 9) {
+                throw new IllegalArgumentException("服务音编号超出范围");
+            }
+            Context context = requireContextOrThrow();
+            ShellConfig shellConfig = requireShellConfig();
+            boolean audioTriggered = stationAudioUseCase.playServiceTone(context, shellConfig, serviceNo);
+            boolean protocolSent = stationDisplayUseCase.sendServiceTone(shellConfig, serviceNo, traceId);
+            return success(
+                    "已触发服务音 " + serviceNo,
+                    "本地播报=" + yesNo(audioTriggered) + " / 485 服务音=" + yesNo(protocolSent)
+            );
+        } catch (Exception e) {
+            return failure("服务音触发失败", e);
+        }
     }
 
     private ModuleRunResult replayAndBindGps(String traceId, boolean replayDisplay) {
@@ -135,19 +183,19 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
             ShellConfig shellConfig = requireShellConfig();
             ShellConfig.SerialChannel gpsChannel =
                     shellConfig.requireSerialChannel(shellConfig.getDebugReplay().getGpsSerialKey());
-            int count = replayDisplay
-                    ? protocolReplayUseCase.replayStationDemo(serialPortAdapter, shellConfig, traceId)
-                    : 0;
             ensureGpsReady(gpsChannel, traceId);
+            LegacyGpsRouteResource route = resolveRequiredRoute();
+            stationDisplayUseCase.syncRoute(shellConfig, route, stationState, traceId + "-display-route");
+            stationDisplayUseCase.sendCurrentStation(shellConfig, route, stationState, traceId + "-display-current");
             if (replayDisplay) {
-                stationState.advanceStation();
+                protocolReplayUseCase.replayStationDemo(serialPortAdapter, shellConfig, traceId + "-demo");
             }
             sendSerialDispatchFramesIfNeeded(traceId + "-bind-gps");
             startPeriodicGpsReportIfNeeded(traceId + "-periodic-gps");
             startAutoGpsReportIfNeeded(traceId + "-auto-gps");
             return success(
-                    replayDisplay ? "已回放报站样例 " + count + " 条" : "已重新绑定 GPS 监听",
-                    "GPS 已绑定到 " + gpsChannel.getKey()
+                    replayDisplay ? "已准备报站主链" : "已重新绑定 GPS 监听",
+                    "GPS 已绑定到 " + gpsChannel.getKey() + "，屏显链路已同步"
             );
         } catch (Exception e) {
             return failure("报站样例执行失败", e);
@@ -160,13 +208,65 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
             ShellConfig.SerialChannel gpsChannel =
                     shellConfig.requireSerialChannel(shellConfig.getDebugReplay().getGpsSerialKey());
             ensureGpsReady(gpsChannel, traceId);
+            LegacyGpsRouteResource route = resolveRequiredRoute();
+            if (stationState.getReportCount() == 0) {
+                stationDisplayUseCase.syncRoute(shellConfig, route, stationState, traceId + "-display-route");
+            }
             stationState.advanceStation();
+            stationDisplayUseCase.sendCurrentStation(shellConfig, route, stationState, traceId + "-display-current");
+            playCurrentStationAudio(requireContextOrThrow(), shellConfig, route);
             sendSerialDispatchFramesIfNeeded(traceId + "-advance-station");
+            maybeAutoStartBus(traceId + "-advance-station");
             startPeriodicGpsReportIfNeeded(traceId + "-periodic-gps");
             startAutoGpsReportIfNeeded(traceId + "-auto-gps");
+            if (!stationState.isPreviewingNext() && stationState.getCurrentStationNo() >= stationState.getStationCount() - 1) {
+                handleDirectionSwitch(requireContextOrThrow(), route, traceId);
+                LegacyGpsRouteResource switchedRoute = resolveRequiredRoute();
+                stationDisplayUseCase.syncRoute(shellConfig, switchedRoute, stationState, traceId + "-display-switch-route");
+                stationDisplayUseCase.sendCurrentStation(shellConfig, switchedRoute, stationState, traceId + "-display-switch-current");
+                return success("已到终点并自动切换方向", "当前方向 " + stationState.getDirectionText() + " / 本站 " + stationState.getCurrentStation());
+            }
             return success("已推进一站", "当前站点已更新到 " + stationState.getCurrentStation());
         } catch (Exception e) {
             return failure("推进站点失败", e);
+        }
+    }
+
+    private ModuleRunResult retreatStation(String traceId) {
+        try {
+            ShellConfig shellConfig = requireShellConfig();
+            ShellConfig.SerialChannel gpsChannel =
+                    shellConfig.requireSerialChannel(shellConfig.getDebugReplay().getGpsSerialKey());
+            ensureGpsReady(gpsChannel, traceId);
+            LegacyGpsRouteResource route = resolveRequiredRoute();
+            if (stationState.getReportCount() == 0) {
+                stationDisplayUseCase.syncRoute(shellConfig, route, stationState, traceId + "-display-route");
+            }
+            stationState.retreatStation();
+            stationDisplayUseCase.sendCurrentStation(shellConfig, route, stationState, traceId + "-display-current");
+            playCurrentStationAudio(requireContextOrThrow(), shellConfig, route);
+            sendSerialDispatchFramesIfNeeded(traceId + "-backward-station");
+            startPeriodicGpsReportIfNeeded(traceId + "-periodic-gps");
+            startAutoGpsReportIfNeeded(traceId + "-auto-gps");
+            return success("已回退一站", "当前站点已更新到 " + stationState.getCurrentStation());
+        } catch (Exception e) {
+            return failure("回退站点失败", e);
+        }
+    }
+
+    private ModuleRunResult switchDirection(String traceId) {
+        try {
+            Context context = requireContextOrThrow();
+            ShellConfig shellConfig = requireShellConfig();
+            LegacyGpsRouteResource route = resolveRequiredRoute();
+            handleDirectionSwitch(context, route, traceId);
+            LegacyGpsRouteResource switchedRoute = resolveRequiredRoute();
+            stationDisplayUseCase.syncRoute(shellConfig, switchedRoute, stationState, traceId + "-display-route");
+            stationDisplayUseCase.sendCurrentStation(shellConfig, switchedRoute, stationState, traceId + "-display-current");
+            sendSerialDispatchFramesIfNeeded(traceId + "-switch-direction");
+            return success("已切换方向", stationState.getLineName() + " / " + stationState.getDirectionText());
+        } catch (Exception e) {
+            return failure("切换方向失败", e);
         }
     }
 
@@ -176,7 +276,15 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
             ShellConfig.SerialChannel gpsChannel =
                     shellConfig.requireSerialChannel(shellConfig.getDebugReplay().getGpsSerialKey());
             ensureGpsReady(gpsChannel, traceId);
-            stationState.repeatCurrentStation();
+            LegacyGpsRouteResource route = resolveRequiredRoute();
+            if (stationState.getReportCount() == 0) {
+                stationDisplayUseCase.syncRoute(shellConfig, route, stationState, traceId + "-display-route");
+            }
+            if (!stationState.repeatCurrentStation()) {
+                return success("当前处于预报态", "旧版首页预报态不执行重复报站");
+            }
+            stationDisplayUseCase.sendCurrentStation(shellConfig, route, stationState, traceId + "-display-current");
+            playCurrentStationAudio(requireContextOrThrow(), shellConfig, route);
             sendSerialDispatchFramesIfNeeded(traceId + "-repeat-station");
             startPeriodicGpsReportIfNeeded(traceId + "-periodic-gps");
             startAutoGpsReportIfNeeded(traceId + "-auto-gps");
@@ -188,6 +296,7 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
 
     private ModuleRunResult stopStation() {
         stationState.stopReport();
+        stationAudioUseCase.stop();
         stopPeriodicGpsReport("station-stop-periodic-gps");
         stopAutoGpsReport("station-stop-auto-gps");
         return success("已停止报站", "当前报站状态已切到停止");
@@ -380,13 +489,15 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
             }
             stationState.setLineAttribute(route.getAttributeLabel());
             syncRouteProfileIfNeeded(route);
+                ShellConfig shellConfig = requireShellConfig();
+                handleAuxiliaryAudio(context, shellConfig, route, snapshot, traceId);
 
             autoGpsReportCount++;
             lastAutoGpsReportTimeMs = System.currentTimeMillis();
             LegacyGpsAutoReportEngine.AutoReportEvent event = gpsAutoReportEngine.evaluate(
                     route,
                     snapshot,
-                    requireShellConfig().getBasicSetupConfig().getNewspaperSettings().isAngleEnabled()
+                    shellConfig.getBasicSetupConfig().getNewspaperSettings().isAngleEnabled()
             );
             if (event.isNone()) {
                 return;
@@ -401,11 +512,18 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
             if (event.getOperationType() == LegacyGpsAutoReportEngine.OP_REMINDER) {
                 if (event.getReminderPoint() != null) {
                     stationState.recordReminder(event.getReminderPoint().getReminderName());
+                    stationAudioUseCase.playReminder(context, shellConfig, route, event.getReminderPoint());
                 }
                 return;
             }
             if (event.getOperationType() == LegacyGpsAutoReportEngine.OP_SWITCH_DIRECTION) {
+                stationAudioUseCase.stop();
                 handleDirectionSwitch(context, route, traceId);
+                LegacyGpsRouteResource switchedRoute = resolveActiveRoute(context);
+                if (switchedRoute != null) {
+                    stationDisplayUseCase.syncRoute(shellConfig, switchedRoute, stationState, traceId + "-display-switch-route");
+                    stationDisplayUseCase.sendCurrentStation(shellConfig, switchedRoute, stationState, traceId + "-display-switch-current");
+                }
                 return;
             }
             if (event.getOperationType() == LegacyGpsAutoReportEngine.OP_STATION && event.getStationPoint() != null) {
@@ -414,7 +532,16 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
                         event.getStationPoint().getStationName(),
                         event.getStationType()
                 );
+                stationAudioUseCase.playAutoStation(
+                    context,
+                    shellConfig,
+                    route,
+                    event.getStationPoint(),
+                    event.getStationType()
+                );
+                stationDisplayUseCase.sendCurrentStation(shellConfig, route, stationState, traceId + "-display-current");
                 sendSerialDispatchFramesIfNeeded(traceId + "-auto-station");
+                maybeAutoStartBus(traceId + "-auto-station");
             }
         } catch (Exception e) {
             AppLogCenter.log(
@@ -425,6 +552,13 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
                     traceId
             );
         }
+    }
+
+    private void maybeAutoStartBus(String traceId) {
+        if (!stationState.isFirstDeparturePreview()) {
+            return;
+        }
+        dispatchBusinessModule.autoStartBusIfNeeded(traceId);
     }
 
     private void handleDirectionSwitch(Context context, LegacyGpsRouteResource currentRoute, String traceId) {
@@ -463,20 +597,42 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
         stationState.setLineName(route.getLineName());
         stationState.setDirectionText(route.getDirectionText());
         stationState.setLineAttribute(route.getAttributeLabel());
-        if (shouldRefreshRouteProfile(route.stationNames())) {
+        if (shouldRefreshRouteProfile(route)) {
             stationState.applyLineProfile(route.getLineName(), route.getDirectionText(), route.stationNames());
             stationState.setLineAttribute(route.getAttributeLabel());
         }
     }
 
-    private boolean shouldRefreshRouteProfile(List<String> stationNames) {
-        if (stationNames == null || stationNames.isEmpty()) {
+    private boolean shouldRefreshRouteProfile(LegacyGpsRouteResource route) {
+        if (route == null || route.getStations().isEmpty()) {
             return false;
         }
-        if ("-".equals(stationState.getTerminalStation()) || "-".equals(stationState.getNextStation())) {
+        if (stationState.getStationCount() != route.getStations().size()) {
             return true;
         }
-        return stationState.getReportCount() == 0 && "-".equals(stationState.getCurrentStation());
+        if (!route.getLineName().equals(stationState.getLineName())) {
+            return true;
+        }
+        if (!route.getDirectionText().equals(stationState.getDirectionText())) {
+            return true;
+        }
+        return stationState.getCurrentStationNo() < 0;
+    }
+
+    private Context requireContextOrThrow() {
+        Context context = getContext();
+        if (context == null) {
+            throw new IllegalStateException("当前没有可用上下文");
+        }
+        return context;
+    }
+
+    private LegacyGpsRouteResource resolveRequiredRoute() {
+        LegacyGpsRouteResource route = resolveActiveRoute(requireContextOrThrow());
+        if (route == null) {
+            throw new IllegalStateException("当前还没有拿到完整报站资源");
+        }
+        return route;
     }
 
     private LegacyGpsRouteResource resolveActiveRoute(Context context) {
@@ -488,8 +644,8 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
     private String resolvePreferredLineName() {
         ShellConfig.ResourceImportSettings resourceImportSettings =
                 requireShellConfig().getBasicSetupConfig().getResourceImportSettings();
-        if (resourceImportSettings.isStationResourceImported()
-                && resourceImportSettings.getLineName() != null
+        if (resourceImportSettings.getLineName() != null
+            && !resourceImportSettings.getLineName().trim().isEmpty()
                 && !"-".equals(resourceImportSettings.getLineName().trim())) {
             return resourceImportSettings.getLineName().trim();
         }
@@ -497,6 +653,16 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
     }
 
     private String resolvePreferredDirectionText() {
+        ShellConfig.ResourceImportSettings resourceImportSettings =
+                requireShellConfig().getBasicSetupConfig().getResourceImportSettings();
+        if (resourceImportSettings.getLineName() != null
+            && !resourceImportSettings.getLineName().trim().isEmpty()
+            && !"-".equals(resourceImportSettings.getLineName().trim())
+            && resourceImportSettings.getDirectionText() != null
+            && !resourceImportSettings.getDirectionText().trim().isEmpty()
+            && !"-".equals(resourceImportSettings.getDirectionText().trim())) {
+            return resourceImportSettings.getDirectionText().trim();
+        }
         String directionText = stationState.getDirectionText();
         if (directionText == null || directionText.trim().isEmpty()) {
             return "上行";
@@ -530,5 +696,144 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
         return "running intervalSeconds=1"
                 + " count=" + autoGpsReportCount
                 + " lastTime=" + (lastAutoGpsReportTimeMs <= 0 ? "-" : String.valueOf(lastAutoGpsReportTimeMs));
+    }
+
+    private void playCurrentStationAudio(Context context, ShellConfig shellConfig, LegacyGpsRouteResource route) {
+        LegacyGpsRouteResource.StationPoint currentStation = resolveCurrentStation(route);
+        if (currentStation == null) {
+            return;
+        }
+        stationAudioUseCase.playManualStation(
+                context,
+                shellConfig,
+                route,
+                currentStation,
+                stationState.getCurrentStationType()
+        );
+    }
+
+    private LegacyGpsRouteResource.StationPoint resolveCurrentStation(LegacyGpsRouteResource route) {
+        if (route == null) {
+            return null;
+        }
+        int stationNo = stationState.getCurrentStationNo();
+        if (stationNo < 0 || stationNo >= route.getStations().size()) {
+            return null;
+        }
+        return route.getStations().get(stationNo);
+    }
+
+    private void handleAuxiliaryAudio(
+            Context context,
+            ShellConfig shellConfig,
+            LegacyGpsRouteResource route,
+            GpsFixSnapshot snapshot,
+            String traceId
+    ) {
+        handleNowTime(context, shellConfig, traceId);
+        handleSpeedWarning(context, shellConfig, route, snapshot, traceId);
+    }
+
+    private void handleNowTime(Context context, ShellConfig shellConfig, String traceId) {
+        if (!shellConfig.getBasicSetupConfig().getNewspaperSettings().isNowTimeEnabled()) {
+            return;
+        }
+        Calendar calendar = Calendar.getInstance();
+        if (calendar.get(Calendar.MINUTE) != 0) {
+            return;
+        }
+        long nowTimeKey = calendar.get(Calendar.YEAR) * 10_000L
+                + calendar.get(Calendar.DAY_OF_YEAR) * 100L
+                + calendar.get(Calendar.HOUR_OF_DAY);
+        if (lastNowTimeKey == nowTimeKey) {
+            return;
+        }
+        lastNowTimeKey = nowTimeKey;
+        stationAudioUseCase.playNowTime(context, shellConfig, calendar.get(Calendar.HOUR_OF_DAY));
+        AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, TAG, "已触发整点报时 hour=" + calendar.get(Calendar.HOUR_OF_DAY), traceId + "-now-time");
+    }
+
+    private void handleSpeedWarning(
+            Context context,
+            ShellConfig shellConfig,
+            LegacyGpsRouteResource route,
+            GpsFixSnapshot snapshot,
+            String traceId
+    ) {
+        if (!shellConfig.getBasicSetupConfig().getNewspaperSettings().isSpeedingWarningEnabled()) {
+            resetSpeedWarningState();
+            return;
+        }
+        int speedLimit = resolveSpeedLimit(route);
+        if (speedLimit <= 0) {
+            resetSpeedWarningState();
+            return;
+        }
+        int speedKmh = parseSpeedKmh(snapshot);
+        if (speedKmh <= 0 || speedKmh <= speedLimit - 4) {
+            resetSpeedWarningState();
+            return;
+        }
+        long now = System.currentTimeMillis();
+        if (speedingStartTimeMs <= 0L) {
+            speedingStartTimeMs = now;
+            return;
+        }
+        if (now - speedingStartTimeMs < 2_000L || now - lastSpeedWarningTimeMs < 1_000L || stationAudioUseCase.isBusy()) {
+            return;
+        }
+        lastSpeedWarningTimeMs = now;
+        stationAudioUseCase.playSpeedWarning(context, shellConfig);
+        AppLogCenter.log(
+                LogCategory.BIZ,
+                LogLevel.INFO,
+                TAG,
+                "已触发超速音 speed=" + speedKmh + "km/h limit=" + speedLimit,
+                traceId + "-speed-warning"
+        );
+    }
+
+    private void resetSpeedWarningState() {
+        speedingStartTimeMs = 0L;
+    }
+
+    private int resolveSpeedLimit(LegacyGpsRouteResource route) {
+        LegacyGpsRouteResource.StationPoint stationPoint = resolveSpeedReferenceStation(route);
+        if (stationPoint == null || stationPoint.getSpeedLimit() == null || stationPoint.getSpeedLimit().trim().isEmpty()) {
+            return 0;
+        }
+        try {
+            return (int) Math.round(Double.parseDouble(stationPoint.getSpeedLimit().trim()));
+        } catch (Exception ignore) {
+            return 0;
+        }
+    }
+
+    private LegacyGpsRouteResource.StationPoint resolveSpeedReferenceStation(LegacyGpsRouteResource route) {
+        if (route == null || route.getStations().isEmpty()) {
+            return null;
+        }
+        int stationNo = stationState.getCurrentStationNo();
+        if (stationState.isPreviewingNext()) {
+            stationNo -= 1;
+        }
+        if (stationNo < 0 || stationNo >= route.getStations().size()) {
+            stationNo = Math.max(0, Math.min(stationState.getCurrentStationNo(), route.getStations().size() - 1));
+        }
+        if (stationNo < 0 || stationNo >= route.getStations().size()) {
+            return null;
+        }
+        return route.getStations().get(stationNo);
+    }
+
+    private int parseSpeedKmh(GpsFixSnapshot snapshot) {
+        if (snapshot == null || snapshot.getSpeedKnots() == null || snapshot.getSpeedKnots().trim().isEmpty()) {
+            return 0;
+        }
+        try {
+            return (int) Math.round(Double.parseDouble(snapshot.getSpeedKnots().trim()) * 1.852d);
+        } catch (Exception ignore) {
+            return 0;
+        }
     }
 }

@@ -247,6 +247,8 @@ public final class ShellConfigLoader {
                     resourceImportObject != null && resourceImportObject.optBoolean("stationResourceImported", false),
                     resourceImportObject == null ? "-" : resourceImportObject.optString("source", "-"),
                     resourceImportObject == null ? "-" : resourceImportObject.optString("lineName", "-"),
+                    resourceImportObject == null ? "-" : resourceImportObject.optString("directionText", "-"),
+                    resourceImportObject == null ? "-" : resourceImportObject.optString("lineAttribute", "-"),
                     resourceImportObject == null ? 0L : resourceImportObject.optLong("updatedAt", 0L)
                 ),
                 new ShellConfig.ProtocolLinkageSettings(
@@ -538,6 +540,8 @@ public final class ShellConfigLoader {
         resourceImportObject.put("stationResourceImported", shellConfig.getBasicSetupConfig().getResourceImportSettings().isStationResourceImported());
         resourceImportObject.put("source", shellConfig.getBasicSetupConfig().getResourceImportSettings().getSource());
         resourceImportObject.put("lineName", shellConfig.getBasicSetupConfig().getResourceImportSettings().getLineName());
+        resourceImportObject.put("directionText", shellConfig.getBasicSetupConfig().getResourceImportSettings().getDirectionText());
+        resourceImportObject.put("lineAttribute", shellConfig.getBasicSetupConfig().getResourceImportSettings().getLineAttribute());
         resourceImportObject.put("updatedAt", shellConfig.getBasicSetupConfig().getResourceImportSettings().getUpdatedAt());
         basicSetupObject.put("resourceImport", resourceImportObject);
 

@@ -87,6 +87,7 @@ public final class LegacyGpsRouteResource {
 
     public static final class StationPoint {
         private final int stationNo;
+        private final String stationSound;
         private final String stationName;
         private final String longitudeRaw;
         private final String latitudeRaw;
@@ -94,12 +95,20 @@ public final class LegacyGpsRouteResource {
         private final double latitudeDecimal;
         private final String angle;
         private final String altitude;
+        private final String stationAdvert;
+        private final String departureAdvert;
+        private final String stationPrompt;
+        private final String departurePrompt;
+        private final String stationExpansion;
+        private final String departureExpansion;
+        private final String speedLimit;
         private final double mileage;
         private final String majorStation;
         private final String voiceNot;
 
         public StationPoint(
                 int stationNo,
+                String stationSound,
                 String stationName,
                 String longitudeRaw,
                 String latitudeRaw,
@@ -107,11 +116,19 @@ public final class LegacyGpsRouteResource {
                 double latitudeDecimal,
                 String angle,
                 String altitude,
+                String stationAdvert,
+                String departureAdvert,
+                String stationPrompt,
+                String departurePrompt,
+                String stationExpansion,
+                String departureExpansion,
+                String speedLimit,
                 double mileage,
                 String majorStation,
                 String voiceNot
         ) {
             this.stationNo = stationNo;
+            this.stationSound = stationSound == null ? "-" : stationSound.trim();
             this.stationName = stationName == null ? "-" : stationName.trim();
             this.longitudeRaw = longitudeRaw == null ? "" : longitudeRaw.trim();
             this.latitudeRaw = latitudeRaw == null ? "" : latitudeRaw.trim();
@@ -119,6 +136,13 @@ public final class LegacyGpsRouteResource {
             this.latitudeDecimal = latitudeDecimal;
             this.angle = angle == null ? "" : angle.trim();
             this.altitude = altitude == null ? "" : altitude.trim();
+            this.stationAdvert = stationAdvert == null ? "" : stationAdvert.trim();
+            this.departureAdvert = departureAdvert == null ? "" : departureAdvert.trim();
+            this.stationPrompt = stationPrompt == null ? "" : stationPrompt.trim();
+            this.departurePrompt = departurePrompt == null ? "" : departurePrompt.trim();
+            this.stationExpansion = stationExpansion == null ? "" : stationExpansion.trim();
+            this.departureExpansion = departureExpansion == null ? "" : departureExpansion.trim();
+            this.speedLimit = speedLimit == null ? "" : speedLimit.trim();
             this.mileage = mileage;
             this.majorStation = majorStation == null ? "" : majorStation.trim();
             this.voiceNot = voiceNot == null ? "" : voiceNot.trim();
@@ -126,6 +150,10 @@ public final class LegacyGpsRouteResource {
 
         public int getStationNo() {
             return stationNo;
+        }
+
+        public String getStationSound() {
+            return stationSound;
         }
 
         public String getStationName() {
@@ -154,6 +182,34 @@ public final class LegacyGpsRouteResource {
 
         public String getAltitude() {
             return altitude;
+        }
+
+        public String getStationAdvert() {
+            return stationAdvert;
+        }
+
+        public String getDepartureAdvert() {
+            return departureAdvert;
+        }
+
+        public String getStationPrompt() {
+            return stationPrompt;
+        }
+
+        public String getDeparturePrompt() {
+            return departurePrompt;
+        }
+
+        public String getStationExpansion() {
+            return stationExpansion;
+        }
+
+        public String getDepartureExpansion() {
+            return departureExpansion;
+        }
+
+        public String getSpeedLimit() {
+            return speedLimit;
         }
 
         public double getMileage() {

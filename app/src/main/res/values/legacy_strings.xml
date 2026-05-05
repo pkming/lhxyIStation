@@ -24,6 +24,11 @@
     <string name="main_switch">切换</string>
     <string name="main_cease">停止</string>
     <string name="main_dvr">DVR</string>
+    <string name="main_warning_on">报警开</string>
+    <string name="main_warning_off">报警关</string>
+    <string name="main_warning_enabled">已打开超速报警</string>
+    <string name="main_warning_disabled">已关闭超速报警</string>
+    <string name="main_warning_toggle_failed">切换超速报警失败</string>
     <string name="main_satellites_value">星数:%1$s</string>
     <string name="main_dvr_value">DVR:%1$s</string>
     <string name="main_cms_value">CMS:%1$s</string>
@@ -40,7 +45,6 @@
     <string name="main_no_end">NO.终点站</string>
     <string name="main_no">NO.第%1$s站</string>
     <string name="main_home_station">本站:</string>
-    <string name="main_previous_station">上一站:</string>
     <string name="main_leave_for">开往:</string>
     <string name="main_next_station">下站:</string>
     <string name="main_mittertor">中门</string>
@@ -263,8 +267,11 @@
     <string name="dispatch_center_card_number">卡号:</string>
     <string name="dispatch_center_name">姓名:</string>
     <string name="dispatch_center_operation">加入运营</string>
+    <string name="dispatch_center_confirm_dispatch">确认调度</string>
+    <string name="dispatch_center_ack_notice">确认公告</string>
     <string name="dispatch_center_request_charging">请求充电</string>
     <string name="dispatch_center_vehicle_failure">车辆故障</string>
+    <string name="dispatch_center_start_bus">发车</string>
     <string name="dispatch_center_exit_operation">退出运营</string>
 
     <string name="wireless_setup">点击进入系统页面设置</string>

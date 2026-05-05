@@ -247,6 +247,8 @@ public final class ShellConfig {
             .append(" / 外音开关=").append(basicSetupConfig.getNewspaperSettings().isExternalSoundEnabled())
             .append("\n- 资源: 导入=").append(basicSetupConfig.getResourceImportSettings().isStationResourceImported())
             .append(" / 线路=").append(basicSetupConfig.getResourceImportSettings().getLineName())
+            .append(" / 方向=").append(basicSetupConfig.getResourceImportSettings().getDirectionText())
+            .append(" / 属性=").append(basicSetupConfig.getResourceImportSettings().getLineAttribute())
             .append(" / 来源=").append(basicSetupConfig.getResourceImportSettings().getSource())
             .append("\n- TTS: 开关=").append(basicSetupConfig.getTtsSettings().isEnabled())
             .append(" / 内音=").append(basicSetupConfig.getTtsSettings().getInnerVolume())
@@ -765,22 +767,39 @@ public final class ShellConfig {
         private final boolean stationResourceImported;
         private final String source;
         private final String lineName;
+        private final String directionText;
+        private final String lineAttribute;
         private final long updatedAt;
 
         public ResourceImportSettings(boolean stationResourceImported, String source, String lineName, long updatedAt) {
+            this(stationResourceImported, source, lineName, "-", "-", updatedAt);
+        }
+
+        public ResourceImportSettings(
+                boolean stationResourceImported,
+                String source,
+                String lineName,
+                String directionText,
+                String lineAttribute,
+                long updatedAt
+        ) {
             this.stationResourceImported = stationResourceImported;
             this.source = source == null || source.trim().isEmpty() ? "-" : source.trim();
             this.lineName = lineName == null || lineName.trim().isEmpty() ? "-" : lineName.trim();
+            this.directionText = directionText == null || directionText.trim().isEmpty() ? "-" : directionText.trim();
+            this.lineAttribute = lineAttribute == null || lineAttribute.trim().isEmpty() ? "-" : lineAttribute.trim();
             this.updatedAt = updatedAt;
         }
 
         public static ResourceImportSettings defaults() {
-            return new ResourceImportSettings(false, "-", "-", 0L);
+            return new ResourceImportSettings(false, "-", "-", "-", "-", 0L);
         }
 
         public boolean isStationResourceImported() { return stationResourceImported; }
         public String getSource() { return source; }
         public String getLineName() { return lineName; }
+        public String getDirectionText() { return directionText; }
+        public String getLineAttribute() { return lineAttribute; }
         public long getUpdatedAt() { return updatedAt; }
     }
 

@@ -75,6 +75,14 @@
         <item name="android:textColor">@color/switch_text_selector</item>
     </style>
 
+    <style name="LegacySelectionDialogTheme" parent="Theme.AppCompat.Light.Dialog.Alert">
+        <item name="android:windowBackground">@color/c_ffffff</item>
+        <item name="android:colorBackground">@color/c_ffffff</item>
+        <item name="android:textColorPrimary">@color/c_000000</item>
+        <item name="android:textColorSecondary">@color/c_000000</item>
+        <item name="colorAccent">@color/colorControlActivated</item>
+    </style>
+
 
     <style name="monitorTextStyle">
         <item name="android:textStyle">bold</item>

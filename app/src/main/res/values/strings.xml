@@ -17,7 +17,9 @@
     <string name="module_dispatch_all">回放调度全协议</string>
     <string name="module_dispatch_join_operation">加入运营</string>
     <string name="module_dispatch_leave_operation">退出运营</string>
-    <string name="module_station_bind_gps">绑定 GPS 监听</string>
+    <string name="module_gps_bind">绑定 GPS 监听</string>
+    <string name="module_gps_scan_route">扫描线路</string>
+    <string name="module_gps_scan_baseline">L1 基线</string>
     <string name="module_station_advance">推进一站</string>
     <string name="module_signin_read_card">读取卡号</string>
     <string name="module_camera_open">打开默认 Camera</string>
@@ -27,6 +29,7 @@
     <string name="module_file_reset">重置运行配置</string>
     <string name="module_dispatch">调度</string>
     <string name="module_station">报站</string>
+    <string name="module_gps">GPS</string>
     <string name="module_signin">签到</string>
     <string name="module_camera_dvr">摄像头/DVR</string>
     <string name="module_upgrade">升级</string>

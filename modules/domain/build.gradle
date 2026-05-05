@@ -20,5 +20,7 @@ dependencies {
     implementation project(':modules:core')
     implementation project(':modules:protocol')
     implementation project(':modules:device-api')
+
+    testImplementation 'junit:junit:4.13.2'
 }
 

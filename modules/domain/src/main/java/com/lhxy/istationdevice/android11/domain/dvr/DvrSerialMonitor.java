@@ -34,6 +34,8 @@ public final class DvrSerialMonitor {
 
     private final DispatchState dispatchState;
     private final SignInState signInState;
+    private final DispatchRequestListener dispatchRequestListener;
+    private final DispatchNoticeListener dispatchNoticeListener;
     private final Object bufferLock = new Object();
     private final ByteArrayOutputStream receivedBuffer = new ByteArrayOutputStream();
 
@@ -53,9 +55,16 @@ public final class DvrSerialMonitor {
 
     private volatile HandshakeLoop handshakeLoop;
 
-    public DvrSerialMonitor(DispatchState dispatchState, SignInState signInState) {
+    public DvrSerialMonitor(
+            DispatchState dispatchState,
+            SignInState signInState,
+            DispatchRequestListener dispatchRequestListener,
+            DispatchNoticeListener dispatchNoticeListener
+    ) {
         this.dispatchState = dispatchState;
         this.signInState = signInState;
+        this.dispatchRequestListener = dispatchRequestListener;
+        this.dispatchNoticeListener = dispatchNoticeListener;
     }
 
     public void sync(SerialPortAdapter serialPortAdapter, ShellConfig shellConfig, String traceId) {
@@ -300,6 +309,9 @@ public final class DvrSerialMonitor {
                 departureTime,
                 lineName
         );
+            if (dispatchRequestListener != null) {
+                dispatchRequestListener.onRequestReceived("dvr-dispatch-" + msgSerialNo);
+            }
         return "DVR 调度下发 msgSn=" + msgSerialNo
                 + " / line=" + valueOrDash(lineName)
                 + " / direction=" + direction
@@ -315,7 +327,18 @@ public final class DvrSerialMonitor {
         long msgSerialNo = readIntBigEndian(payload, 0) & 0xFFFFFFFFL;
         String notice = decodeGbk(payload, 4, payload.length - 4);
         dispatchState.markNoticeReceived(notice, msgSerialNo);
+        if (dispatchNoticeListener != null) {
+            dispatchNoticeListener.onNoticeReceived(notice, "dvr-notice-" + msgSerialNo);
+        }
         return "DVR 公告下发 msgSn=" + msgSerialNo + " / body=" + valueOrDash(notice);
+    }
+
+    public interface DispatchNoticeListener {
+        void onNoticeReceived(String notice, String traceId);
+    }
+
+    public interface DispatchRequestListener {
+        void onRequestReceived(String traceId);
     }
 
     private void markOnline(String traceId) {

@@ -27,7 +27,7 @@ import java.util.function.Supplier;
  * 业务模块统一编排中心
  * <p>
  * 新壳后面的业务都从这里挂：
- * 调度、报站、签到、摄像头/DVR、升级、文件。
+ * 调度、GPS、报站、签到、摄像头/DVR、升级、文件。
  */
 public final class TerminalModuleHub {
     private final Map<String, TerminalBusinessModule> modules = new LinkedHashMap<>();
@@ -50,12 +50,19 @@ public final class TerminalModuleHub {
         DeviceFoundationUseCase deviceFoundationUseCase = new DeviceFoundationUseCase();
         DvrSerialDispatchUseCase dvrSerialDispatchUseCase = new DvrSerialDispatchUseCase(serialPortAdapter);
         DispatchBusinessModule dispatchModule =
-                new DispatchBusinessModule(protocolReplayUseCase, socketClientAdapter, jt808SocketMonitor, dvrSerialDispatchUseCase);
+            new DispatchBusinessModule(protocolReplayUseCase, socketClientAdapter, gpioAdapter, jt808SocketMonitor, dvrSerialDispatchUseCase);
+        GpsBusinessModule gpsModule =
+            new GpsBusinessModule(serialPortAdapter, gpsSerialMonitor);
         StationBusinessModule stationModule =
-                new StationBusinessModule(protocolReplayUseCase, serialPortAdapter, gpsSerialMonitor, dvrSerialDispatchUseCase);
+                new StationBusinessModule(protocolReplayUseCase, serialPortAdapter, gpioAdapter, gpsSerialMonitor, dispatchModule, dvrSerialDispatchUseCase);
         SignInBusinessModule signInModule =
                 new SignInBusinessModule(protocolReplayUseCase, socketClientAdapter, rfidAdapter, dvrSerialDispatchUseCase);
-        dvrSerialMonitor = new DvrSerialMonitor(dispatchModule.getDispatchState(), signInModule.getSignInState());
+        dvrSerialMonitor = new DvrSerialMonitor(
+            dispatchModule.getDispatchState(),
+            signInModule.getSignInState(),
+            dispatchModule::onDispatchRequestReceived,
+            dispatchModule::onDispatchNoticeReceived
+        );
         CameraDvrBusinessModule cameraModule = new CameraDvrBusinessModule(
                 deviceFoundationUseCase,
                 cameraAdapter,
@@ -66,6 +73,7 @@ public final class TerminalModuleHub {
         );
 
         register(dispatchModule);
+        register(gpsModule);
         register(stationModule);
         register(signInModule);
         register(cameraModule);

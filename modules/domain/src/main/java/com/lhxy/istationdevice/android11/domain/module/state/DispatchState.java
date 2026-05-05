@@ -59,6 +59,15 @@ public final class DispatchState {
     public void markOperation(boolean joined, String message) {
         joinedOperation = joined;
         dispatchMessage = emptyAsDash(message);
+        if (!joined) {
+            dispatchedConfirmed = false;
+            startedBus = false;
+            requestedCharge = false;
+            reportedVehicleFailure = false;
+            pendingNoticeAcked = true;
+            pendingNoticeMessage = "-";
+            pendingNoticeMsgSerialNo = 0L;
+        }
         lastUpdateTimeMillis = System.currentTimeMillis();
     }
 

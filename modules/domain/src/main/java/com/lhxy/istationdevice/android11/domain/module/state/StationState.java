@@ -25,14 +25,14 @@ public final class StationState {
     private String lastReminder = "-";
     private int satellites;
     private int stationCursor = -1;
+    private int displayStationNo = -1;
     private int currentStationNo = -1;
     private int currentStationType;
     private int reportCount;
+    private boolean previewingNext;
 
     public StationState() {
-        routeStations.addAll(Arrays.asList("火车站", "市政府", "人民广场", "科技园"));
-        terminalStation = routeStations.get(routeStations.size() - 1);
-        nextStation = routeStations.get(0);
+        applyLineProfile("101路", "上行", Arrays.asList("火车站", "市政府", "人民广场", "科技园"));
     }
 
     public void advanceStation() {
@@ -40,31 +40,163 @@ public final class StationState {
         if (routeStations.isEmpty()) {
             currentStation = "-";
             nextStation = "-";
+            displayStationNo = -1;
             currentStationNo = -1;
             reportPhase = "待发";
             return;
         }
 
-        if (stationCursor < 0) {
-            stationCursor = 0;
-        } else if (stationCursor < routeStations.size() - 1) {
-            stationCursor++;
+        if (!previewingNext) {
+            if (stationCursor >= routeStations.size() - 1) {
+                stationCursor = routeStations.size() - 1;
+                displayStationNo = stationCursor;
+                currentStationNo = stationCursor;
+                currentStationType = 0;
+                currentStation = routeStations.get(stationCursor);
+                nextStation = "-";
+                reportPhase = "终点到站";
+                lastReminder = "-";
+                return;
+            }
+            if (stationCursor < routeStations.size() - 1) {
+                stationCursor++;
+            }
+            previewingNext = true;
+            displayStationNo = stationCursor > 0 ? stationCursor - 1 : 0;
+            currentStationNo = stationCursor;
+            currentStationType = 1;
+            currentStation = routeStations.get(stationCursor);
+            nextStation = stationCursor + 1 < routeStations.size() ? routeStations.get(stationCursor + 1) : "-";
+            if (stationCursor == 1) {
+                reportPhase = "起点发车";
+            } else if (stationCursor >= routeStations.size() - 1) {
+                reportPhase = "终点预报";
+            } else {
+                reportPhase = "出站预报";
+            }
+        } else {
+            previewingNext = false;
+            displayStationNo = stationCursor;
+            currentStationNo = stationCursor;
+            currentStationType = 0;
+            currentStation = routeStations.get(stationCursor);
+            nextStation = stationCursor + 1 < routeStations.size() ? routeStations.get(stationCursor + 1) : "-";
+            reportPhase = stationCursor >= routeStations.size() - 1 ? "终点到站" : "进站播报";
         }
-        currentStationNo = stationCursor;
-        currentStationType = 0;
-        currentStation = routeStations.get(stationCursor);
-        nextStation = stationCursor + 1 < routeStations.size() ? routeStations.get(stationCursor + 1) : "-";
-        reportPhase = stationCursor == 0 ? "起点发车" : stationCursor == routeStations.size() - 1 ? "终点到站" : "进站播报";
         lastReminder = "-";
     }
 
-    public void repeatCurrentStation() {
+    public void retreatStation() {
+        if (routeStations.isEmpty()) {
+            return;
+        }
+        reportCount++;
+        if (previewingNext) {
+            previewingNext = false;
+            if (stationCursor > 0) {
+                stationCursor--;
+            }
+            displayStationNo = stationCursor;
+            currentStationNo = stationCursor;
+            currentStationType = 0;
+            currentStation = routeStations.get(stationCursor);
+            nextStation = stationCursor + 1 < routeStations.size() ? routeStations.get(stationCursor + 1) : "-";
+            reportPhase = stationCursor == 0 ? "回到起点" : "回退到站";
+        } else {
+            if (stationCursor <= 0) {
+                return;
+            }
+            previewingNext = true;
+            displayStationNo = stationCursor;
+            currentStationNo = stationCursor;
+            currentStationType = 1;
+            currentStation = routeStations.get(stationCursor);
+            nextStation = stationCursor + 1 < routeStations.size() ? routeStations.get(stationCursor + 1) : "-";
+            reportPhase = "回退预报";
+        }
+        lastReminder = "-";
+    }
+
+    public boolean quickStepForward() {
+        if (routeStations.isEmpty()) {
+            return false;
+        }
+        if (!previewingNext && stationCursor >= routeStations.size() - 1) {
+            return false;
+        }
+        if (!previewingNext) {
+            stationCursor++;
+            previewingNext = true;
+            displayStationNo = stationCursor > 0 ? stationCursor - 1 : 0;
+            currentStationNo = stationCursor;
+            currentStationType = 1;
+            currentStation = routeStations.get(stationCursor);
+            nextStation = stationCursor + 1 < routeStations.size() ? routeStations.get(stationCursor + 1) : "-";
+            if (stationCursor == 1) {
+                reportPhase = "起点发车";
+            } else if (stationCursor >= routeStations.size() - 1) {
+                reportPhase = "终点预报";
+            } else {
+                reportPhase = "出站预报";
+            }
+        } else {
+            previewingNext = false;
+            displayStationNo = stationCursor;
+            currentStationNo = stationCursor;
+            currentStationType = 0;
+            currentStation = routeStations.get(stationCursor);
+            nextStation = stationCursor + 1 < routeStations.size() ? routeStations.get(stationCursor + 1) : "-";
+            reportPhase = stationCursor >= routeStations.size() - 1 ? "终点到站" : "进站播报";
+        }
+        lastReminder = "-";
+        return true;
+    }
+
+    public boolean quickStepBackward() {
+        if (routeStations.isEmpty()) {
+            return false;
+        }
+        if (previewingNext) {
+            previewingNext = false;
+            if (stationCursor > 0) {
+                stationCursor--;
+            }
+            displayStationNo = stationCursor;
+            currentStationNo = stationCursor;
+            currentStationType = 0;
+            currentStation = routeStations.get(stationCursor);
+            nextStation = stationCursor + 1 < routeStations.size() ? routeStations.get(stationCursor + 1) : "-";
+            reportPhase = stationCursor == 0 ? "回到起点" : "回退到站";
+            lastReminder = "-";
+            return true;
+        }
+        if (stationCursor - 1 < 0) {
+            return false;
+        }
+        previewingNext = true;
+        displayStationNo = stationCursor;
+        currentStationNo = stationCursor;
+        currentStationType = 1;
+        currentStation = routeStations.get(stationCursor);
+        nextStation = stationCursor + 1 < routeStations.size() ? routeStations.get(stationCursor + 1) : "-";
+        reportPhase = "回退预报";
+        lastReminder = "-";
+        return true;
+    }
+
+    public boolean repeatCurrentStation() {
+        if (previewingNext) {
+            return false;
+        }
         reportCount++;
         if ("-".equals(currentStation)) {
             advanceStation();
-            return;
+            return true;
         }
+        currentStationType = 0;
         reportPhase = "重复报站";
+        lastReminder = "-";
+        return true;
     }
 
     public void stopReport() {
@@ -93,6 +225,7 @@ public final class StationState {
         currentStationNo = Math.max(stationNo, -1);
         currentStationType = stationType;
         stationCursor = currentStationNo;
+        previewingNext = stationType == 1;
         currentStation = emptyAsDash(stationName);
         nextStation = stationCursor + 1 >= 0 && stationCursor + 1 < routeStations.size()
                 ? routeStations.get(stationCursor + 1)
@@ -171,6 +304,14 @@ public final class StationState {
         return reportPhase;
     }
 
+    public boolean isPreviewingNext() {
+        return previewingNext;
+    }
+
+    public boolean isFirstDeparturePreview() {
+        return previewingNext && currentStationNo == 1;
+    }
+
     public String getGpsChannelKey() {
         return gpsChannelKey;
     }
@@ -191,8 +332,16 @@ public final class StationState {
         return reportCount;
     }
 
+    public int getStationCount() {
+        return routeStations.size();
+    }
+
     public int getCurrentStationNo() {
         return currentStationNo;
+    }
+
+    public int getDisplayStationNo() {
+        return displayStationNo;
     }
 
     public int getCurrentStationType() {
@@ -219,9 +368,11 @@ public final class StationState {
             }
         }
         stationCursor = -1;
+        displayStationNo = -1;
         currentStationNo = -1;
         currentStationType = 0;
         reportCount = 0;
+        previewingNext = false;
         currentStation = "-";
         lastReminder = "-";
         reportPhase = "待发";
@@ -230,7 +381,12 @@ public final class StationState {
             terminalStation = "-";
             return;
         }
-        nextStation = routeStations.get(0);
+        stationCursor = 0;
+        displayStationNo = 0;
+        currentStationNo = 0;
+        currentStationType = 0;
+        currentStation = routeStations.get(0);
+        nextStation = routeStations.size() > 1 ? routeStations.get(1) : "-";
         terminalStation = routeStations.get(routeStations.size() - 1);
     }
 
@@ -242,6 +398,7 @@ public final class StationState {
                 + "\n- nextStation=" + emptyAsDash(nextStation)
                 + "\n- stationNo=" + currentStationNo
                 + "\n- stationType=" + currentStationType
+                + "\n- previewingNext=" + previewingNext
                 + "\n- phase=" + emptyAsDash(reportPhase)
                 + "\n- reminder=" + emptyAsDash(lastReminder)
                 + "\n- gpsChannel=" + emptyAsDash(gpsChannelKey)

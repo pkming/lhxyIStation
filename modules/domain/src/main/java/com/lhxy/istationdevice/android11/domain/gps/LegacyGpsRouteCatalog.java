@@ -71,21 +71,30 @@ public final class LegacyGpsRouteCatalog {
                 continue;
             }
             int stationNo = parseInt(cell(row, 0), stations.size());
+            String stationSound = cell(row, 1);
             String stationName = cell(row, 2);
             if (stationName.isEmpty()) {
-                stationName = cell(row, 1);
+                stationName = stationSound;
             }
             Coordinate longitude = parseCoordinate(cell(row, 3), true);
             Coordinate latitude = parseCoordinate(cell(row, 4), false);
             stations.add(new LegacyGpsRouteResource.StationPoint(
                     stationNo,
+                    stationSound,
                     stationName,
                     longitude.raw,
                     latitude.raw,
                     longitude.decimal,
                     latitude.decimal,
                     cell(row, 5),
-                    "",
+                    cell(row, 6),
+                    cell(row, 7),
+                    cell(row, 8),
+                    cell(row, 9),
+                    cell(row, 10),
+                    cell(row, 11),
+                    cell(row, 12),
+                    cell(row, 13),
                     parseDouble(cell(row, 14), 0d),
                     cell(row, 15),
                     cell(row, 16)

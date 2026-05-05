@@ -3,6 +3,7 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <application
         android:name=".ShellApplication"
@@ -13,62 +14,62 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.IStationShell">
         <activity
-            android:name=".LegacyMenuActivity"
+            android:name=".menu.LegacyMenuActivity"
             android:exported="false"
             android:screenOrientation="landscape"
             android:theme="@style/AppTheme" />
         <activity
-            android:name=".LegacySystemInfoActivity"
+            android:name=".sysinfo.LegacySystemInfoActivity"
             android:exported="false"
             android:screenOrientation="landscape"
             android:theme="@style/AppTheme" />
         <activity
-            android:name=".LegacySiteCollectionActivity"
+            android:name=".station.LegacySiteCollectionActivity"
             android:exported="false"
             android:screenOrientation="landscape"
             android:theme="@style/AppTheme" />
         <activity
-            android:name=".LegacyBasicSetupActivity"
+            android:name=".setup.LegacyBasicSetupActivity"
             android:exported="false"
             android:screenOrientation="landscape"
             android:theme="@style/AppTheme" />
         <activity
-            android:name=".LegacyInfoBrowsActivity"
+            android:name=".info.LegacyInfoBrowsActivity"
             android:exported="false"
             android:screenOrientation="landscape"
             android:theme="@style/AppTheme" />
         <activity
-            android:name=".LegacyDispatchCenterActivity"
+            android:name=".dispatch.LegacyDispatchCenterActivity"
             android:exported="false"
             android:screenOrientation="landscape"
             android:theme="@style/AppTheme" />
         <activity
-            android:name=".LegacyVoiceCallActivity"
+            android:name=".media.LegacyVoiceCallActivity"
             android:exported="false"
             android:screenOrientation="landscape"
             android:theme="@style/AppTheme" />
         <activity
-            android:name=".LegacyVideoMonitorActivity"
+            android:name=".media.LegacyVideoMonitorActivity"
             android:exported="false"
             android:screenOrientation="landscape"
             android:theme="@style/AppTheme" />
         <activity
-            android:name=".LegacyFileManageActivity"
+            android:name=".file.LegacyFileManageActivity"
             android:exported="false"
             android:screenOrientation="landscape"
             android:theme="@style/AppTheme" />
         <activity
-            android:name=".LegacyLineChoiceActivity"
+            android:name=".line.LegacyLineChoiceActivity"
             android:exported="false"
             android:screenOrientation="landscape"
             android:theme="@style/AppTheme" />
         <activity
-            android:name=".LegacyLoginActivity"
+            android:name=".auth.LegacyLoginActivity"
             android:exported="false"
             android:screenOrientation="landscape"
             android:theme="@style/AppTheme" />
         <activity
-            android:name=".LegacyMainActivity"
+            android:name=".home.LegacyMainActivity"
             android:exported="true"
             android:screenOrientation="landscape"
             android:theme="@style/AppTheme">
@@ -79,13 +80,13 @@
             </intent-filter>
         </activity>
         <activity
-            android:name=".BusinessModulesActivity"
+            android:name=".menu.BusinessModulesActivity"
             android:exported="false" />
         <activity
-            android:name=".ModuleCenterActivity"
+            android:name=".menu.ModuleCenterActivity"
             android:exported="false" />
         <activity
-            android:name=".MainActivity"
+            android:name=".home.MainActivity"
             android:exported="false" />
     </application>
 
