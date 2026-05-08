@@ -44,7 +44,7 @@
                     android:gravity="center"
                     android:paddingBottom="@dimen/d_6"
                     android:paddingTop="@dimen/d_6"
-                    android:text="@string/menu_line_selection"
+                    android:text="@string/main_dvr"
                     android:textColor="@color/c_000000"
                     android:textStyle="bold"
                     android:textSize="24sp" />

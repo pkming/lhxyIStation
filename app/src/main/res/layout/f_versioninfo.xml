@@ -113,5 +113,38 @@
 
     </RelativeLayout>
 
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/d_1px"
+                    android:layout_marginLeft="@dimen/d_22"
+                    android:layout_marginRight="@dimen/d_22"
+                    android:background="@color/c_ffffff" />
+
+                <RelativeLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/d_52"
+                    android:layout_marginLeft="@dimen/d_16"
+                    android:layout_marginRight="@dimen/d_22"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_centerVertical="true"
+                        android:text="@string/sys_info_source_version_time"
+                        android:textColor="@color/c_ffffff"
+                        android:textSize="22sp" />
+
+                    <TextView
+                        android:id="@+id/tvSourceVersionTime"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_alignParentRight="true"
+                        tools:ignore="RelativeOverlap"
+                        android:layout_centerVertical="true"
+                        android:textColor="@color/c_ffffff"
+                        android:textSize="20sp" />
+                </RelativeLayout>
+
 
 </LinearLayout>

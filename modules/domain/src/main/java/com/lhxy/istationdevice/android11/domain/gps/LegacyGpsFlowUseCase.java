@@ -1,0 +1,170 @@
+package com.lhxy.istationdevice.android11.domain.gps;
+
+import android.content.Context;
+
+import com.lhxy.istationdevice.android11.domain.config.ShellConfig;
+import com.lhxy.istationdevice.android11.protocol.gps.GpsFixSnapshot;
+
+/**
+ * Owns the legacy GPS runtime flow: route resolution, auto-report evaluation, and direction switch routing.
+ */
+public final class LegacyGpsFlowUseCase {
+    private final LegacyGpsRouteCatalog routeCatalog = new LegacyGpsRouteCatalog();
+    private final LegacyGpsAutoReportEngine autoReportEngine = new LegacyGpsAutoReportEngine();
+
+    public void clearCache() {
+        routeCatalog.clearCache();
+    }
+
+    public LegacyGpsRouteResource load(Context context, String lineName, String directionText) {
+        return routeCatalog.load(context, lineName, directionText);
+    }
+
+    public LegacyGpsRouteResource resolveActiveRoute(
+            Context context,
+            ShellConfig shellConfig,
+            String fallbackLineName,
+            String fallbackDirectionText
+    ) {
+        if (context == null || shellConfig == null) {
+            return null;
+        }
+        return routeCatalog.load(
+                context,
+                resolvePreferredLineName(shellConfig, fallbackLineName),
+                resolvePreferredDirectionText(shellConfig, fallbackLineName, fallbackDirectionText)
+        );
+    }
+
+    public GpsFlowResult evaluate(
+            Context context,
+            ShellConfig shellConfig,
+            String fallbackLineName,
+            String fallbackDirectionText,
+            GpsFixSnapshot snapshot
+    ) {
+        LegacyGpsRouteResource route = resolveActiveRoute(context, shellConfig, fallbackLineName, fallbackDirectionText);
+        if (route == null) {
+            return GpsFlowResult.missingRoute(snapshot);
+        }
+        boolean angleEnabled = shellConfig.getBasicSetupConfig().getNewspaperSettings().isAngleEnabled();
+        if (snapshot == null || !snapshot.isValid()) {
+            return GpsFlowResult.invalidFix(route, snapshot, angleEnabled);
+        }
+        LegacyGpsAutoReportEngine.AutoReportEvent event = autoReportEngine.evaluate(route, snapshot, angleEnabled);
+        return GpsFlowResult.of(route, snapshot, angleEnabled, event);
+    }
+
+    public LegacyGpsRouteResource resolveSwitchedRoute(Context context, LegacyGpsRouteResource currentRoute) {
+        if (context == null || currentRoute == null) {
+            return null;
+        }
+        String nextDirection = currentRoute.getDirectionText().contains("下") ? "上行" : "下行";
+        return routeCatalog.load(context, currentRoute.getLineName(), nextDirection);
+    }
+
+    public void reset(LegacyGpsRouteResource route) {
+        if (route == null) {
+            return;
+        }
+        autoReportEngine.reset(route.getLineName() + "|" + route.getDirectionText());
+    }
+
+    private String resolvePreferredLineName(ShellConfig shellConfig, String fallbackLineName) {
+        ShellConfig.ResourceImportSettings resourceImportSettings =
+                shellConfig.getBasicSetupConfig().getResourceImportSettings();
+        if (resourceImportSettings.getLineName() != null
+                && !resourceImportSettings.getLineName().trim().isEmpty()
+                && !"-".equals(resourceImportSettings.getLineName().trim())) {
+            return resourceImportSettings.getLineName().trim();
+        }
+        return fallbackLineName == null ? "-" : fallbackLineName.trim();
+    }
+
+    private String resolvePreferredDirectionText(
+            ShellConfig shellConfig,
+            String fallbackLineName,
+            String fallbackDirectionText
+    ) {
+        ShellConfig.ResourceImportSettings resourceImportSettings =
+                shellConfig.getBasicSetupConfig().getResourceImportSettings();
+        if (resourceImportSettings.getLineName() != null
+                && !resourceImportSettings.getLineName().trim().isEmpty()
+                && !"-".equals(resourceImportSettings.getLineName().trim())
+                && resourceImportSettings.getDirectionText() != null
+                && !resourceImportSettings.getDirectionText().trim().isEmpty()
+                && !"-".equals(resourceImportSettings.getDirectionText().trim())) {
+            return resourceImportSettings.getDirectionText().trim();
+        }
+        if (fallbackLineName != null && !fallbackLineName.trim().isEmpty()) {
+            if (fallbackDirectionText != null && !fallbackDirectionText.trim().isEmpty()) {
+                return fallbackDirectionText.trim();
+            }
+        }
+        return "上行";
+    }
+
+    public static final class GpsFlowResult {
+        private final LegacyGpsRouteResource route;
+        private final GpsFixSnapshot snapshot;
+        private final boolean angleEnabled;
+        private final LegacyGpsAutoReportEngine.AutoReportEvent event;
+
+        private GpsFlowResult(
+                LegacyGpsRouteResource route,
+                GpsFixSnapshot snapshot,
+                boolean angleEnabled,
+                LegacyGpsAutoReportEngine.AutoReportEvent event
+        ) {
+            this.route = route;
+            this.snapshot = snapshot;
+            this.angleEnabled = angleEnabled;
+            this.event = event == null ? LegacyGpsAutoReportEngine.AutoReportEvent.none() : event;
+        }
+
+        public static GpsFlowResult of(
+                LegacyGpsRouteResource route,
+                GpsFixSnapshot snapshot,
+                boolean angleEnabled,
+                LegacyGpsAutoReportEngine.AutoReportEvent event
+        ) {
+            return new GpsFlowResult(route, snapshot, angleEnabled, event);
+        }
+
+        public static GpsFlowResult missingRoute(GpsFixSnapshot snapshot) {
+            return new GpsFlowResult(null, snapshot, false, LegacyGpsAutoReportEngine.AutoReportEvent.none());
+        }
+
+        public static GpsFlowResult invalidFix(
+                LegacyGpsRouteResource route,
+                GpsFixSnapshot snapshot,
+                boolean angleEnabled
+        ) {
+            return new GpsFlowResult(route, snapshot, angleEnabled, LegacyGpsAutoReportEngine.AutoReportEvent.none());
+        }
+
+        public LegacyGpsRouteResource getRoute() {
+            return route;
+        }
+
+        public GpsFixSnapshot getSnapshot() {
+            return snapshot;
+        }
+
+        public boolean isAngleEnabled() {
+            return angleEnabled;
+        }
+
+        public LegacyGpsAutoReportEngine.AutoReportEvent getEvent() {
+            return event;
+        }
+
+        public boolean hasRoute() {
+            return route != null;
+        }
+
+        public boolean hasValidFix() {
+            return snapshot != null && snapshot.isValid();
+        }
+    }
+}

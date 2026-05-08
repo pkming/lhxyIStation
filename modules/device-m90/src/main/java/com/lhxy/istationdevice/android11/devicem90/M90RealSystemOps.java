@@ -6,6 +6,8 @@ import com.lhxy.istationdevice.android11.core.LogLevel;
 import com.lhxy.istationdevice.android11.deviceapi.SystemOps;
 import com.lhxy.istationdevice.android11.domain.config.ShellConfig;
 
+import java.io.File;
+
 /**
  * M90 真系统能力适配器
  * <p>
@@ -63,6 +65,29 @@ public final class M90RealSystemOps implements SystemOps {
         } catch (Exception e) {
             AppLogCenter.log(LogCategory.ERROR, LogLevel.ERROR, TAG, "setTime failed: " + e.getMessage(), traceId);
             throw new IllegalStateException("请求校时失败: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public void installPackage(String apkPath, String traceId) {
+        if (!supportsSilentInstall()) {
+            throw new IllegalStateException("silentInstall 未开启或 silentInstallCommand 未配置");
+        }
+        String normalizedPath = apkPath == null ? "" : apkPath.trim();
+        if (normalizedPath.isEmpty()) {
+            throw new IllegalArgumentException("apkPath 不能为空");
+        }
+        File apkFile = new File(normalizedPath);
+        if (!apkFile.exists() || !apkFile.isFile()) {
+            throw new IllegalStateException("升级包不存在: " + normalizedPath);
+        }
+        String command = M90CommandSupport.fillValueCommand(systemConfig.getSilentInstallCommand(), normalizedPath);
+        try {
+            M90CommandSupport.exec(command);
+            AppLogCenter.log(LogCategory.DEVICE, LogLevel.INFO, TAG, "install requested: " + command, traceId);
+        } catch (Exception e) {
+            AppLogCenter.log(LogCategory.ERROR, LogLevel.ERROR, TAG, "install failed: " + e.getMessage(), traceId);
+            throw new IllegalStateException("请求安装升级包失败: " + e.getMessage(), e);
         }
     }
 }

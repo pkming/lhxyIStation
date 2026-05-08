@@ -134,6 +134,7 @@ public final class LegacyBasicSetupSectionFragment extends Fragment {
         bindText(view, R.id.etDispatchID, settings.getDispatchId());
         bindText(view, R.id.etLongInterval, String.valueOf(settings.getLongInterval()));
         bindText(view, R.id.etInfoInterval, String.valueOf(settings.getInfoInterval()));
+        bindText(view, R.id.etSpeedingInterval, String.valueOf(settings.getSpeedingInterval()));
         setSwitch(view, R.id.sAdwordsSwitch, settings.isAdwordsEnabled());
         bindText(view, R.id.etAdwordsID, settings.getAdwordsId());
         bindText(view, R.id.etAdwordsUser, settings.getAdwordsUser());
@@ -165,22 +166,29 @@ public final class LegacyBasicSetupSectionFragment extends Fragment {
     private void bindSerialPort(View view) {
         ShellConfig config = ShellRuntime.get().getActiveConfig();
         Map<String, ShellConfig.SerialChannel> channels = config == null ? null : config.getSerialChannels();
-        List<String> baudOptions = Arrays.asList("1200", "2400", "4800", "9600", "19200", "38400", "57600", "115200");
-        // 保留旧项目里的“无”选项，避免把旧行为误收窄成必须选协议。
-        List<String> protocolOptions = Arrays.asList("无", "DVR", "JT808", "AL808", "通达", "恒舞", "LHXY");
+        List<String> baudOptions = Arrays.asList("9600", "19200", "38400", "51200", "57600", "115200");
+        List<String> gpsBaudOptions = Arrays.asList("9600", "115200");
+        List<String> protocolOptions = Arrays.asList("无", "通达", "恒舞", "武汉乐的", "海梁", "LED导程牌", "LHXY", "HW3", "JHY");
+        List<String> dvrChannelOptions = Arrays.asList("VIN1-AHD", "VIN4-AUTO");
         List<String> portOptions = Arrays.asList("RS232-1", "RS232-2", "RS485");
 
         ShellConfig.SerialChannel serial2321 = channels == null ? null : channels.get("rs232_1");
         ShellConfig.SerialChannel serial2322 = channels == null ? null : channels.get("rs232_2");
         ShellConfig.SerialChannel serial485 = channels == null ? null : channels.get("rs485_1");
+        ShellConfig.SerialChannel serial4852 = channels == null ? null : channels.get("rs485_2");
+        ShellConfig.SerialChannel gpsSerial = channels == null || config == null ? null : channels.get(config.getDebugReplay().getGpsSerialKey());
 
         bindSpinner(view, R.id.spPortBaud2321, baudOptions, serial2321 == null ? "9600" : String.valueOf(serial2321.getBaudRate()));
         bindSpinner(view, R.id.spPortBaud2322, baudOptions, serial2322 == null ? "9600" : String.valueOf(serial2322.getBaudRate()));
         bindSpinner(view, R.id.spPortBaud485, baudOptions, serial485 == null ? "9600" : String.valueOf(serial485.getBaudRate()));
+        bindSpinner(view, R.id.spPortBaud4852, baudOptions, serial4852 == null ? "9600" : String.valueOf(serial4852.getBaudRate()));
+        bindSpinner(view, R.id.gpsChannel, gpsBaudOptions, gpsSerial == null ? "115200" : String.valueOf(gpsSerial.getBaudRate()));
         ShellConfig.SerialSettings settings = requireConfig().getBasicSetupConfig().getSerialSettings();
         bindSpinner(view, R.id.spPortProtocol2321, protocolOptions, settings.getRs2321Protocol());
         bindSpinner(view, R.id.spPortProtocol2322, protocolOptions, settings.getRs2322Protocol());
         bindSpinner(view, R.id.spPortProtocol485, protocolOptions, settings.getRs485Protocol());
+        bindSpinner(view, R.id.spPortProtocol4852, protocolOptions, settings.getRs4852Protocol());
+        bindSpinner(view, R.id.spChannel, dvrChannelOptions, mapDvrCameraKeyToOption(requireConfig().getDebugReplay().getCameraChannelKey()));
         bindSpinner(view, R.id.spPortProtocol, protocolOptions, "通达");
         bindSpinner(view, R.id.spPortNumber1, portOptions, "RS485");
         checkRadio(view, R.id.rgDataType, R.id.rbTxtType);
@@ -231,12 +239,7 @@ public final class LegacyBasicSetupSectionFragment extends Fragment {
     private void bindWireless(View view) {
         View gotoSystem = view.findViewById(R.id.rlGotoSystemUp);
         if (gotoSystem != null) {
-            gotoSystem.setEnabled(requireConfig().getBasicSetupConfig().getWirelessSettings().isSystemEntryEnabled());
             gotoSystem.setOnClickListener(v -> {
-                if (!v.isEnabled()) {
-                    toast("当前配置未开启系统设置入口。");
-                    return;
-                }
                 try {
                     startActivity(new Intent(Settings.ACTION_SETTINGS));
                 } catch (Exception e) {
@@ -384,6 +387,8 @@ public final class LegacyBasicSetupSectionFragment extends Fragment {
                                 selectedKey,
                                 current.getDebugReplay().getAl808SocketKey(),
                                 current.getDebugReplay().getGpioPinKey(),
+                            current.getDebugReplay().getMonitorPrimaryGpioKey(),
+                            current.getDebugReplay().getMonitorSecondaryGpioKey(),
                                 current.getDebugReplay().getCameraChannelKey()
                         ),
                         new ShellConfig.BasicSetupConfig(
@@ -392,6 +397,7 @@ public final class LegacyBasicSetupSectionFragment extends Fragment {
                                         readRequiredText(root, R.id.etDispatchID, "调度 ID"),
                                         parseNumber(root, R.id.etLongInterval, "心跳间隔", current.getBasicSetupConfig().getNetworkSettings().getLongInterval()),
                                         parseNumber(root, R.id.etInfoInterval, "信息间隔", current.getBasicSetupConfig().getNetworkSettings().getInfoInterval()),
+                                    parseNumber(root, R.id.etSpeedingInterval, "超速间隔", current.getBasicSetupConfig().getNetworkSettings().getSpeedingInterval()),
                                         readSwitch(root, R.id.sAdwordsSwitch, current.getBasicSetupConfig().getNetworkSettings().isAdwordsEnabled()),
                                         readRequiredText(root, R.id.etAdwordsID, "广告 ID"),
                                         readRequiredText(root, R.id.etAdwordsUser, "广告用户"),
@@ -455,11 +461,27 @@ public final class LegacyBasicSetupSectionFragment extends Fragment {
                         channel.getMode() == null ? SerialMode.STUB : channel.getMode(),
                         channel.getNote()
                 ));
+                updatedChannels.computeIfPresent("rs485_2", (key, channel) -> new ShellConfig.SerialChannel(
+                    channel.getKey(),
+                    channel.getPortName(),
+                    parseSpinnerNumber(root, R.id.spPortBaud4852, channel.getBaudRate()),
+                    channel.getMode() == null ? SerialMode.STUB : channel.getMode(),
+                    channel.getNote()
+                ));
+                String gpsSerialKey = current.getDebugReplay().getGpsSerialKey();
+                updatedChannels.computeIfPresent(gpsSerialKey, (key, channel) -> new ShellConfig.SerialChannel(
+                    channel.getKey(),
+                    channel.getPortName(),
+                    parseSpinnerNumber(root, R.id.gpsChannel, channel.getBaudRate()),
+                    channel.getMode() == null ? SerialMode.STUB : channel.getMode(),
+                    channel.getNote()
+                ));
 
                 // 旧项目串口和网络协议是互斥关系，但新壳当前还没有“禁用网络协议”的正式建模。
                 // 这里改成在 basicSetup 里显式记录“当前由串口还是网络负责调度”，不再直接破坏 Socket 运行时约束。
                 String rs2321Protocol = readSpinnerValue(root, R.id.spPortProtocol2321, current.getBasicSetupConfig().getSerialSettings().getRs2321Protocol());
                 String dispatchOwner = resolveDispatchOwnerAfterSerialSave(current, rs2321Protocol);
+                String cameraChannelKey = mapDvrOptionToCameraKey(readSpinnerValue(root, R.id.spChannel, mapDvrCameraKeyToOption(current.getDebugReplay().getCameraChannelKey())));
                 ShellConfig updated = new ShellConfig(
                         current.getDeviceProfile(),
                         current.getConfigVersion(),
@@ -470,14 +492,24 @@ public final class LegacyBasicSetupSectionFragment extends Fragment {
                         current.getCameraConfig(),
                         current.getRfidConfig(),
                         current.getSystemConfig(),
-                        current.getDebugReplay(),
+                        new ShellConfig.DebugReplay(
+                            current.getDebugReplay().getDisplaySerialKey(),
+                            current.getDebugReplay().getGpsSerialKey(),
+                            current.getDebugReplay().getJt808SocketKey(),
+                            current.getDebugReplay().getAl808SocketKey(),
+                            current.getDebugReplay().getGpioPinKey(),
+                            current.getDebugReplay().getMonitorPrimaryGpioKey(),
+                            current.getDebugReplay().getMonitorSecondaryGpioKey(),
+                            cameraChannelKey
+                        ),
                         new ShellConfig.BasicSetupConfig(
                                 current.getBasicSetupConfig().getNewspaperSettings(),
                                 current.getBasicSetupConfig().getNetworkSettings(),
                                 new ShellConfig.SerialSettings(
                                         rs2321Protocol,
                                         readSpinnerValue(root, R.id.spPortProtocol2322, current.getBasicSetupConfig().getSerialSettings().getRs2322Protocol()),
-                                        readSpinnerValue(root, R.id.spPortProtocol485, current.getBasicSetupConfig().getSerialSettings().getRs485Protocol())
+                                readSpinnerValue(root, R.id.spPortProtocol485, current.getBasicSetupConfig().getSerialSettings().getRs485Protocol()),
+                                readSpinnerValue(root, R.id.spPortProtocol4852, current.getBasicSetupConfig().getSerialSettings().getRs4852Protocol())
                                 ),
                                 current.getBasicSetupConfig().getTtsSettings(),
                                 current.getBasicSetupConfig().getLanguageSettings(),
@@ -648,6 +680,7 @@ public final class LegacyBasicSetupSectionFragment extends Fragment {
         if (!requireStationResourceImported()) {
             return;
         }
+        ShellConfig.OtherSettings currentSettings = requireConfig().getBasicSetupConfig().getOtherSettings();
         confirmAction(R.string.other_ok_tip, 0, () -> persistBasicSetup("legacy-basic-other-save", buildUpdatedConfig(requireConfig(), new ShellConfig.BasicSetupConfig(
             requireConfig().getBasicSetupConfig().getNewspaperSettings(),
             requireConfig().getBasicSetupConfig().getNetworkSettings(),
@@ -655,8 +688,11 @@ public final class LegacyBasicSetupSectionFragment extends Fragment {
             requireConfig().getBasicSetupConfig().getTtsSettings(),
             requireConfig().getBasicSetupConfig().getLanguageSettings(),
             new ShellConfig.OtherSettings(
-                readSeek(root, R.id.sbShoutingVolume, requireConfig().getBasicSetupConfig().getOtherSettings().getShoutingVolume()),
-                readSeek(root, R.id.sbDispatchVolume, requireConfig().getBasicSetupConfig().getOtherSettings().getDispatchVolume())
+                readSeek(root, R.id.sbShoutingVolume, currentSettings.getShoutingVolume()),
+                readSeek(root, R.id.sbDispatchVolume, currentSettings.getDispatchVolume()),
+                currentSettings.getVehicleNumber(),
+                currentSettings.getShoutingPrimaryGpioKey(),
+                currentSettings.getShoutingSecondaryGpioKey()
             ),
             requireConfig().getBasicSetupConfig().getWirelessSettings(),
             requireConfig().getBasicSetupConfig().getResourceImportSettings(),
@@ -795,6 +831,20 @@ public final class LegacyBasicSetupSectionFragment extends Fragment {
             return "RS232-2";
         }
         return "RS485";
+    }
+
+    private String mapDvrCameraKeyToOption(String cameraChannelKey) {
+        if ("monitor".equalsIgnoreCase(cameraChannelKey)) {
+            return "VIN4-AUTO";
+        }
+        return "VIN1-AHD";
+    }
+
+    private String mapDvrOptionToCameraKey(String dvrOption) {
+        if ("VIN4-AUTO".equalsIgnoreCase(dvrOption)) {
+            return "monitor";
+        }
+        return "av_out";
     }
 
     private void showControlRow(@Nullable View target) {

@@ -235,6 +235,13 @@ public final class LegacyGpsRouteResource {
         private final String angle;
         private final String altitude;
         private final double mileage;
+        private final String crossCode;
+        private final String crossPrompt;
+        private final String crossDeparturePrompt;
+        private final String crossExpansion;
+        private final String crossDepartureExpansion;
+        private final String crossSpeedLimit;
+        private final String crossType;
         private final String voiceNot;
 
         public ReminderPoint(
@@ -247,6 +254,13 @@ public final class LegacyGpsRouteResource {
                 String angle,
                 String altitude,
                 double mileage,
+                String crossCode,
+                String crossPrompt,
+                String crossDeparturePrompt,
+                String crossExpansion,
+                String crossDepartureExpansion,
+                String crossSpeedLimit,
+                String crossType,
                 String voiceNot
         ) {
             this.reminderNo = reminderNo;
@@ -258,6 +272,13 @@ public final class LegacyGpsRouteResource {
             this.angle = angle == null ? "" : angle.trim();
             this.altitude = altitude == null ? "" : altitude.trim();
             this.mileage = mileage;
+            this.crossCode = crossCode == null ? "" : crossCode.trim();
+            this.crossPrompt = crossPrompt == null ? "" : crossPrompt.trim();
+            this.crossDeparturePrompt = crossDeparturePrompt == null ? "" : crossDeparturePrompt.trim();
+            this.crossExpansion = crossExpansion == null ? "" : crossExpansion.trim();
+            this.crossDepartureExpansion = crossDepartureExpansion == null ? "" : crossDepartureExpansion.trim();
+            this.crossSpeedLimit = crossSpeedLimit == null ? "" : crossSpeedLimit.trim();
+            this.crossType = crossType == null ? "" : crossType.trim();
             this.voiceNot = voiceNot == null ? "" : voiceNot.trim();
         }
 
@@ -295,6 +316,34 @@ public final class LegacyGpsRouteResource {
 
         public double getMileage() {
             return mileage;
+        }
+
+        public String getCrossCode() {
+            return crossCode;
+        }
+
+        public String getCrossPrompt() {
+            return crossPrompt;
+        }
+
+        public String getCrossDeparturePrompt() {
+            return crossDeparturePrompt;
+        }
+
+        public String getCrossExpansion() {
+            return crossExpansion;
+        }
+
+        public String getCrossDepartureExpansion() {
+            return crossDepartureExpansion;
+        }
+
+        public String getCrossSpeedLimit() {
+            return crossSpeedLimit;
+        }
+
+        public String getCrossType() {
+            return crossType;
         }
 
         public String getVoiceNot() {

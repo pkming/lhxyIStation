@@ -1,6 +1,7 @@
 package com.lhxy.istationdevice.android11.domain.module;
 
 import com.lhxy.istationdevice.android11.deviceapi.CameraAdapter;
+import com.lhxy.istationdevice.android11.deviceapi.DeviceMode;
 import com.lhxy.istationdevice.android11.deviceapi.GpioAdapter;
 import com.lhxy.istationdevice.android11.deviceapi.SerialPortAdapter;
 import com.lhxy.istationdevice.android11.domain.DeviceFoundationUseCase;
@@ -26,6 +27,7 @@ public final class CameraDvrBusinessModule extends AbstractTerminalBusinessModul
     private String lastTouchPoint = "-";
     private String lastGpioKey = "-";
     private int lastGpioValue = -1;
+    private String lastAutoCameraKey = "-";
     private boolean defaultCameraOpened;
 
     public CameraDvrBusinessModule(
@@ -74,6 +76,7 @@ public final class CameraDvrBusinessModule extends AbstractTerminalBusinessModul
             ShellConfig shellConfig = requireShellConfig();
             ShellConfig.CameraChannel cameraChannel = shellConfig.getCameraConfig().requireChannel(shellConfig.getDebugReplay().getCameraChannelKey());
             ShellConfig.GpioPin gpioPin = shellConfig.getGpioConfig().requirePin(shellConfig.getDebugReplay().getGpioPinKey());
+                String autoCameraKey = resolveMonitorCameraKey(shellConfig, "camera-dvr-status");
             return "默认 Camera=" + cameraChannel.getKey()
                     + " / cameraId=" + cameraChannel.getCameraId()
                     + "\n- 默认 GPIO=" + gpioPin.getKey()
@@ -82,7 +85,8 @@ public final class CameraDvrBusinessModule extends AbstractTerminalBusinessModul
                     + " / lastTouch=" + lastTouchPoint
                     + "\n- " + dvrSerialMonitor.describeStatus()
                     + "\n- Camera available=" + yesNo(cameraAdapter.isAvailable())
-                    + "\n- lastCamera=" + lastCameraKey + " / opened=" + yesNo(defaultCameraOpened) + " / lastGpioValue=" + lastGpioValue
+                    + "\n- lastCamera=" + lastCameraKey + " / autoCamera=" + lastAutoCameraKey + " / resolved=" + autoCameraKey
+                    + " / opened=" + yesNo(defaultCameraOpened) + " / lastGpioValue=" + lastGpioValue
                     + "\n- " + describeActionMemory();
         } catch (Exception e) {
             return "当前还没拿到完整摄像头/DVR 配置: " + emptyAsDash(e.getMessage());
@@ -118,6 +122,10 @@ public final class CameraDvrBusinessModule extends AbstractTerminalBusinessModul
             return sendDvrTouch(actionKey, traceId);
         }
         return unsupportedAction(actionKey);
+    }
+
+    public String resolveMonitorCameraKey(String traceId) {
+        return resolveMonitorCameraKey(requireShellConfig(), traceId);
     }
 
     private ModuleRunResult runDefaultCameraChain(String traceId) {
@@ -231,5 +239,53 @@ public final class CameraDvrBusinessModule extends AbstractTerminalBusinessModul
         } catch (Exception e) {
             return failure("DVR 触摸发送失败", e);
         }
+    }
+
+    String resolveMonitorCameraKey(ShellConfig shellConfig, String traceId) {
+        String fallbackCameraKey = resolveFallbackCameraKey(shellConfig);
+        if (shellConfig == null || shellConfig.getCameraConfig().getMode() != DeviceMode.REAL) {
+            lastAutoCameraKey = fallbackCameraKey;
+            return fallbackCameraKey;
+        }
+        String primaryKey = valueOrEmpty(shellConfig.getDebugReplay().getMonitorPrimaryGpioKey()).trim();
+        String secondaryKey = valueOrEmpty(shellConfig.getDebugReplay().getMonitorSecondaryGpioKey()).trim();
+        if (primaryKey.isEmpty() || secondaryKey.isEmpty()) {
+            lastAutoCameraKey = fallbackCameraKey;
+            return fallbackCameraKey;
+        }
+        try {
+            int primary = deviceFoundationUseCase.readGpio(gpioAdapter, shellConfig, primaryKey, traceId + "-monitor-primary");
+            int secondary = deviceFoundationUseCase.readGpio(gpioAdapter, shellConfig, secondaryKey, traceId + "-monitor-secondary");
+            lastGpioKey = primaryKey + "/" + secondaryKey;
+            lastGpioValue = primary * 10 + secondary;
+            if (primary == 1 && secondary == 0) {
+                lastAutoCameraKey = "reverse";
+                return lastAutoCameraKey;
+            }
+            if (primary == 0 && secondary == 1) {
+                lastAutoCameraKey = "middle_door";
+                return lastAutoCameraKey;
+            }
+            if (primary == 0 && secondary == 0) {
+                lastAutoCameraKey = "reverse";
+                return lastAutoCameraKey;
+            }
+        } catch (Exception ignore) {
+            // GPIO 不可读时回退到配置默认通道，避免视频页联动被硬件异常阻断。
+        }
+        lastAutoCameraKey = fallbackCameraKey;
+        return fallbackCameraKey;
+    }
+
+    private String resolveFallbackCameraKey(ShellConfig shellConfig) {
+        if (shellConfig == null) {
+            return "av_out";
+        }
+        String cameraKey = valueOrEmpty(shellConfig.getDebugReplay().getCameraChannelKey()).trim();
+        return cameraKey.isEmpty() ? "av_out" : cameraKey;
+    }
+
+    private String valueOrEmpty(String value) {
+        return value == null ? "" : value;
     }
 }

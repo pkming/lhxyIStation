@@ -1,10 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    tools:context="com.lhxy.istationdevice.ui.activity.MainActivity">
-
+    android:layout_height="match_parent">
 
     <LinearLayout
         android:id="@+id/rlToolbar"
@@ -13,11 +11,6 @@
         android:orientation="vertical">
 
         <include layout="@layout/toolbar_state" />
-
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="@dimen/d_1"
-            android:background="@color/c_ffffff" />
     </LinearLayout>
 
     <LinearLayout
@@ -28,91 +21,115 @@
 
         <LinearLayout
             android:id="@+id/rlOperation"
-            android:layout_width="0.0dp"
+            android:layout_width="0dp"
             android:layout_height="match_parent"
+            android:layout_marginTop="@dimen/d_10"
+            android:layout_marginBottom="15dp"
             android:layout_weight="1"
+            android:background="@drawable/txt_main_datatime"
             android:gravity="center_horizontal"
             android:orientation="vertical">
 
             <Button
                 android:id="@+id/butNewspaperStation"
-                android:layout_width="@dimen/d_80"
-                android:layout_height="@dimen/d_70"
-                android:layout_marginTop="@dimen/d_8"
-                android:background="@drawable/operation_bg"
+                android:layout_width="@dimen/d_130"
+                android:layout_height="@dimen/home_m90_button_height"
+                android:layout_marginTop="@dimen/home_m90_button_first_margin_top"
+                android:background="@drawable/txt_key_bck"
                 android:soundEffectsEnabled="false"
                 android:text="@string/main_newspaper_station"
                 android:textColor="@color/c_000000"
-                android:textSize="24sp" />
+                android:textSize="24sp"
+                android:textStyle="bold" />
 
             <Button
                 android:id="@+id/butRepeat"
-                android:layout_width="@dimen/d_80"
-                android:layout_height="@dimen/d_70"
-                android:layout_marginTop="@dimen/d_8"
-                android:background="@drawable/operation_bg"
+                android:layout_width="@dimen/d_130"
+                android:layout_height="@dimen/home_m90_button_height"
+                android:layout_marginTop="@dimen/home_m90_button_margin_top"
+                android:background="@drawable/txt_key_bck"
                 android:soundEffectsEnabled="false"
-                android:text="线路"
+                android:text="@string/main_repeat"
                 android:textColor="@color/c_000000"
-                android:textSize="24sp" />
+                android:textSize="24sp"
+                android:textStyle="bold" />
 
             <Button
                 android:id="@+id/butSwitch"
-                android:layout_width="@dimen/d_80"
-                android:layout_height="@dimen/d_70"
-                android:layout_marginTop="@dimen/d_10"
-                android:background="@drawable/operation_bg"
+                android:layout_width="@dimen/d_130"
+                android:layout_height="@dimen/home_m90_button_height"
+                android:layout_marginTop="@dimen/home_m90_button_margin_top"
+                android:background="@drawable/txt_key_bck"
                 android:soundEffectsEnabled="false"
                 android:text="@string/main_switch"
                 android:textColor="@color/c_000000"
-                android:textSize="24sp" />
+                android:textSize="24sp"
+                android:textStyle="bold" />
 
             <Button
                 android:id="@+id/butKeyboard"
-                android:layout_width="@dimen/d_80"
-                android:layout_height="@dimen/d_70"
-                android:layout_marginTop="@dimen/d_10"
-                android:background="@drawable/keyboard_arrow"
-                android:soundEffectsEnabled="false" />
+                android:layout_width="@dimen/d_130"
+                android:layout_height="@dimen/home_m90_button_height"
+                android:layout_marginTop="@dimen/home_m90_button_margin_top"
+                android:background="@drawable/txt_key_bck"
+                android:soundEffectsEnabled="false"
+                android:text="@string/main_ser"
+                android:textColor="@color/c_000000"
+                android:textSize="24sp"
+                android:textStyle="bold" />
 
             <Button
                 android:id="@+id/butCease"
-                android:layout_width="@dimen/d_80"
-                android:layout_height="@dimen/d_70"
-                android:layout_marginTop="@dimen/d_8"
-                android:background="@drawable/operation_bg"
+                android:layout_width="@dimen/d_130"
+                android:layout_height="@dimen/home_m90_button_height"
+                android:layout_marginTop="@dimen/home_m90_button_margin_top"
+                android:background="@drawable/txt_key_bck"
                 android:soundEffectsEnabled="false"
                 android:text="@string/main_cease"
                 android:textColor="@color/c_000000"
-                android:textSize="24sp" />
+                android:textSize="24sp"
+                android:textStyle="bold" />
 
             <Button
                 android:id="@+id/butVideo"
-                android:layout_width="@dimen/d_80"
-                android:layout_height="@dimen/d_70"
-                android:layout_marginTop="@dimen/d_8"
-                android:background="@drawable/operation_bg"
+                android:layout_width="@dimen/d_130"
+                android:layout_height="@dimen/home_m90_button_height"
+                android:layout_marginTop="@dimen/home_m90_button_margin_top"
+                android:background="@drawable/txt_key_red"
                 android:soundEffectsEnabled="false"
-                android:text="@string/main_warning_on"
+                android:text="@string/menu_line_selection"
                 android:textColor="@color/c_000000"
-                android:textSize="24sp" />
+                android:textSize="24sp"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/tvDriver"
+                android:layout_width="@dimen/d_130"
+                android:layout_height="@dimen/home_m90_button_height"
+                android:layout_marginTop="@dimen/home_m90_button_margin_top"
+                android:background="@drawable/txt_key_bck"
+                android:soundEffectsEnabled="false"
+                android:text="@string/main_logout"
+                android:textColor="@color/c_000000"
+                android:textSize="24sp"
+                android:textStyle="bold" />
 
             <Button
                 android:id="@+id/butMenu"
-                android:layout_width="@dimen/d_80"
-                android:layout_height="@dimen/d_70"
-                android:layout_marginTop="@dimen/d_8"
-                android:background="@drawable/operation_bg"
+                android:layout_width="@dimen/d_130"
+                android:layout_height="@dimen/home_m90_button_height"
+                android:layout_marginTop="@dimen/home_m90_button_margin_top"
+                android:background="@drawable/txt_key_bck"
                 android:soundEffectsEnabled="false"
                 android:text="@string/main_menu"
                 android:textColor="@color/c_000000"
-                android:textSize="24sp" />
-
+                android:textSize="24sp"
+                android:textStyle="bold" />
         </LinearLayout>
 
         <LinearLayout
             android:id="@+id/lyNumberkeyboard"
-            android:layout_width="0.0dp"
+            android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
             android:gravity="center_vertical"
@@ -126,7 +143,7 @@
                 android:orientation="horizontal">
 
                 <LinearLayout
-                    android:layout_width="0.0dp"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:orientation="vertical">
@@ -134,7 +151,7 @@
                     <Button
                         android:id="@+id/butNumberF1"
                         android:layout_width="match_parent"
-                        android:layout_height="@dimen/d_50"
+                        android:layout_height="@dimen/home_m90_d_50"
                         android:layout_margin="@dimen/d_6"
                         android:background="@drawable/btn_keyboard_white_bg"
                         android:soundEffectsEnabled="false"
@@ -146,7 +163,7 @@
                     <Button
                         android:id="@+id/butNumberF3"
                         android:layout_width="match_parent"
-                        android:layout_height="@dimen/d_50"
+                        android:layout_height="@dimen/home_m90_d_50"
                         android:layout_margin="@dimen/d_6"
                         android:background="@drawable/btn_keyboard_white_bg"
                         android:soundEffectsEnabled="false"
@@ -158,7 +175,7 @@
                     <Button
                         android:id="@+id/butNumberF5"
                         android:layout_width="match_parent"
-                        android:layout_height="@dimen/d_50"
+                        android:layout_height="@dimen/home_m90_d_50"
                         android:layout_margin="@dimen/d_6"
                         android:background="@drawable/btn_keyboard_white_bg"
                         android:soundEffectsEnabled="false"
@@ -170,7 +187,7 @@
                     <Button
                         android:id="@+id/butNumberF7"
                         android:layout_width="match_parent"
-                        android:layout_height="@dimen/d_50"
+                        android:layout_height="@dimen/home_m90_d_50"
                         android:layout_margin="@dimen/d_6"
                         android:background="@drawable/btn_keyboard_white_bg"
                         android:soundEffectsEnabled="false"
@@ -182,7 +199,7 @@
                     <Button
                         android:id="@+id/butNumberF9"
                         android:layout_width="match_parent"
-                        android:layout_height="@dimen/d_50"
+                        android:layout_height="@dimen/home_m90_d_50"
                         android:layout_margin="@dimen/d_6"
                         android:background="@drawable/btn_keyboard_white_bg"
                         android:soundEffectsEnabled="false"
@@ -194,7 +211,7 @@
                     <Button
                         android:id="@+id/butMainUp"
                         android:layout_width="match_parent"
-                        android:layout_height="@dimen/d_50"
+                        android:layout_height="@dimen/home_m90_d_50"
                         android:layout_margin="@dimen/d_6"
                         android:background="@drawable/btn_keyboard_white_bg"
                         android:soundEffectsEnabled="false"
@@ -206,7 +223,7 @@
                     <Button
                         android:id="@+id/butMainMsg"
                         android:layout_width="match_parent"
-                        android:layout_height="@dimen/d_60"
+                        android:layout_height="@dimen/home_m90_d_60"
                         android:layout_margin="@dimen/d_6"
                         android:background="@drawable/btn_keyboard_white_bg"
                         android:soundEffectsEnabled="false"
@@ -214,11 +231,10 @@
                         android:textColor="@color/c_000000"
                         android:textSize="20sp"
                         android:textStyle="bold" />
-
                 </LinearLayout>
 
                 <LinearLayout
-                    android:layout_width="0.0dp"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:orientation="vertical">
@@ -226,7 +242,7 @@
                     <Button
                         android:id="@+id/butNumberF2"
                         android:layout_width="match_parent"
-                        android:layout_height="@dimen/d_50"
+                        android:layout_height="@dimen/home_m90_d_50"
                         android:layout_margin="@dimen/d_6"
                         android:background="@drawable/btn_keyboard_white_bg"
                         android:soundEffectsEnabled="false"
@@ -238,7 +254,7 @@
                     <Button
                         android:id="@+id/butNumberF4"
                         android:layout_width="match_parent"
-                        android:layout_height="@dimen/d_50"
+                        android:layout_height="@dimen/home_m90_d_50"
                         android:layout_margin="@dimen/d_6"
                         android:background="@drawable/btn_keyboard_white_bg"
                         android:soundEffectsEnabled="false"
@@ -250,7 +266,7 @@
                     <Button
                         android:id="@+id/butNumberF6"
                         android:layout_width="match_parent"
-                        android:layout_height="@dimen/d_50"
+                        android:layout_height="@dimen/home_m90_d_50"
                         android:layout_margin="@dimen/d_6"
                         android:background="@drawable/btn_keyboard_white_bg"
                         android:soundEffectsEnabled="false"
@@ -262,7 +278,7 @@
                     <Button
                         android:id="@+id/butNumberF8"
                         android:layout_width="match_parent"
-                        android:layout_height="@dimen/d_50"
+                        android:layout_height="@dimen/home_m90_d_50"
                         android:layout_margin="@dimen/d_6"
                         android:background="@drawable/btn_keyboard_white_bg"
                         android:soundEffectsEnabled="false"
@@ -274,7 +290,7 @@
                     <Button
                         android:id="@+id/butNumberF0"
                         android:layout_width="match_parent"
-                        android:layout_height="@dimen/d_50"
+                        android:layout_height="@dimen/home_m90_d_50"
                         android:layout_margin="@dimen/d_6"
                         android:background="@drawable/btn_keyboard_white_bg"
                         android:soundEffectsEnabled="false"
@@ -286,7 +302,7 @@
                     <Button
                         android:id="@+id/butMainDown"
                         android:layout_width="match_parent"
-                        android:layout_height="@dimen/d_50"
+                        android:layout_height="@dimen/home_m90_d_50"
                         android:layout_margin="@dimen/d_6"
                         android:background="@drawable/btn_keyboard_white_bg"
                         android:soundEffectsEnabled="false"
@@ -298,7 +314,7 @@
                     <Button
                         android:id="@+id/butMainQuery"
                         android:layout_width="match_parent"
-                        android:layout_height="@dimen/d_60"
+                        android:layout_height="@dimen/home_m90_d_60"
                         android:layout_margin="@dimen/d_6"
                         android:background="@drawable/btn_keyboard_white_bg"
                         android:soundEffectsEnabled="false"
@@ -312,7 +328,7 @@
             <Button
                 android:id="@+id/butESC"
                 android:layout_width="match_parent"
-                android:layout_height="@dimen/d_70"
+                android:layout_height="@dimen/home_m90_d_70"
                 android:layout_margin="@dimen/d_6"
                 android:background="@drawable/btn_keyboard_white_bg"
                 android:soundEffectsEnabled="false"
@@ -320,70 +336,204 @@
                 android:textColor="@color/c_000000"
                 android:textSize="30sp"
                 android:textStyle="bold" />
-
         </LinearLayout>
 
-
-        <ImageView
-            android:layout_width="wrap_content"
-            android:layout_height="match_parent"
-            android:background="@drawable/lines"
-            android:contentDescription="@string/main_dividing_line" />
-
         <RelativeLayout
-            android:layout_width="0.0dp"
+            android:id="@+id/rlBusInfo"
+            android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="3">
 
-
-            <!--<TextView-->
-            <!--android:id="@+id/tvDatetime"-->
-            <!--android:layout_width="wrap_content"-->
-            <!--android:layout_height="wrap_content"-->
-            <!--android:layout_centerHorizontal="true"-->
-            <!--android:layout_marginTop="@dimen/d_20"-->
-            <!--android:background="@drawable/txt_main_datatime"-->
-            <!--android:gravity="center"-->
-            <!--android:paddingLeft="@dimen/d_10"-->
-            <!--android:paddingTop="@dimen/d_14"-->
-            <!--android:paddingRight="@dimen/d_10"-->
-            <!--android:paddingBottom="@dimen/d_14"-->
-            <!--android:textColor="@color/c_000000"-->
-            <!--android:textSize="28sp"-->
-            <!--android:textStyle="bold" />-->
-
             <TextClock
                 android:id="@+id/tvDatetime"
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_centerHorizontal="true"
-                android:layout_marginTop="@dimen/d_20"
+                android:layout_marginLeft="@dimen/d_10"
+                android:layout_marginTop="@dimen/d_10"
+                android:layout_marginRight="@dimen/d_10"
                 android:background="@drawable/txt_main_datatime"
-                android:format24Hour="@string/dateformat"
+                android:format12Hour="@string/dateformat"
                 android:gravity="center"
                 android:paddingLeft="@dimen/d_10"
-                android:paddingTop="@dimen/d_14"
+                android:paddingTop="@dimen/d_10"
                 android:paddingRight="@dimen/d_10"
                 android:paddingBottom="@dimen/d_14"
-                android:textColor="@color/c_000000"
-                android:textSize="28sp"
-                android:textStyle="bold"
-                tools:ignore="NewApi" />
+                android:textColor="@color/c_ffffff"
+                android:textSize="32sp"
+                android:textStyle="bold" />
+
+            <RelativeLayout
+                android:id="@+id/rlPcs001"
+                android:layout_width="match_parent"
+                android:layout_height="@dimen/home_m90_d_80"
+                android:layout_below="@id/tvDatetime"
+                android:layout_marginLeft="@dimen/d_10"
+                android:layout_marginTop="@dimen/d_5"
+                android:layout_marginRight="@dimen/d_10"
+                android:background="@drawable/txt_main_datatime">
+
+                <RelativeLayout
+                    android:id="@+id/rlFin001"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:paddingStart="@dimen/d_20">
+
+                    <TextView
+                        android:id="@+id/tvFin0001"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:gravity="center"
+                        android:text="FIN"
+                        android:textColor="@color/c_ffffff"
+                        android:textSize="24sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvFin001"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_below="@id/tvFin0001"
+                        android:gravity="center"
+                        android:text="0"
+                        android:textColor="@color/c_ffffff"
+                        android:textSize="24sp"
+                        android:textStyle="bold" />
+                </RelativeLayout>
+
+                <RelativeLayout
+                    android:id="@+id/rlFout001"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginLeft="@dimen/d_40"
+                    android:layout_toRightOf="@id/rlFin001">
+
+                    <TextView
+                        android:id="@+id/tvFout0001"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:gravity="center"
+                        android:text="FOUT"
+                        android:textColor="@color/c_ffffff"
+                        android:textSize="24sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvFout001"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_below="@id/tvFout0001"
+                        android:gravity="center"
+                        android:text="0"
+                        android:textColor="@color/c_ffffff"
+                        android:textSize="24sp"
+                        android:textStyle="bold" />
+                </RelativeLayout>
+
+                <RelativeLayout
+                    android:id="@+id/rlBin001"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginLeft="@dimen/d_40"
+                    android:layout_toRightOf="@id/rlFout001">
+
+                    <TextView
+                        android:id="@+id/tvBin0001"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:gravity="center"
+                        android:text="BIN"
+                        android:textColor="@color/c_ffffff"
+                        android:textSize="24sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvBin001"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_below="@id/tvBin0001"
+                        android:gravity="center"
+                        android:text="0"
+                        android:textColor="@color/c_ffffff"
+                        android:textSize="24sp"
+                        android:textStyle="bold" />
+                </RelativeLayout>
+
+                <RelativeLayout
+                    android:id="@+id/rlBout001"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginLeft="@dimen/d_40"
+                    android:layout_toRightOf="@id/rlBin001">
+
+                    <TextView
+                        android:id="@+id/tvBout0001"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:gravity="center"
+                        android:text="BOUT"
+                        android:textColor="@color/c_ffffff"
+                        android:textSize="24sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvBout001"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_below="@id/tvBout0001"
+                        android:gravity="center"
+                        android:text="0"
+                        android:textColor="@color/c_ffffff"
+                        android:textSize="24sp"
+                        android:textStyle="bold" />
+                </RelativeLayout>
+
+                <RelativeLayout
+                    android:id="@+id/rlALl001"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginLeft="@dimen/d_40"
+                    android:layout_toRightOf="@id/rlBout001">
+
+                    <TextView
+                        android:id="@+id/tvAll0001"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:gravity="center"
+                        android:text="ALL"
+                        android:textColor="@color/c_ffffff"
+                        android:textSize="24sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvAll001"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_below="@id/tvAll0001"
+                        android:gravity="center"
+                        android:text="0"
+                        android:textColor="@color/c_ffffff"
+                        android:textSize="24sp"
+                        android:textStyle="bold" />
+                </RelativeLayout>
+            </RelativeLayout>
 
             <RelativeLayout
                 android:id="@+id/rlSpeedLimit"
                 android:layout_width="match_parent"
-                android:layout_height="@dimen/d_160"
-                android:layout_below="@id/tvDatetime"
-                android:layout_marginTop="@dimen/d_20">
+                android:layout_height="wrap_content"
+                android:layout_below="@id/rlPcs001"
+                android:layout_marginLeft="@dimen/d_10"
+                android:layout_marginTop="@dimen/d_8"
+                android:layout_marginRight="@dimen/d_10"
+                android:background="@drawable/txt_main_datatime">
 
                 <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_alignParentBottom="true"
-                    android:layout_marginLeft="@dimen/d_20"
-                    android:orientation="vertical"
-                    tools:ignore="all">
+                    android:layout_marginLeft="@dimen/d_40"
+                    android:layout_marginTop="@dimen/d_6"
+                    android:orientation="vertical">
 
                     <TextView
                         android:id="@+id/tvSpeedLimit"
@@ -401,43 +551,17 @@
                         android:layout_height="wrap_content"
                         android:layout_gravity="center"
                         android:text="@string/main_speed"
-                        android:textColor="@color/c_f1ff2d"
-                        android:textSize="20sp" />
-
+                        android:textColor="@color/c_ffffff"
+                        android:textSize="20sp"
+                        android:textStyle="bold" />
                 </LinearLayout>
-
-                <!--<LinearLayout-->
-                <!--android:layout_width="wrap_content"-->
-                <!--android:layout_height="wrap_content"-->
-                <!--android:layout_alignParentRight="true"-->
-                <!--android:layout_centerVertical="true"-->
-                <!--android:layout_marginRight="@dimen/d_40"-->
-                <!--android:orientation="vertical">-->
-
-                <!--<com.lhxy.istationdevice.common.widget.SpeedControlView-->
-                <!--android:id="@+id/scMileage"-->
-                <!--android:layout_width="100px"-->
-                <!--android:layout_height="100px" />-->
-
-                <!--<TextView-->
-                <!--android:layout_width="wrap_content"-->
-                <!--android:layout_height="wrap_content"-->
-                <!--android:layout_gravity="center"-->
-                <!--android:layout_toRightOf="@id/tvSpeedLimit"-->
-                <!--android:text="当前速度"-->
-                <!--android:textColor="@color/c_ff0000"-->
-                <!--android:textSize="20sp" />-->
-                <!--</LinearLayout>-->
 
                 <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_alignParentRight="true"
-                    android:layout_alignParentBottom="true"
                     android:layout_marginRight="@dimen/d_40"
-                    android:orientation="vertical"
-                    android:visibility="gone"
-                    tools:ignore="all">
+                    android:orientation="vertical">
 
                     <LinearLayout
                         android:layout_width="wrap_content"
@@ -460,7 +584,6 @@
                             android:text="@string/main_speed_company"
                             android:textColor="@color/c_ffffff"
                             android:textSize="20sp" />
-
                     </LinearLayout>
 
                     <TextView
@@ -468,176 +591,234 @@
                         android:layout_height="wrap_content"
                         android:layout_gravity="center"
                         android:text="@string/main_velocity"
-                        android:textColor="@color/c_f1ff2d"
-                        android:textSize="20sp" />
+                        android:textColor="@color/c_ffffff"
+                        android:textSize="20sp"
+                        android:textStyle="bold" />
                 </LinearLayout>
-
-
             </RelativeLayout>
 
-            <RelativeLayout
-                android:id="@+id/rlLineInfo"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_below="@id/rlSpeedLimit"
-                android:layout_marginLeft="@dimen/d_20"
-                android:layout_marginTop="@dimen/d_16"
-                android:layout_marginRight="@dimen/d_30"
-                tools:ignore="all">
-
-                <TextView
-                    android:id="@+id/tvLineName"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:textColor="@color/c_f1ff2d"
-                    android:textSize="40sp" />
-
-            </RelativeLayout>
-
-            <RelativeLayout
-                android:id="@+id/rlLineInfo1"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_below="@id/rlLineInfo"
-                android:layout_marginLeft="@dimen/d_20"
-                android:layout_marginRight="@dimen/d_30"
-                tools:ignore="all">
-
-                <TextView
-                    android:id="@+id/tvLineNO"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:textColor="@color/c_f1ff2d"
-                    android:textSize="40sp"
-                    tools:ignore="all" />
-
-                <TextView
-                    android:id="@+id/tvLineDirection"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_alignParentRight="true"
-                    android:textColor="@color/c_f1ff2d"
-                    android:textSize="40sp"
-                    tools:ignore="all" />
-
-            </RelativeLayout>
-
-
-            <RelativeLayout
-                android:id="@+id/lySwitchInfo"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:layout_below="@id/rlLineInfo1"
-                android:layout_marginLeft="@dimen/d_20"
-                android:layout_marginTop="@dimen/d_30"
-                android:visibility="visible"
-                tools:ignore="all">
-
-                <TextView
-                    android:id="@+id/tvHomeNextStation"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:textColor="@color/c_2a76ae"
-                    android:textSize="36sp"
-                    android:textStyle="bold"
-                    tools:text="本站:" />
-
-                <RelativeLayout
-                    android:id="@+id/rlHomeNextStationName"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_toRightOf="@id/tvHomeNextStation">
-
-                </RelativeLayout>
-
-                <TextView
-                    android:id="@+id/tvEndBus"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_below="@id/tvHomeNextStation"
-                    android:text="@string/main_leave_for"
-                    android:textColor="@color/c_2a76ae"
-                    android:textSize="36sp"
-                    android:textStyle="bold"
-                    tools:ignore="all" />
-
-                <RelativeLayout
-                    android:id="@+id/rlEndBusName"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_below="@id/tvHomeNextStation"
-                    android:layout_toRightOf="@id/tvEndBus">
-
-                </RelativeLayout>
-            </RelativeLayout>
-
-        </RelativeLayout>
-
-        <ImageView
-            android:layout_width="wrap_content"
-            android:layout_height="match_parent"
-            android:background="@drawable/lines"
-            android:contentDescription="@string/main_dividing_line" />
-
-        <RelativeLayout
-            android:layout_width="0.0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="3">
-
-            <LinearLayout
-                android:id="@+id/lyBusIcon"
+            <TextView
+                android:id="@+id/tvTomorrow"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_centerVertical="true"
-                android:layout_marginLeft="@dimen/d_6"
-                android:orientation="vertical"
-                android:visibility="gone"
-                tools:ignore="all">
+                android:layout_below="@id/tvDatetime"
+                android:layout_centerHorizontal="true"
+                android:textColor="@color/c_f1ff2d"
+                android:textSize="32sp"
+                android:visibility="gone" />
 
-                <ImageView
+            <RelativeLayout
+                android:id="@+id/lyPlannedTime"
+                android:layout_width="match_parent"
+                android:layout_height="@dimen/home_m90_d_50"
+                android:layout_marginLeft="@dimen/d_10"
+                android:layout_marginTop="@dimen/home_m90_planned_margin_top"
+                android:layout_marginRight="@dimen/d_10"
+                android:background="@drawable/txt_main_datatime"
+                android:gravity="center">
+
+                <TextView
+                    android:id="@+id/tvPlannedTime1"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:background="@mipmap/icon_bus_red"
-                    android:contentDescription="@string/main_bus_icon" />
+                    android:paddingLeft="@dimen/d_10"
+                    android:textColor="@color/c_ffffff"
+                    android:textSize="25sp"
+                    android:textStyle="bold" />
+            </RelativeLayout>
 
-                <ImageView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="@dimen/d_10"
-                    android:layout_marginBottom="@dimen/d_10"
-                    android:background="@mipmap/icon_bus"
-                    android:contentDescription="@string/main_bus_icon" />
+            <RelativeLayout
+                android:layout_width="match_parent"
+                android:layout_height="@dimen/home_m90_line_card_height"
+                android:layout_below="@id/lyPlannedTime"
+                android:layout_marginLeft="@dimen/d_10"
+                android:layout_marginTop="10dp"
+                android:layout_marginRight="@dimen/d_10"
+                android:layout_marginBottom="15dp"
+                android:background="@drawable/txt_main_datatime"
+                android:gravity="center">
 
-                <ImageView
-                    android:layout_width="wrap_content"
+                <RelativeLayout
+                    android:id="@+id/rlLineInfo"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content">
+
+                    <TextView
+                        android:id="@+id/tvLineName"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:paddingLeft="@dimen/d_20"
+                        android:textColor="@color/c_ffffff"
+                        android:textSize="36sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvPrice"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_alignParentRight="true"
+                        android:textColor="@color/c_ffffff"
+                        android:textSize="40sp" />
+                </RelativeLayout>
+
+                <RelativeLayout
+                    android:id="@+id/rlLineInfo1"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:background="@mipmap/icon_bus_green"
-                    android:contentDescription="@string/main_bus_icon" />
-            </LinearLayout>
+                    android:layout_below="@id/rlLineInfo"
+                    android:layout_marginLeft="@dimen/d_20"
+                    android:layout_marginTop="10dp"
+                    android:layout_marginRight="@dimen/d_30">
+
+                    <TextView
+                        android:id="@+id/tvLineNO"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textColor="@color/c_ffffff"
+                        android:textSize="36sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvLineDirection"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_alignParentRight="true"
+                        android:textColor="@color/c_ffffff"
+                        android:textSize="36sp"
+                        android:textStyle="bold" />
+                </RelativeLayout>
+
+                <androidx.constraintlayout.widget.ConstraintLayout
+                    android:id="@+id/lySwitchInfo"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_below="@id/rlLineInfo1"
+                    android:layout_marginLeft="@dimen/d_20"
+                    android:layout_marginTop="8dp">
+
+                    <TextView
+                        android:id="@+id/tvHomeNextStation"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="本站:"
+                        android:textColor="@color/c_ffffff"
+                        android:textSize="28sp"
+                        android:textStyle="bold"
+                        app:layout_constraintLeft_toLeftOf="parent"
+                        app:layout_constraintTop_toTopOf="parent" />
+
+                    <TextView
+                        android:id="@+id/tvHomeNextStationName"
+                        android:layout_width="@dimen/home_m90_d_350"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:ellipsize="end"
+                        android:maxLines="1"
+                        android:textColor="@color/c_ffffff"
+                        android:textSize="28sp"
+                        android:textStyle="bold"
+                        app:layout_constraintLeft_toRightOf="@id/tvHomeNextStation"
+                        app:layout_constraintTop_toTopOf="parent" />
+
+                    <TextView
+                        android:id="@+id/tvEndBus"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="@string/main_leave_for"
+                        android:textColor="@color/c_ffffff"
+                        android:textSize="28sp"
+                        android:textStyle="bold"
+                        app:layout_constraintLeft_toLeftOf="parent"
+                        app:layout_constraintTop_toBottomOf="@id/tvHomeNextStationName" />
+
+                    <TextView
+                        android:id="@+id/tvEndBusName"
+                        android:layout_width="@dimen/home_m90_d_350"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:ellipsize="end"
+                        android:maxLines="1"
+                        android:textColor="@color/c_ffffff"
+                        android:textSize="28sp"
+                        android:textStyle="bold"
+                        app:layout_constraintLeft_toRightOf="@id/tvEndBus"
+                        app:layout_constraintTop_toBottomOf="@id/tvHomeNextStationName" />
+                </androidx.constraintlayout.widget.ConstraintLayout>
+            </RelativeLayout>
+        </RelativeLayout>
+
+        <RelativeLayout
+            android:id="@+id/rlLineDriver"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="4">
+
+            <TextView
+                android:id="@+id/tvNextTrip"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@color/c_f1ff2d"
+                android:textSize="32sp"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/tvThisTrip"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_below="@id/tvNextTrip"
+                android:textColor="@color/c_f1ff2d"
+                android:textSize="32sp"
+                android:visibility="gone" />
 
             <LinearLayout
-                android:id="@+id/lyLine"
-                android:layout_width="match_parent"
-                android:layout_height="@dimen/d_480"
-                android:layout_centerVertical="true"
-                android:layout_marginLeft="@dimen/d_6"
-                android:layout_toRightOf="@id/lyBusIcon"
-                android:orientation="vertical"
-                android:paddingLeft="@dimen/d_16"
-                android:paddingRight="@dimen/d_0"
-                tools:ignore="all" />
+                android:id="@+id/lyVehicleStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentRight="true"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/tvJobNumber"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginRight="@dimen/d_20"
+                    android:textColor="@color/c_f1ff2d"
+                    android:textSize="36sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tvCarNumber"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginRight="@dimen/d_20"
+                    android:textColor="@color/c_f1ff2d"
+                    android:textSize="36sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tvVehicleStatus"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginRight="@dimen/d_20"
+                    android:textColor="@color/c_f1ff2d"
+                    android:textSize="36sp"
+                    android:textStyle="bold"
+                    android:visibility="gone" />
+            </LinearLayout>
 
             <TextView
                 android:id="@+id/tvShouting"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_below="@id/lyVehicleStatus"
                 android:layout_alignParentRight="true"
-                android:layout_marginTop="@dimen/d_30"
+                android:layout_marginTop="@dimen/d_10"
                 android:layout_marginRight="@dimen/d_20"
                 android:textColor="@color/c_ffffff"
                 android:textSize="22sp"
-                android:textStyle="bold"
-                tools:ignore="all" />
+                android:textStyle="bold" />
 
             <TextView
                 android:id="@+id/tvInfoTips"
@@ -649,154 +830,50 @@
                 android:layout_marginRight="@dimen/d_20"
                 android:textColor="@color/c_ffffff"
                 android:textSize="22sp"
-                android:textStyle="bold"
-                tools:ignore="all" />
+                android:textStyle="bold" />
 
             <LinearLayout
-                android:id="@+id/lyPlannedTime"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:id="@+id/lyVideoDVRImage"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
                 android:layout_alignParentRight="true"
-                android:layout_centerVertical="true"
-                android:orientation="vertical"
-                android:visibility="gone"
-                tools:ignore="all">
+                android:layout_marginTop="@dimen/d_10"
+                android:layout_marginRight="@dimen/d_2"
+                android:layout_marginBottom="@dimen/d_10"
+                android:visibility="gone">
 
-                <LinearLayout
-                    android:layout_width="120dp"
-                    android:layout_height="wrap_content"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal">
-
-                    <TextView
-                        android:id="@+id/tvPlannedTime1"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:textColor="@color/c_0077ff"
-                        android:textSize="24sp"
-                        tools:ignore="all" />
-                </LinearLayout>
-
-                <TextView
-                    android:id="@+id/tvDriver"
-                    android:layout_width="120dp"
-                    android:layout_height="wrap_content"
-                    android:textColor="@color/c_f1ff2d"
-                    android:textSize="18sp"
-                    tools:text="@string/main_driver" />
-
-                <LinearLayout
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal"
-                    android:visibility="gone">
-
-                    <TextView
-                        android:id="@+id/tvPlannedTime2"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:drawableRight="@drawable/longitudinal_position_orange"
-                        android:textColor="@color/c_0077ff"
-                        android:textSize="18sp"
-                        tools:ignore="all" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal"
-                    android:visibility="gone">
-
-                    <TextView
-                        android:id="@+id/tvPlannedTime3"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:drawableRight="@drawable/longitudinal_position_red"
-                        android:textColor="@color/c_0077ff"
-                        android:textSize="18sp"
-                        tools:ignore="all" />
-                </LinearLayout>
-
+                <SurfaceView
+                    android:id="@+id/surfaceViewDVR2"
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
+                    android:visibility="gone" />
             </LinearLayout>
+
         </RelativeLayout>
-
-
-    </LinearLayout>
-
-
-    <RelativeLayout
-        android:id="@+id/lyVideoInfo"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:layout_marginLeft="@dimen/d_120"
-        android:layout_marginTop="@dimen/d_40"
-        android:orientation="vertical"
-        android:visibility="visible"
-        tools:ignore="all">
 
         <LinearLayout
             android:id="@+id/lyVideoImage"
-            android:layout_width="match_parent"
+            android:layout_width="0dp"
             android:layout_height="match_parent"
-            android:orientation="horizontal"
-            tools:ignore="all">
+            android:layout_weight="7"
+            android:orientation="vertical"
+            android:visibility="gone">
 
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_alignParentBottom="true"
-            android:orientation="horizontal">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="当前速度:"
-                android:textColor="@color/c_f1ff2d"
-                android:textSize="30sp"
+            <SurfaceView
+                android:id="@+id/surfaceViewMittertor"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
                 android:visibility="gone" />
 
-            <TextView
-                android:id="@+id/tvVideoMileage"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginRight="20dp"
-                android:textColor="@color/c_ffffff"
-                android:textSize="40sp"
+            <SurfaceView
+                android:id="@+id/surfaceViewBackingup"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
                 android:visibility="gone" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginLeft="20dp"
-                android:text="限速:"
-                android:textColor="@color/c_f1ff2d"
-                android:textSize="30sp" />
-
-            <TextView
-                android:id="@+id/tvVideoSpeedLimit"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textColor="@color/c_ffffff"
-                android:textSize="40sp" />
         </LinearLayout>
-
-        <TextClock
-            android:id="@+id/tvDatetimeNew"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_alignParentRight="true"
-            android:layout_gravity="center"
-            android:format24Hour="@string/dateformat"
-            android:gravity="center"
-            android:textColor="@color/c_ff0000"
-            android:textSize="40sp"
-            tools:ignore="NewApi" />
-
-
-    </RelativeLayout>
+    </LinearLayout>
 
 </RelativeLayout>

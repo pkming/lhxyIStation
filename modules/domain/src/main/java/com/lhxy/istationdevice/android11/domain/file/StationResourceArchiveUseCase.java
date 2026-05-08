@@ -2,7 +2,17 @@ package com.lhxy.istationdevice.android11.domain.file;
 
 import android.content.Context;
 
+import com.lhxy.istationdevice.android11.core.LegacyInfoMessageRepository;
+
+import org.apache.poi.hssf.usermodel.HSSFCell;
+import org.apache.poi.hssf.usermodel.HSSFDateUtil;
+import org.apache.poi.hssf.usermodel.HSSFRow;
+import org.apache.poi.hssf.usermodel.HSSFSheet;
+import org.apache.poi.hssf.usermodel.HSSFWorkbook;
+import org.apache.poi.poifs.filesystem.POIFSFileSystem;
+
 import java.io.BufferedReader;
+import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -11,6 +21,7 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -61,22 +72,24 @@ public final class StationResourceArchiveUseCase {
         File managedRoot = resolveManagedResourceRoot(context);
         recreateDirectory(managedRoot);
         File extractedDir = new File(managedRoot, "SourceFile");
-    unzip(scan.zipCandidate, extractedDir);
+        unzip(scan.zipCandidate, extractedDir);
 
         List<File> extractedFiles = new ArrayList<>();
         collectFiles(extractedDir, extractedFiles);
         LinkedHashSet<String> lineCandidates = deriveLineCandidates(extractedFiles);
+        int importedMessageCount = importMessageCatalog(context, extractedFiles);
         String lineName = lineCandidates.isEmpty() ? "-" : lineCandidates.iterator().next();
         File summaryFile = new File(managedRoot, SUMMARY_FILE_NAME);
-    writeSummary(summaryFile, scan.zipCandidate, extractedDir, extractedFiles, lineCandidates, scan.allCandidatePaths);
+        writeSummary(summaryFile, scan.zipCandidate, extractedDir, extractedFiles, lineCandidates, scan.allCandidatePaths, importedMessageCount);
 
         return OperationResult.success(
                 "已导入报站资源",
-        "资源包=" + scan.zipCandidate.getAbsolutePath()
+            "资源包=" + scan.zipCandidate.getAbsolutePath()
                         + "\n解压目录=" + extractedDir.getAbsolutePath()
                         + "\n文件数=" + extractedFiles.size()
+                + "\n消息数=" + importedMessageCount
                         + "\n线路候选=" + (lineCandidates.isEmpty() ? "-" : join(lineCandidates)),
-        scan.zipCandidate,
+            scan.zipCandidate,
                 extractedDir,
                 lineName,
                 scan.allCandidatePaths
@@ -417,7 +430,8 @@ public final class StationResourceArchiveUseCase {
             File extractedDir,
             List<File> extractedFiles,
             LinkedHashSet<String> lineCandidates,
-            List<String> scanPaths
+            List<String> scanPaths,
+            int importedMessageCount
     ) throws Exception {
         File parent = summaryFile.getParentFile();
         if (parent != null && !parent.exists() && !parent.mkdirs()) {
@@ -428,6 +442,7 @@ public final class StationResourceArchiveUseCase {
             writer.write("archive=" + archiveFile.getAbsolutePath() + "\n");
             writer.write("extractedDir=" + extractedDir.getAbsolutePath() + "\n");
             writer.write("lineCandidates=" + (lineCandidates.isEmpty() ? "-" : join(lineCandidates)) + "\n");
+            writer.write("messageCount=" + importedMessageCount + "\n");
             writer.write("scannedPaths=\n" + describePaths(scanPaths) + "\n");
             writer.write("files=\n");
             for (File file : extractedFiles) {
@@ -435,6 +450,247 @@ public final class StationResourceArchiveUseCase {
             }
             writer.flush();
         }
+    }
+
+    private int importMessageCatalog(Context context, List<File> extractedFiles) {
+        if (context == null || extractedFiles == null || extractedFiles.isEmpty()) {
+            return 0;
+        }
+        File messageCsv = findExtractedFile(extractedFiles, "Message.csv");
+        if (isMessageCsvFile(messageCsv)) {
+            return importMessageCsv(context, messageCsv);
+        }
+        File messageXls = findExtractedFile(extractedFiles, "Message.xls");
+        if (isMessageXlsFile(messageXls)) {
+            return importMessageXls(context, messageXls);
+        }
+        return 0;
+    }
+
+    private boolean isMessageCsvFile(File file) {
+        if (file == null || !file.exists() || !file.isFile()) {
+            return false;
+        }
+        String lowerName = file.getName().toLowerCase(Locale.ROOT);
+        if (!lowerName.endsWith(".csv")) {
+            return false;
+        }
+        List<List<String>> rows = readCsvRows(file);
+        if (rows.isEmpty()) {
+            return false;
+        }
+        return isMessageHeader(rows.get(0));
+    }
+
+    private int importMessageCsv(Context context, File file) {
+        List<List<String>> rows = readCsvRows(file);
+        if (rows.isEmpty() || !isMessageHeader(rows.get(0))) {
+            return 0;
+        }
+        int importedCount = 0;
+        for (int index = 1; index < rows.size(); index++) {
+            List<String> row = rows.get(index);
+            Integer messageNo = parseInteger(cell(row, 0));
+            String messageTime = cell(row, 1);
+            String messageContent = cell(row, 2);
+            if (messageNo == null || messageContent.isEmpty()) {
+                continue;
+            }
+            LegacyInfoMessageRepository.upsert(context, messageNo, messageTime, messageContent, file.getAbsolutePath(), "csv");
+            importedCount++;
+        }
+        return importedCount;
+    }
+
+    private boolean isMessageXlsFile(File file) {
+        if (file == null || !file.exists() || !file.isFile()) {
+            return false;
+        }
+        String lowerName = file.getName().toLowerCase(Locale.ROOT);
+        if (!lowerName.endsWith(".xls")) {
+            return false;
+        }
+        List<List<String>> rows = readXlsRows(file, 0);
+        if (rows.isEmpty()) {
+            return false;
+        }
+        return isMessageHeader(rows.get(0));
+    }
+
+    private int importMessageXls(Context context, File file) {
+        List<List<String>> rows = readXlsRows(file, 0);
+        if (rows.isEmpty() || !isMessageHeader(rows.get(0))) {
+            return 0;
+        }
+        LegacyInfoMessageRepository.clear(context);
+        int importedCount = 0;
+        for (int index = 1; index < rows.size(); index++) {
+            List<String> row = rows.get(index);
+            Integer messageNo = parseInteger(cell(row, 0));
+            String messageTime = cell(row, 1);
+            String messageContent = cell(row, 2);
+            if (messageNo == null || messageContent.isEmpty()) {
+                continue;
+            }
+            LegacyInfoMessageRepository.upsert(context, messageNo, messageTime, messageContent, file.getAbsolutePath(), "xls");
+            importedCount++;
+        }
+        return importedCount;
+    }
+
+    private List<List<String>> readCsvRows(File file) {
+        List<List<String>> rows = new ArrayList<>();
+        if (file == null || !file.exists() || !file.isFile()) {
+            return rows;
+        }
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(file), LEGACY_CSV_CHARSET))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String normalized = stripBom(line).trim();
+                if (normalized.isEmpty()) {
+                    continue;
+                }
+                rows.add(parseCsvRow(normalized));
+            }
+        } catch (Exception ignore) {
+            return new ArrayList<>();
+        }
+        return rows;
+    }
+
+    private List<List<String>> readXlsRows(File file, int startRow) {
+        List<List<String>> rows = new ArrayList<>();
+        if (file == null || !file.exists() || !file.isFile()) {
+            return rows;
+        }
+        try (BufferedInputStream inputStream = new BufferedInputStream(new FileInputStream(file));
+             HSSFWorkbook workbook = new HSSFWorkbook(new POIFSFileSystem(inputStream))) {
+            for (int sheetIndex = 0; sheetIndex < workbook.getNumberOfSheets(); sheetIndex++) {
+                HSSFSheet sheet = workbook.getSheetAt(sheetIndex);
+                for (int rowIndex = startRow; rowIndex <= sheet.getLastRowNum(); rowIndex++) {
+                    HSSFRow row = sheet.getRow(rowIndex);
+                    if (row == null) {
+                        continue;
+                    }
+                    List<String> values = new ArrayList<>();
+                    boolean hasContent = false;
+                    for (int cellIndex = 0; cellIndex < row.getLastCellNum(); cellIndex++) {
+                        HSSFCell cell = row.getCell(cellIndex);
+                        String value = readHssfCell(cell);
+                        if (cellIndex > 0 && value.isEmpty()) {
+                            break;
+                        }
+                        if (!value.isEmpty()) {
+                            hasContent = true;
+                        }
+                        values.add(value);
+                    }
+                    if (hasContent) {
+                        rows.add(values);
+                    }
+                }
+            }
+        } catch (Exception ignore) {
+            return new ArrayList<>();
+        }
+        return rows;
+    }
+
+    private String readHssfCell(HSSFCell cell) {
+        if (cell == null) {
+            return "";
+        }
+        switch (cell.getCellType()) {
+            case HSSFCell.CELL_TYPE_NUMERIC:
+                if (HSSFDateUtil.isCellDateFormatted(cell)) {
+                    Date date = cell.getDateCellValue();
+                    return date == null ? "" : new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(date);
+                }
+                return new DecimalFormat("0").format(cell.getNumericCellValue()).trim();
+            case HSSFCell.CELL_TYPE_STRING:
+                return rightTrim(cell.getStringCellValue());
+            case HSSFCell.CELL_TYPE_BOOLEAN:
+                return cell.getBooleanCellValue() ? "Y" : "N";
+            case HSSFCell.CELL_TYPE_FORMULA:
+                try {
+                    return rightTrim(cell.getStringCellValue());
+                } catch (Exception ignore) {
+                    return new DecimalFormat("0").format(cell.getNumericCellValue()).trim();
+                }
+            default:
+                return "";
+        }
+    }
+
+    private boolean isMessageHeader(List<String> row) {
+        return equalsIgnoreCase(cell(row, 0), "NO.")
+                && equalsIgnoreCase(cell(row, 1), "Date")
+                && equalsIgnoreCase(cell(row, 2), "Content");
+    }
+
+    private List<String> parseCsvRow(String line) {
+        List<String> values = new ArrayList<>();
+        StringBuilder current = new StringBuilder();
+        boolean inQuotes = false;
+        for (int index = 0; index < line.length(); index++) {
+            char value = line.charAt(index);
+            if (value == '"') {
+                if (inQuotes && index + 1 < line.length() && line.charAt(index + 1) == '"') {
+                    current.append('"');
+                    index++;
+                } else {
+                    inQuotes = !inQuotes;
+                }
+            } else if (value == ',' && !inQuotes) {
+                values.add(current.toString().trim());
+                current.setLength(0);
+            } else {
+                current.append(value);
+            }
+        }
+        values.add(current.toString().trim());
+        return values;
+    }
+
+    private String cell(List<String> row, int index) {
+        if (row == null || index < 0 || index >= row.size()) {
+            return "";
+        }
+        String value = row.get(index);
+        if (value == null) {
+            return "";
+        }
+        String trimmed = stripBom(value).trim();
+        if (trimmed.length() >= 2 && trimmed.startsWith("\"") && trimmed.endsWith("\"")) {
+            return trimmed.substring(1, trimmed.length() - 1).trim();
+        }
+        return trimmed;
+    }
+
+    private Integer parseInteger(String value) {
+        if (value == null || value.trim().isEmpty()) {
+            return null;
+        }
+        try {
+            return Integer.parseInt(value.trim());
+        } catch (NumberFormatException ignore) {
+            return null;
+        }
+    }
+
+    private boolean equalsIgnoreCase(String left, String right) {
+        return left != null && right != null && left.trim().equalsIgnoreCase(right.trim());
+    }
+
+    private String rightTrim(String value) {
+        if (value == null) {
+            return "";
+        }
+        int end = value.length();
+        while (end > 0 && Character.isWhitespace(value.charAt(end - 1))) {
+            end--;
+        }
+        return value.substring(0, end);
     }
 
     private String relativize(File baseDir, File file) {

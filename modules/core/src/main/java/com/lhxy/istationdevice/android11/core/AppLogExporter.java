@@ -42,7 +42,7 @@ public final class AppLogExporter {
         File exportFile = new File(baseDir, fileName);
 
         try (FileOutputStream outputStream = new FileOutputStream(exportFile)) {
-            outputStream.write(AppLogCenter.dumpPlainText().getBytes(StandardCharsets.UTF_8));
+            outputStream.write(AppLogCenter.dumpSessionFileText().getBytes(StandardCharsets.UTF_8));
             outputStream.flush();
         }
         return exportFile;

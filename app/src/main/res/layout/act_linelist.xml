@@ -12,19 +12,20 @@
         <include layout="@layout/toolbar" />
     </RelativeLayout>
 
-    <RelativeLayout
-        android:id="@+id/rlLineInfoTitle"
+    <LinearLayout
+        android:id="@+id/lyLineInfoTitle"
         android:layout_width="match_parent"
         android:layout_height="@dimen/d_62"
         android:layout_below="@id/rlToolbar"
         android:background="@color/c_66cdaa"
+        android:gravity="center_vertical"
         android:visibility="gone">
 
         <TextView
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_centerVertical="true"
             android:layout_marginLeft="@dimen/d_16"
+            android:layout_weight="1"
             android:text="@string/line_line_name"
             android:textColor="@color/c_333333"
             android:textSize="22sp"
@@ -32,11 +33,22 @@
             tools:ignore="all" />
 
         <TextView
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_centerInParent="true"
             android:layout_marginLeft="@dimen/d_16"
-            android:layout_marginRight="@dimen/d_0"
+            android:layout_weight="1"
+            tools:ignore="all"
+            android:text="@string/line_line_number"
+            android:textColor="@color/c_333333"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="@dimen/d_16"
+            android:layout_weight="4"
+            android:gravity="center"
             tools:ignore="all"
             android:text="@string/line_line_info"
             android:textColor="@color/c_333333"
@@ -46,21 +58,21 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_alignParentRight="true"
-            tools:ignore="all"
-            android:layout_centerVertical="true"
+            android:layout_marginLeft="@dimen/d_16"
             android:layout_marginRight="@dimen/d_16"
+            android:gravity="center"
+            tools:ignore="all"
             android:text="@string/line_line_attribute"
             android:textColor="@color/c_333333"
             android:textSize="22sp"
             android:textStyle="bold" />
-    </RelativeLayout>
+    </LinearLayout>
 
     <View
         android:id="@+id/vLineList"
         android:layout_width="match_parent"
         android:layout_height="@dimen/d_1"
-        android:layout_below="@id/rlLineInfoTitle"
+        android:layout_below="@id/lyLineInfoTitle"
         android:background="@color/c_ffffff" />
 
     <RelativeLayout
@@ -87,6 +99,14 @@
 
     <ListView
         android:id="@+id/lvLine"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_above="@id/rlAffirm"
+        android:layout_below="@id/vLineList"
+        android:visibility="gone" />
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recyclerViewLine"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_above="@id/rlAffirm"

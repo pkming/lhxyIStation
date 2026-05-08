@@ -47,6 +47,14 @@ public final class ModuleRunResult {
         return success;
     }
 
+    public String getSummary() {
+        return summary;
+    }
+
+    public String getDetail() {
+        return detail;
+    }
+
     /**
      * 输出单行摘要。
      */

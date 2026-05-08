@@ -14,8 +14,13 @@ import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
 import com.lhxy.istationdevice.android11.app.R;
+import com.lhxy.istationdevice.android11.app.station.LegacyStationResourceStateRepository;
 import com.lhxy.istationdevice.android11.domain.config.ShellConfig;
 import com.lhxy.istationdevice.android11.runtime.ShellRuntime;
+
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
 
 /**
  * 旧版系统信息-版本信息页。
@@ -25,6 +30,7 @@ public final class LegacySystemVersionFragment extends Fragment {
     private TextView tvVersionCode;
     private TextView tvVersionName;
     private TextView tvDataVersionCode;
+    private TextView tvSourceVersionTime;
 
     @Nullable
     @Override
@@ -39,6 +45,7 @@ public final class LegacySystemVersionFragment extends Fragment {
         tvVersionCode = view.findViewById(R.id.tvVersionCode);
         tvVersionName = view.findViewById(R.id.tvVersionName);
         tvDataVersionCode = view.findViewById(R.id.tvDataVersionCode);
+        tvSourceVersionTime = view.findViewById(R.id.tvSourceVersionTime);
         render();
     }
 
@@ -48,16 +55,37 @@ public final class LegacySystemVersionFragment extends Fragment {
         render();
     }
 
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        tvSVersionCode = null;
+        tvVersionCode = null;
+        tvVersionName = null;
+        tvDataVersionCode = null;
+        tvSourceVersionTime = null;
+    }
+
+    @Override
+    public void onHiddenChanged(boolean hidden) {
+        super.onHiddenChanged(hidden);
+        if (!hidden) {
+            render();
+        }
+    }
+
     private void render() {
-        if (getContext() == null) {
+        if (getContext() == null || isHidden()) {
             return;
         }
         ShellConfig shellConfig = ShellRuntime.get().getActiveConfig();
         PackageInfo packageInfo = loadPackageInfo();
+        LegacyStationResourceStateRepository.StationResourceState resourceState =
+                LegacyStationResourceStateRepository.getState(requireContext());
         String hardwareVersion = shellConfig == null ? Build.MODEL : shellConfig.getDeviceProfile();
         String softwareCode = packageInfo == null ? "-" : String.valueOf(resolveVersionCode(packageInfo));
         String softwareName = packageInfo == null ? "-" : safe(packageInfo.versionName);
         String dataVersion = shellConfig == null ? "-" : safe(shellConfig.getConfigVersion());
+        String sourceVersionTime = formatTime(resourceState.getUpdatedAt());
 
         if (tvSVersionCode != null) {
             tvSVersionCode.setText(getString(R.string.version_hardware, hardwareVersion));
@@ -70,6 +98,9 @@ public final class LegacySystemVersionFragment extends Fragment {
         }
         if (tvDataVersionCode != null) {
             tvDataVersionCode.setText(getString(R.string.version_data_number, dataVersion));
+        }
+        if (tvSourceVersionTime != null) {
+            tvSourceVersionTime.setText(sourceVersionTime);
         }
     }
 
@@ -98,5 +129,12 @@ public final class LegacySystemVersionFragment extends Fragment {
 
     private String safe(String value) {
         return value == null || value.trim().isEmpty() ? "-" : value.trim();
+    }
+
+    private String formatTime(long timeMillis) {
+        if (timeMillis <= 0L) {
+            return "-";
+        }
+        return new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(new Date(timeMillis));
     }
 }

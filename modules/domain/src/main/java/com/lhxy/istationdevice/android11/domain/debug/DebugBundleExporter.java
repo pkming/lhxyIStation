@@ -53,7 +53,11 @@ public final class DebugBundleExporter {
         );
 
         try (ZipOutputStream outputStream = new ZipOutputStream(new FileOutputStream(exportFile))) {
-            writeEntry(outputStream, "logs/app-log.txt", AppLogCenter.dumpPlainText());
+            writeEntry(outputStream, "logs/app-log.txt", AppLogCenter.dumpSessionFileText());
+            writeEntry(outputStream, "logs/app-log-buffer.txt", AppLogCenter.dumpPlainText());
+            writeEntry(outputStream, "logs/by-module.txt", AppLogCenter.dumpByTag());
+            writeEntry(outputStream, "logs/by-trace.txt", AppLogCenter.dumpByTraceId());
+            writeEntry(outputStream, "logs/session-info.txt", AppLogCenter.describeSession());
             writeEntry(outputStream, "config/config-summary.txt", shellConfig.describe());
             writeEntry(outputStream, "config/config-validation.txt", ShellConfigValidator.describe(shellConfig));
             writeEntry(outputStream, "config/config-source.txt", shellConfig.getConfigSource());

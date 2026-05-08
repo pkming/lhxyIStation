@@ -20,6 +20,8 @@ dependencies {
     implementation project(':modules:core')
     implementation project(':modules:protocol')
     implementation project(':modules:device-api')
+    implementation 'commons-net:commons-net:3.11.1'
+    implementation 'org.apache.poi:poi:3.17'
 
     testImplementation 'junit:junit:4.13.2'
 }

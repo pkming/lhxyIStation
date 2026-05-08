@@ -312,7 +312,9 @@ public class MainActivity extends AppCompatActivity {
     private String buildSignInValue() {
         SignInState signInState = getSignInState();
         if (signInState != null && signInState.isSignedIn()) {
-            return signInState.getDriverName();
+            return signInState.hasResolvedDriverIdentity()
+                    ? signInState.getDriverName()
+                    : getString(R.string.undetected);
         }
         return rfidAdapter.isAvailable() ? "待签到" : "等待设备";
     }

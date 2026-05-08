@@ -35,20 +35,26 @@
                 android:background="@mipmap/icon_user"
                 android:contentDescription="@string/login_user" />
 
-            <androidx.appcompat.widget.AppCompatEditText
+            <com.rengwuxian.materialedittext.MaterialEditText
                 android:id="@+id/etUserName"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginLeft="@dimen/d_4"
                 android:hint="@string/login_user_hint"
                 android:maxLength="11"
-                android:background="@android:color/transparent"
                 android:paddingLeft="@dimen/d_4"
                 android:paddingRight="@dimen/d_0"
+                android:singleLine="true"
+                android:text="@string/login_user_txt"
                 android:textColor="@color/c_ffffff"
                 android:textSize="24sp"
-                android:text="@string/login_user_txt"
-                android:singleLine="true"
+                app:met_baseColor="@color/c_808080"
+                app:met_clearButton="true"
+                app:met_floatingLabel="highlight"
+                app:met_floatingLabelTextSize="20sp"
+                app:met_primaryColor="?attr/colorControlActivated"
+                app:met_singleLineEllipsis="true"
+                app:met_underlineColor="?attr/colorControlActivated"
                 tools:ignore="Autofill,LabelFor" />
 
         </LinearLayout>
@@ -70,19 +76,25 @@
                 android:contentDescription="@string/login_pwd"
                 android:background="@mipmap/icon_pwd" />
 
-            <androidx.appcompat.widget.AppCompatEditText
+            <com.rengwuxian.materialedittext.MaterialEditText
                 android:id="@+id/etUserPwd"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginLeft="@dimen/d_4"
                 android:hint="@string/login_pwd_hint"
                 android:inputType="numberPassword"
-                android:background="@android:color/transparent"
                 android:paddingLeft="@dimen/d_4"
                 android:paddingRight="@dimen/d_0"
+                android:singleLine="true"
                 android:textColor="@color/c_ffffff"
                 android:textSize="24sp"
-                android:singleLine="true"
+                app:met_baseColor="@color/c_808080"
+                app:met_clearButton="true"
+                app:met_floatingLabel="highlight"
+                app:met_floatingLabelTextSize="20sp"
+                app:met_primaryColor="?attr/colorControlActivated"
+                app:met_singleLineEllipsis="true"
+                app:met_underlineColor="?attr/colorControlActivated"
                 tools:ignore="Autofill,LabelFor" />
 
         </LinearLayout>

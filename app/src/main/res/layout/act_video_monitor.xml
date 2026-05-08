@@ -1,318 +1,59 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="horizontal">
+    android:layout_height="match_parent">
 
     <LinearLayout
-        android:layout_width="0.0dp"
-        android:layout_height="wrap_content"
-        android:layout_weight="1"
-        android:orientation="vertical">
+        android:id="@+id/lyDvrCameraOpen"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#ff018786"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:visibility="visible">
 
-        <Button
-            android:id="@+id/butBack"
-            android:layout_width="match_parent"
-            android:layout_height="@dimen/d_54"
-            android:layout_margin="@dimen/d_6"
-            android:background="@drawable/btn_keyboard_white_bg"
-            android:text="@string/dvr_keyboard_back"
-            android:textColor="@color/c_000000"
-            android:textSize="26sp"
+        <TextView
+            android:id="@+id/tvCameraOpen"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:text="@string/legacy_video_opening"
+            android:textColor="@color/c_e6e6e6"
+            android:textSize="60sp"
             android:textStyle="bold" />
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:baselineAligned="false"
-            android:orientation="horizontal">
-
-            <Button
-                android:id="@+id/butMiddleDoorVideo"
-                android:layout_width="0.0dp"
-                android:layout_height="@dimen/d_46"
-                android:layout_margin="@dimen/d_4"
-                android:layout_weight="1"
-                android:background="@drawable/btn_keyboard_white_bg"
-                android:text="@string/video_middle_door"
-                android:textColor="@color/c_000000"
-                android:textSize="18sp"
-                android:textStyle="bold" />
-
-            <Button
-                android:id="@+id/butReverseVideo"
-                android:layout_width="0.0dp"
-                android:layout_height="@dimen/d_46"
-                android:layout_margin="@dimen/d_4"
-                android:layout_weight="1"
-                android:background="@drawable/btn_keyboard_white_bg"
-                android:text="@string/video_reverse"
-                android:textColor="@color/c_000000"
-                android:textSize="18sp"
-                android:textStyle="bold" />
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:baselineAligned="false"
-            android:orientation="horizontal">
-
-            <Button
-                android:id="@+id/butDvrVideo"
-                android:layout_width="0.0dp"
-                android:layout_height="@dimen/d_46"
-                android:layout_margin="@dimen/d_4"
-                android:layout_weight="1"
-                android:background="@drawable/btn_keyboard_white_bg"
-                android:text="@string/video_dvr"
-                android:textColor="@color/c_000000"
-                android:textSize="18sp"
-                android:textStyle="bold" />
-
-            <Button
-                android:id="@+id/butCloseVideo"
-                android:layout_width="0.0dp"
-                android:layout_height="@dimen/d_46"
-                android:layout_margin="@dimen/d_4"
-                android:layout_weight="1"
-                android:background="@drawable/btn_keyboard_white_bg"
-                android:text="@string/video_close"
-                android:textColor="@color/c_000000"
-                android:textSize="18sp"
-                android:textStyle="bold" />
-        </LinearLayout>
-
-
-        <LinearLayout
-            android:id="@+id/lyDVRkeyboard"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:layout_marginTop="@dimen/d_4"
-            android:baselineAligned="false"
-            android:gravity="center_vertical"
-            android:orientation="horizontal"
-            android:visibility="visible">
-
-            <LinearLayout
-                android:layout_width="0.0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="vertical">
-
-                <Button
-                    android:id="@+id/butNumber1"
-                    android:layout_width="match_parent"
-                    android:layout_height="@dimen/d_50"
-                    android:layout_margin="@dimen/d_4"
-                    android:background="@drawable/btn_keyboard_white_bg"
-                    android:text="@string/dvr_keyboard_number1"
-                    android:textColor="@color/c_000000"
-                    android:textSize="26sp"
-                    android:textStyle="bold" />
-
-                <Button
-                    android:id="@+id/butNumber3"
-                    android:layout_width="match_parent"
-                    android:layout_height="@dimen/d_50"
-                    android:layout_margin="@dimen/d_4"
-                    android:background="@drawable/btn_keyboard_white_bg"
-                    android:text="@string/dvr_keyboard_number3"
-                    android:textColor="@color/c_000000"
-                    android:textSize="26sp"
-                    android:textStyle="bold" />
-
-                <Button
-                    android:id="@+id/butNumber5"
-                    android:layout_width="match_parent"
-                    android:layout_height="@dimen/d_50"
-                    android:layout_margin="@dimen/d_4"
-                    android:background="@drawable/btn_keyboard_white_bg"
-                    android:text="@string/dvr_keyboard_number5"
-                    android:textColor="@color/c_000000"
-                    android:textSize="26sp"
-                    android:textStyle="bold" />
-
-                <Button
-                    android:id="@+id/butNumber7"
-                    android:layout_width="match_parent"
-                    android:layout_height="@dimen/d_50"
-                    android:layout_margin="@dimen/d_4"
-                    android:background="@drawable/btn_keyboard_white_bg"
-                    android:text="@string/dvr_keyboard_number7"
-                    android:textColor="@color/c_000000"
-                    android:textSize="26sp"
-                    android:textStyle="bold" />
-
-                <Button
-                    android:id="@+id/butNumber9"
-                    android:layout_width="match_parent"
-                    android:layout_height="@dimen/d_50"
-                    android:layout_margin="@dimen/d_4"
-                    android:background="@drawable/btn_keyboard_white_bg"
-                    android:text="@string/dvr_keyboard_number9"
-                    android:textColor="@color/c_000000"
-                    android:textSize="26sp"
-                    android:textStyle="bold" />
-
-                <Button
-                    android:id="@+id/butDVRUP"
-                    android:layout_width="match_parent"
-                    android:layout_height="@dimen/d_50"
-                    android:layout_margin="@dimen/d_4"
-                    android:background="@drawable/btn_keyboard_white_bg"
-                    android:text="@string/dvr_keyboard_upward"
-                    android:textColor="@color/c_000000"
-                    android:textSize="30sp"
-                    android:textStyle="bold" />
-
-                <Button
-                    android:id="@+id/butDVRLeft"
-                    android:layout_width="match_parent"
-                    android:layout_height="@dimen/d_50"
-                    android:layout_margin="@dimen/d_4"
-                    android:background="@drawable/btn_keyboard_white_bg"
-                    android:text="@string/dvr_keyboard_left"
-                    android:textColor="@color/c_000000"
-                    android:textSize="30sp"
-                    android:textStyle="bold" />
-
-                <Button
-                    android:id="@+id/butDVRM"
-                    android:layout_width="match_parent"
-                    android:layout_height="@dimen/d_50"
-                    android:layout_margin="@dimen/d_4"
-                    android:background="@drawable/btn_keyboard_white_bg"
-                    android:text="@string/dvr_keyboard_m"
-                    android:textColor="@color/c_000000"
-                    android:textSize="26sp"
-                    android:textStyle="bold" />
-
-                <Button
-                    android:id="@+id/butDVRENT"
-                    android:layout_width="match_parent"
-                    android:layout_height="@dimen/d_50"
-                    android:layout_margin="@dimen/d_4"
-                    android:background="@drawable/btn_keyboard_white_bg"
-                    android:text="@string/dvr_keyboard_ent"
-                    android:textColor="@color/c_000000"
-                    android:textSize="26sp"
-                    android:textStyle="bold" />
-
-            </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="0.0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="vertical">
-
-                <Button
-                    android:id="@+id/butNumber2"
-                    android:layout_width="match_parent"
-                    android:layout_height="@dimen/d_50"
-                    android:layout_margin="@dimen/d_4"
-                    android:background="@drawable/btn_keyboard_white_bg"
-                    android:text="@string/dvr_keyboard_number2"
-                    android:textColor="@color/c_000000"
-                    android:textSize="26sp"
-                    android:textStyle="bold" />
-
-                <Button
-                    android:id="@+id/butNumber4"
-                    android:layout_width="match_parent"
-                    android:layout_height="@dimen/d_50"
-                    android:layout_margin="@dimen/d_4"
-                    android:background="@drawable/btn_keyboard_white_bg"
-                    android:text="@string/dvr_keyboard_number4"
-                    android:textColor="@color/c_000000"
-                    android:textSize="26sp"
-                    android:textStyle="bold" />
-
-                <Button
-                    android:id="@+id/butNumber6"
-                    android:layout_width="match_parent"
-                    android:layout_height="@dimen/d_50"
-                    android:layout_margin="@dimen/d_4"
-                    android:background="@drawable/btn_keyboard_white_bg"
-                    android:text="@string/dvr_keyboard_number6"
-                    android:textColor="@color/c_000000"
-                    android:textSize="26sp"
-                    android:textStyle="bold" />
-
-                <Button
-                    android:id="@+id/butNumber8"
-                    android:layout_width="match_parent"
-                    android:layout_height="@dimen/d_50"
-                    android:layout_margin="@dimen/d_4"
-                    android:background="@drawable/btn_keyboard_white_bg"
-                    android:text="@string/dvr_keyboard_number8"
-                    android:textColor="@color/c_000000"
-                    android:textSize="26sp"
-                    android:textStyle="bold" />
-
-                <Button
-                    android:id="@+id/butNumber0"
-                    android:layout_width="match_parent"
-                    android:layout_height="@dimen/d_50"
-                    android:layout_margin="@dimen/d_4"
-                    android:background="@drawable/btn_keyboard_white_bg"
-                    android:text="@string/dvr_keyboard_number0"
-                    android:textColor="@color/c_000000"
-                    android:textSize="26sp"
-                    android:textStyle="bold" />
-
-                <Button
-                    android:id="@+id/butDVRDown"
-                    android:layout_width="match_parent"
-                    android:layout_height="@dimen/d_50"
-                    android:layout_margin="@dimen/d_4"
-                    android:background="@drawable/btn_keyboard_white_bg"
-                    android:text="@string/dvr_keyboard_down"
-                    android:textColor="@color/c_000000"
-                    android:textSize="30sp"
-                    android:textStyle="bold" />
-
-                <Button
-                    android:id="@+id/butDVRRight"
-                    android:layout_width="match_parent"
-                    android:layout_height="@dimen/d_50"
-                    android:layout_margin="@dimen/d_4"
-                    android:background="@drawable/btn_keyboard_white_bg"
-                    android:text="@string/dvr_keyboard_right"
-                    android:textColor="@color/c_000000"
-                    android:textSize="30sp"
-                    android:textStyle="bold" />
-
-                <Button
-                    android:id="@+id/butDVRDEL"
-                    android:layout_width="match_parent"
-                    android:layout_height="@dimen/d_50"
-                    android:layout_margin="@dimen/d_4"
-                    android:background="@drawable/btn_keyboard_white_bg"
-                    android:text="@string/dvr_keyboard_del"
-                    android:textColor="@color/c_000000"
-                    android:textSize="26sp"
-                    android:textStyle="bold" />
-
-                <Button
-                    android:id="@+id/butDVRESC"
-                    android:layout_width="match_parent"
-                    android:layout_height="@dimen/d_50"
-                    android:layout_margin="@dimen/d_4"
-                    android:background="@drawable/btn_keyboard_white_bg"
-                    android:text="@string/dvr_keyboard_esc"
-                    android:textColor="@color/c_000000"
-                    android:textSize="26sp"
-                    android:textStyle="bold" />
-            </LinearLayout>
-        </LinearLayout>
     </LinearLayout>
 
-    <SurfaceView
-        android:id="@+id/core_surface"
-        android:layout_width="0.0dp"
-        android:layout_height="match_parent"
-        android:layout_weight="6" />
+    <LinearLayout
+        android:id="@+id/lyDvrSurfaceView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:visibility="gone">
 
-</LinearLayout>
+        <SurfaceView
+            android:id="@+id/core_surface"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/lyBut"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/tvBack"
+            android:layout_width="@dimen/d_110"
+            android:layout_height="@dimen/d_58"
+            android:layout_marginLeft="@dimen/d_5"
+            android:layout_marginTop="730dp"
+            android:background="@drawable/txt_key_bck"
+            android:gravity="center"
+            android:text="BACK"
+            android:textColor="@color/c_000000"
+            android:textSize="@dimen/d_40"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+</RelativeLayout>

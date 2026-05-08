@@ -69,6 +69,11 @@
             android:screenOrientation="landscape"
             android:theme="@style/AppTheme" />
         <activity
+            android:name=".auth.LegacyPasswordActivity"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:theme="@style/AppTheme" />
+        <activity
             android:name=".home.LegacyMainActivity"
             android:exported="true"
             android:screenOrientation="landscape"

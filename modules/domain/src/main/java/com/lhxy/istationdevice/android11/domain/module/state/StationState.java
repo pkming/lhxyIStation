@@ -2,9 +2,12 @@ package com.lhxy.istationdevice.android11.domain.module.state;
 
 import com.lhxy.istationdevice.android11.protocol.gps.GpsFixSnapshot;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Station business state shared by UI, DVR dispatch, and GPS auto-report.
@@ -23,6 +26,11 @@ public final class StationState {
     private String latitude = "-";
     private String longitude = "-";
     private String lastReminder = "-";
+    private String activeCrossSpeedLimit = "-";
+    private String activeCrossArrivalTime = "-";
+    private String activeCrossCode = "-";
+    private String activeCrossType = "-";
+    private int activeReminderNo = -1;
     private int satellites;
     private int stationCursor = -1;
     private int displayStationNo = -1;
@@ -30,6 +38,7 @@ public final class StationState {
     private int currentStationType;
     private int reportCount;
     private boolean previewingNext;
+    private boolean crossingReminderActive;
 
     public StationState() {
         applyLineProfile("101路", "上行", Arrays.asList("火车站", "市政府", "人民广场", "科技园"));
@@ -55,7 +64,7 @@ public final class StationState {
                 currentStation = routeStations.get(stationCursor);
                 nextStation = "-";
                 reportPhase = "终点到站";
-                lastReminder = "-";
+                clearReminderState();
                 return;
             }
             if (stationCursor < routeStations.size() - 1) {
@@ -83,7 +92,7 @@ public final class StationState {
             nextStation = stationCursor + 1 < routeStations.size() ? routeStations.get(stationCursor + 1) : "-";
             reportPhase = stationCursor >= routeStations.size() - 1 ? "终点到站" : "进站播报";
         }
-        lastReminder = "-";
+        clearReminderState();
     }
 
     public void retreatStation() {
@@ -114,7 +123,7 @@ public final class StationState {
             nextStation = stationCursor + 1 < routeStations.size() ? routeStations.get(stationCursor + 1) : "-";
             reportPhase = "回退预报";
         }
-        lastReminder = "-";
+        clearReminderState();
     }
 
     public boolean quickStepForward() {
@@ -148,7 +157,7 @@ public final class StationState {
             nextStation = stationCursor + 1 < routeStations.size() ? routeStations.get(stationCursor + 1) : "-";
             reportPhase = stationCursor >= routeStations.size() - 1 ? "终点到站" : "进站播报";
         }
-        lastReminder = "-";
+        clearReminderState();
         return true;
     }
 
@@ -167,7 +176,7 @@ public final class StationState {
             currentStation = routeStations.get(stationCursor);
             nextStation = stationCursor + 1 < routeStations.size() ? routeStations.get(stationCursor + 1) : "-";
             reportPhase = stationCursor == 0 ? "回到起点" : "回退到站";
-            lastReminder = "-";
+            clearReminderState();
             return true;
         }
         if (stationCursor - 1 < 0) {
@@ -180,7 +189,7 @@ public final class StationState {
         currentStation = routeStations.get(stationCursor);
         nextStation = stationCursor + 1 < routeStations.size() ? routeStations.get(stationCursor + 1) : "-";
         reportPhase = "回退预报";
-        lastReminder = "-";
+        clearReminderState();
         return true;
     }
 
@@ -195,7 +204,7 @@ public final class StationState {
         }
         currentStationType = 0;
         reportPhase = "重复报站";
-        lastReminder = "-";
+        clearReminderState();
         return true;
     }
 
@@ -242,11 +251,26 @@ public final class StationState {
         if (stationCursor >= 0 && stationCursor < routeStations.size()) {
             terminalStation = routeStations.get(routeStations.size() - 1);
         }
-        lastReminder = "-";
+        clearReminderState();
     }
 
-    public void recordReminder(String reminderName) {
+    public void recordReminder(String reminderName, String crossCode, String crossType, int reminderNo, String crossSpeedLimit, int reminderType) {
         lastReminder = emptyAsDash(reminderName);
+        if (reminderType == 1) {
+            crossingReminderActive = false;
+            activeCrossSpeedLimit = "-";
+            activeCrossArrivalTime = "-";
+            activeCrossCode = "-";
+            activeCrossType = "-";
+            activeReminderNo = -1;
+        } else {
+            crossingReminderActive = true;
+            activeCrossSpeedLimit = normalizeSpeedLimit(crossSpeedLimit);
+            activeCrossArrivalTime = compactNowTime();
+            activeCrossCode = emptyAsDash(crossCode);
+            activeCrossType = emptyAsDash(crossType);
+            activeReminderNo = reminderNo;
+        }
         reportPhase = "友情提醒";
     }
 
@@ -352,6 +376,30 @@ public final class StationState {
         return lastReminder;
     }
 
+    public boolean isCrossingReminderActive() {
+        return crossingReminderActive;
+    }
+
+    public String getActiveCrossSpeedLimit() {
+        return activeCrossSpeedLimit;
+    }
+
+    public String getActiveCrossArrivalTime() {
+        return activeCrossArrivalTime;
+    }
+
+    public String getActiveCrossCode() {
+        return activeCrossCode;
+    }
+
+    public String getActiveCrossType() {
+        return activeCrossType;
+    }
+
+    public int getActiveReminderNo() {
+        return activeReminderNo;
+    }
+
     public void applyLineProfile(String lineName, String directionText, List<String> stations) {
         if (lineName != null && !lineName.trim().isEmpty()) {
             this.lineName = lineName.trim();
@@ -374,7 +422,7 @@ public final class StationState {
         reportCount = 0;
         previewingNext = false;
         currentStation = "-";
-        lastReminder = "-";
+        clearReminderState();
         reportPhase = "待发";
         if (routeStations.isEmpty()) {
             nextStation = "-";
@@ -401,9 +449,34 @@ public final class StationState {
                 + "\n- previewingNext=" + previewingNext
                 + "\n- phase=" + emptyAsDash(reportPhase)
                 + "\n- reminder=" + emptyAsDash(lastReminder)
+                + "\n- crossSpeedLimit=" + emptyAsDash(activeCrossSpeedLimit)
+                + "\n- crossArrivalTime=" + emptyAsDash(activeCrossArrivalTime)
+                + "\n- crossCode=" + emptyAsDash(activeCrossCode)
+                + "\n- crossType=" + emptyAsDash(activeCrossType)
+                + "\n- reminderNo=" + activeReminderNo
+                + "\n- crossingReminderActive=" + crossingReminderActive
                 + "\n- gpsChannel=" + emptyAsDash(gpsChannelKey)
                 + "\n- gpsLatLng=" + emptyAsDash(latitude) + "," + emptyAsDash(longitude)
                 + "\n- satellites=" + satellites;
+    }
+
+    private void clearReminderState() {
+        lastReminder = "-";
+        activeCrossSpeedLimit = "-";
+        activeCrossArrivalTime = "-";
+        activeCrossCode = "-";
+        activeCrossType = "-";
+        activeReminderNo = -1;
+        crossingReminderActive = false;
+    }
+
+    private String compactNowTime() {
+        return new SimpleDateFormat("yyMMddHHmmss", Locale.getDefault()).format(new Date());
+    }
+
+    private String normalizeSpeedLimit(String speedLimit) {
+        String value = emptyAsDash(speedLimit);
+        return "-".equals(value) ? "0" : value;
     }
 
     private String emptyAsDash(String value) {

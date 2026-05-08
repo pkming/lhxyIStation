@@ -18,19 +18,24 @@ import com.lhxy.istationdevice.android11.app.R;
 import com.lhxy.istationdevice.android11.deviceapi.SocketClientAdapter;
 import com.lhxy.istationdevice.android11.domain.config.ShellConfig;
 import com.lhxy.istationdevice.android11.domain.gps.GpsSerialMonitor;
+import com.lhxy.istationdevice.android11.domain.module.DispatchBusinessModule;
+import com.lhxy.istationdevice.android11.domain.module.TerminalBusinessModule;
+import com.lhxy.istationdevice.android11.domain.module.state.DispatchState;
 import com.lhxy.istationdevice.android11.runtime.ShellRuntime;
 
 import java.net.Inet4Address;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.NetworkInterface;
+import java.net.Socket;
 import java.util.Collections;
-import java.util.Iterator;
-import java.util.Map;
 
 /**
  * 旧版系统信息-网络信息页。
  */
 public final class LegacySystemNetworkFragment extends Fragment {
+    private static final int SERVER_PROBE_TIMEOUT_MILLIS = 1500;
+
     private TextView tvGpsState;
     private TextView tvLanState;
     private TextView tv4GState;
@@ -41,6 +46,7 @@ public final class LegacySystemNetworkFragment extends Fragment {
     private TextView tvServerIp2;
     private TextView tvServerState2;
     private TextView tvWiredIp;
+    private int serverProbeVersion;
 
     @Nullable
     @Override
@@ -70,9 +76,34 @@ public final class LegacySystemNetworkFragment extends Fragment {
         render();
     }
 
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        serverProbeVersion++;
+        tvGpsState = null;
+        tvLanState = null;
+        tv4GState = null;
+        tvWifiIp = null;
+        tvWifiState = null;
+        tvServerIp1 = null;
+        tvServerState1 = null;
+        tvServerIp2 = null;
+        tvServerState2 = null;
+        tvWiredIp = null;
+    }
+
+    @Override
+    public void onHiddenChanged(boolean hidden) {
+        super.onHiddenChanged(hidden);
+        serverProbeVersion++;
+        if (!hidden) {
+            render();
+        }
+    }
+
     private void render() {
         Context context = getContext();
-        if (context == null) {
+        if (context == null || isHidden()) {
             return;
         }
         ShellRuntime runtime = ShellRuntime.get();
@@ -100,18 +131,55 @@ public final class LegacySystemNetworkFragment extends Fragment {
                 ? getString(R.string.connected)
                 : getString(R.string.unconnected));
 
-        Iterator<Map.Entry<String, ShellConfig.SocketChannel>> iterator = shellConfig == null
-                ? Collections.<Map.Entry<String, ShellConfig.SocketChannel>>emptyList().iterator()
-                : shellConfig.getSocketChannels().entrySet().iterator();
-        bindSocket(iterator.hasNext() ? iterator.next().getValue() : null, tvServerIp1, tvServerState1, socketClientAdapter);
-        bindSocket(iterator.hasNext() ? iterator.next().getValue() : null, tvServerIp2, tvServerState2, socketClientAdapter);
+        serverProbeVersion++;
+        bindDispatchServer(resolvePrimaryServer(shellConfig), tvServerIp1, tvServerState1, socketClientAdapter, runtime);
+        bindUpdateServer(resolveSecondaryServer(shellConfig), tvServerIp2, tvServerState2, context);
     }
 
-    private void bindSocket(
+    @Nullable
+    private ShellConfig.SocketChannel resolvePrimaryServer(@Nullable ShellConfig shellConfig) {
+        return resolveSocketChannel(shellConfig, shellConfig == null ? null : shellConfig.getDebugReplay().getJt808SocketKey(), true);
+    }
+
+    @Nullable
+    private ShellConfig.SocketChannel resolveSecondaryServer(@Nullable ShellConfig shellConfig) {
+        return resolveSocketChannel(shellConfig, shellConfig == null ? null : shellConfig.getDebugReplay().getAl808SocketKey(), false);
+    }
+
+    @Nullable
+    private ShellConfig.SocketChannel resolveSocketChannel(
+            @Nullable ShellConfig shellConfig,
+            @Nullable String preferredKey,
+            boolean primary
+    ) {
+        if (shellConfig == null || shellConfig.getSocketChannels().isEmpty()) {
+            return null;
+        }
+        if (preferredKey != null && !preferredKey.trim().isEmpty()) {
+            ShellConfig.SocketChannel preferred = shellConfig.getSocketChannels().get(preferredKey.trim());
+            if (preferred != null) {
+                return preferred;
+            }
+        }
+        if (primary) {
+            return shellConfig.getSocketChannels().values().iterator().next();
+        }
+        int index = 0;
+        for (ShellConfig.SocketChannel channel : shellConfig.getSocketChannels().values()) {
+            if (index == 1) {
+                return channel;
+            }
+            index++;
+        }
+        return null;
+    }
+
+    private void bindDispatchServer(
             @Nullable ShellConfig.SocketChannel channel,
             @Nullable TextView ipView,
             @Nullable TextView stateView,
-            SocketClientAdapter socketClientAdapter
+            @NonNull SocketClientAdapter socketClientAdapter,
+            @NonNull ShellRuntime runtime
     ) {
         if (channel == null) {
             bindText(ipView, "-");
@@ -119,9 +187,79 @@ public final class LegacySystemNetworkFragment extends Fragment {
             return;
         }
         bindText(ipView, channel.getHost());
-        bindText(stateView, socketClientAdapter.isConnected(channel.getChannelName())
-                ? getString(R.string.connected)
-                : getString(R.string.unconnected));
+        boolean connected = isDispatchBusinessActive(runtime);
+        if (!connected) {
+            connected = socketClientAdapter.isConnected(channel.getChannelName());
+        }
+        bindText(stateView, connected ? getString(R.string.connected) : getString(R.string.unconnected));
+    }
+
+    private void bindUpdateServer(
+            @Nullable ShellConfig.SocketChannel channel,
+            @Nullable TextView ipView,
+            @Nullable TextView stateView,
+            @NonNull Context context
+    ) {
+        if (channel == null) {
+            bindText(ipView, "-");
+            bindText(stateView, getString(R.string.unconnected));
+            return;
+        }
+        bindText(ipView, channel.getHost());
+        bindText(stateView, getString(R.string.unconnected));
+        if (!hasActiveNetwork(context) || !hasText(channel.getHost()) || channel.getPort() <= 0) {
+            return;
+        }
+        int probeVersion = serverProbeVersion;
+        new Thread(() -> {
+            boolean reachable = probeServer(channel.getHost(), channel.getPort());
+            if (!isAdded() || probeVersion != serverProbeVersion || stateView == null) {
+                return;
+            }
+            stateView.post(() -> {
+                if (!isAdded() || probeVersion != serverProbeVersion) {
+                    return;
+                }
+                bindText(stateView, getString(reachable ? R.string.connected : R.string.unconnected));
+            });
+        }, "legacy-update-server-probe").start();
+    }
+
+    private boolean hasActiveNetwork(Context context) {
+        ConnectivityManager connectivityManager = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+        if (connectivityManager == null) {
+            return false;
+        }
+        Network activeNetwork = connectivityManager.getActiveNetwork();
+        if (activeNetwork == null) {
+            return false;
+        }
+        NetworkCapabilities capabilities = connectivityManager.getNetworkCapabilities(activeNetwork);
+        return capabilities != null && capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET);
+    }
+
+    private boolean probeServer(String host, int port) {
+        try (Socket socket = new Socket()) {
+            socket.connect(new InetSocketAddress(host, port), SERVER_PROBE_TIMEOUT_MILLIS);
+            return true;
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    private boolean isDispatchBusinessActive(@NonNull ShellRuntime runtime) {
+        TerminalBusinessModule module = runtime.getModuleHub().findModule("dispatch");
+        if (!(module instanceof DispatchBusinessModule)) {
+            return false;
+        }
+        DispatchState dispatchState = ((DispatchBusinessModule) module).getDispatchState();
+        if (dispatchState == null) {
+            return false;
+        }
+        return dispatchState.isStartedBus()
+                || dispatchState.isDispatchedConfirmed()
+                || dispatchState.isJoinedOperation()
+                || dispatchState.getLastUpdateTimeMillis() > 0L;
     }
 
     private boolean hasTransport(Context context, int transportType) {

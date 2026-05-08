@@ -1,0 +1,15 @@
+<resources>
+    <declare-styleable name="MaterialEditText">
+        <attr name="met_baseColor" format="color" />
+        <attr name="met_clearButton" format="boolean" />
+        <attr name="met_floatingLabel">
+            <enum name="none" value="0" />
+            <enum name="normal" value="1" />
+            <enum name="highlight" value="2" />
+        </attr>
+        <attr name="met_floatingLabelTextSize" format="dimension" />
+        <attr name="met_primaryColor" format="color|reference" />
+        <attr name="met_singleLineEllipsis" format="boolean" />
+        <attr name="met_underlineColor" format="color|reference" />
+    </declare-styleable>
+</resources>

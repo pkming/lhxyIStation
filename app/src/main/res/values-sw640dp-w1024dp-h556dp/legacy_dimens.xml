@@ -1,0 +1,12 @@
+<resources>
+    <dimen name="home_m90_d_50">36dp</dimen>
+    <dimen name="home_m90_d_60">40dp</dimen>
+    <dimen name="home_m90_d_70">44dp</dimen>
+    <dimen name="home_m90_d_80">56dp</dimen>
+    <dimen name="home_m90_d_350">260dp</dimen>
+    <dimen name="home_m90_button_height">44dp</dimen>
+    <dimen name="home_m90_button_first_margin_top">8dp</dimen>
+    <dimen name="home_m90_button_margin_top">5dp</dimen>
+    <dimen name="home_m90_planned_margin_top">300dp</dimen>
+    <dimen name="home_m90_line_card_height">180dp</dimen>
+</resources>

@@ -187,17 +187,17 @@ public final class ProtocolPayloadExplainer {
         if (payload.length < 9) {
             return "dvr-touch=invalid";
         }
-        int x = readLittleEndianShort(payload, 3);
-        int y = readLittleEndianShort(payload, 5);
-        String phase = (payload[7] & 0xFF) == 0x00 ? "up" : "down/move";
+        int x = readBigEndianShort(payload, 3);
+        int y = readBigEndianShort(payload, 5);
+        String phase = (payload[7] & 0xFF) == 0x00 ? "up" : "down";
         return "phase=" + phase + " / x=" + x + " / y=" + y + " / checksum=0x" + twoHex(payload[8] & 0xFF);
     }
 
-    private static int readLittleEndianShort(byte[] payload, int offset) {
+    private static int readBigEndianShort(byte[] payload, int offset) {
         if (payload == null || payload.length <= offset + 1) {
             return 0;
         }
-        return (payload[offset] & 0xFF) | ((payload[offset + 1] & 0xFF) << 8);
+        return ((payload[offset] & 0xFF) << 8) | (payload[offset + 1] & 0xFF);
     }
 
     private static String twoHex(int value) {

@@ -267,6 +267,42 @@
                 app:ce_text_color="@color/c_808080" />
         </RelativeLayout>
 
+        <RelativeLayout
+            android:layout_width="0.0dp"
+            android:layout_height="@dimen/d_52"
+            android:layout_marginLeft="@dimen/d_16"
+            android:layout_marginRight="@dimen/d_16"
+            android:layout_weight="1"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerVertical="true"
+                android:text="@string/network_speeding_interval"
+                android:textColor="@color/c_ffffff"
+                android:textSize="22sp" />
+
+            <com.lhxy.istationdevice.common.widget.CompanyEdittext
+                android:id="@+id/etSpeedingInterval"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_marginLeft="@dimen/d_100"
+                android:layout_marginTop="@dimen/d_4"
+                android:layout_marginRight="@dimen/d_22"
+                android:layout_marginBottom="@dimen/d_4"
+                android:background="@drawable/edittext_bg"
+                android:hint="@string/network_speeding_interval_hint"
+                android:inputType="number"
+                android:paddingLeft="@dimen/d_10"
+                android:paddingRight="@dimen/d_10"
+                android:textColor="@color/c_ffffff"
+                android:textColorHint="@color/c_e5e5e5"
+                android:textSize="20sp"
+                app:ce_text="@string/network_company"
+                app:ce_text_color="@color/c_808080" />
+        </RelativeLayout>
+
     </LinearLayout>
 
 

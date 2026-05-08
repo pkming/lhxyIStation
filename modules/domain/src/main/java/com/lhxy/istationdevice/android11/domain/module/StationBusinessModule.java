@@ -14,7 +14,7 @@ import com.lhxy.istationdevice.android11.domain.config.ShellConfig;
 import com.lhxy.istationdevice.android11.domain.dispatch.DvrSerialDispatchUseCase;
 import com.lhxy.istationdevice.android11.domain.gps.GpsSerialMonitor;
 import com.lhxy.istationdevice.android11.domain.gps.LegacyGpsAutoReportEngine;
-import com.lhxy.istationdevice.android11.domain.gps.LegacyGpsRouteCatalog;
+import com.lhxy.istationdevice.android11.domain.gps.LegacyGpsFlowUseCase;
 import com.lhxy.istationdevice.android11.domain.gps.LegacyGpsRouteResource;
 import com.lhxy.istationdevice.android11.domain.module.state.StationState;
 import com.lhxy.istationdevice.android11.domain.station.LegacyStationAudioUseCase;
@@ -37,8 +37,7 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
     private final DispatchBusinessModule dispatchBusinessModule;
     private final DvrSerialDispatchUseCase dvrSerialDispatchUseCase;
     private final StationState stationState = new StationState();
-    private final LegacyGpsRouteCatalog gpsRouteCatalog = new LegacyGpsRouteCatalog();
-    private final LegacyGpsAutoReportEngine gpsAutoReportEngine = new LegacyGpsAutoReportEngine();
+    private final LegacyGpsFlowUseCase gpsFlowUseCase = new LegacyGpsFlowUseCase();
     private final LegacyStationDisplayUseCase stationDisplayUseCase;
     private final LegacyStationAudioUseCase stationAudioUseCase;
 
@@ -50,7 +49,9 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
     private long autoGpsReportCount;
     private long lastAutoGpsReportTimeMs;
     private long speedingStartTimeMs;
+    private int speedingPeakKmh;
     private long lastSpeedWarningTimeMs;
+    private long speedWarningGpsWarmupAnchorMs = -1L;
     private long lastNowTimeKey = -1L;
 
     public StationBusinessModule(
@@ -90,7 +91,7 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
     }
 
     public void reloadRouteResources() {
-        gpsRouteCatalog.clearCache();
+        gpsFlowUseCase.clearCache();
         syncRouteProfileIfNeeded();
     }
 
@@ -483,22 +484,25 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
                 return;
             }
             stationState.updateGps(snapshot);
-            LegacyGpsRouteResource route = resolveActiveRoute(context);
-            if (route == null) {
+            ShellConfig shellConfig = requireShellConfig();
+            LegacyGpsFlowUseCase.GpsFlowResult flowResult = gpsFlowUseCase.evaluate(
+                    context,
+                    shellConfig,
+                    stationState.getLineName(),
+                    stationState.getDirectionText(),
+                    snapshot
+            );
+            LegacyGpsRouteResource route = flowResult.getRoute();
+            if (!flowResult.hasRoute()) {
                 return;
             }
             stationState.setLineAttribute(route.getAttributeLabel());
             syncRouteProfileIfNeeded(route);
-                ShellConfig shellConfig = requireShellConfig();
-                handleAuxiliaryAudio(context, shellConfig, route, snapshot, traceId);
+            handleAuxiliaryAudio(context, shellConfig, route, snapshot, traceId);
 
             autoGpsReportCount++;
             lastAutoGpsReportTimeMs = System.currentTimeMillis();
-            LegacyGpsAutoReportEngine.AutoReportEvent event = gpsAutoReportEngine.evaluate(
-                    route,
-                    snapshot,
-                    shellConfig.getBasicSetupConfig().getNewspaperSettings().isAngleEnabled()
-            );
+            LegacyGpsAutoReportEngine.AutoReportEvent event = flowResult.getEvent();
             if (event.isNone()) {
                 return;
             }
@@ -511,8 +515,40 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
             );
             if (event.getOperationType() == LegacyGpsAutoReportEngine.OP_REMINDER) {
                 if (event.getReminderPoint() != null) {
-                    stationState.recordReminder(event.getReminderPoint().getReminderName());
-                    stationAudioUseCase.playReminder(context, shellConfig, route, event.getReminderPoint());
+                    if (event.getReminderType() == LegacyGpsAutoReportEngine.REMINDER_TYPE_ENTER) {
+                    stationState.recordReminder(
+                        event.getReminderPoint().getReminderName(),
+                        event.getReminderPoint().getCrossCode(),
+                        event.getReminderPoint().getCrossType(),
+                        event.getReminderPoint().getReminderNo(),
+                        event.getReminderPoint().getCrossSpeedLimit(),
+                        event.getReminderType()
+                    );
+                    dispatchBusinessModule.sendCrossInfoReport(
+                        stationState,
+                        event.getReminderPoint(),
+                        snapshot,
+                        event.getReminderType(),
+                        traceId + "-cross-enter"
+                    );
+                        stationAudioUseCase.playReminder(context, shellConfig, route, event.getReminderPoint());
+                    } else {
+                    dispatchBusinessModule.sendCrossInfoReport(
+                        stationState,
+                        event.getReminderPoint(),
+                        snapshot,
+                        event.getReminderType(),
+                        traceId + "-cross-leave"
+                    );
+                    stationState.recordReminder(
+                        event.getReminderPoint().getReminderName(),
+                        event.getReminderPoint().getCrossCode(),
+                        event.getReminderPoint().getCrossType(),
+                        event.getReminderPoint().getReminderNo(),
+                        event.getReminderPoint().getCrossSpeedLimit(),
+                        event.getReminderType()
+                    );
+                    }
                 }
                 return;
             }
@@ -562,14 +598,13 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
     }
 
     private void handleDirectionSwitch(Context context, LegacyGpsRouteResource currentRoute, String traceId) {
-        String nextDirection = currentRoute.getDirectionText().contains("下") ? "上行" : "下行";
-        LegacyGpsRouteResource switchedRoute = gpsRouteCatalog.load(context, currentRoute.getLineName(), nextDirection);
+        LegacyGpsRouteResource switchedRoute = gpsFlowUseCase.resolveSwitchedRoute(context, currentRoute);
         if (switchedRoute == null) {
             return;
         }
         stationState.recordDirectionSwitch(switchedRoute.getDirectionText(), switchedRoute.stationNames());
         stationState.setLineAttribute(switchedRoute.getAttributeLabel());
-        gpsAutoReportEngine.reset(switchedRoute.getLineName() + "|" + switchedRoute.getDirectionText());
+        gpsFlowUseCase.reset(switchedRoute);
         AppLogCenter.log(
                 LogCategory.BIZ,
                 LogLevel.INFO,
@@ -636,38 +671,12 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
     }
 
     private LegacyGpsRouteResource resolveActiveRoute(Context context) {
-        String preferredLineName = resolvePreferredLineName();
-        String preferredDirectionText = resolvePreferredDirectionText();
-        return gpsRouteCatalog.load(context, preferredLineName, preferredDirectionText);
-    }
-
-    private String resolvePreferredLineName() {
-        ShellConfig.ResourceImportSettings resourceImportSettings =
-                requireShellConfig().getBasicSetupConfig().getResourceImportSettings();
-        if (resourceImportSettings.getLineName() != null
-            && !resourceImportSettings.getLineName().trim().isEmpty()
-                && !"-".equals(resourceImportSettings.getLineName().trim())) {
-            return resourceImportSettings.getLineName().trim();
-        }
-        return stationState.getLineName();
-    }
-
-    private String resolvePreferredDirectionText() {
-        ShellConfig.ResourceImportSettings resourceImportSettings =
-                requireShellConfig().getBasicSetupConfig().getResourceImportSettings();
-        if (resourceImportSettings.getLineName() != null
-            && !resourceImportSettings.getLineName().trim().isEmpty()
-            && !"-".equals(resourceImportSettings.getLineName().trim())
-            && resourceImportSettings.getDirectionText() != null
-            && !resourceImportSettings.getDirectionText().trim().isEmpty()
-            && !"-".equals(resourceImportSettings.getDirectionText().trim())) {
-            return resourceImportSettings.getDirectionText().trim();
-        }
-        String directionText = stationState.getDirectionText();
-        if (directionText == null || directionText.trim().isEmpty()) {
-            return "上行";
-        }
-        return directionText.trim();
+        return gpsFlowUseCase.resolveActiveRoute(
+                context,
+                requireShellConfig(),
+                stationState.getLineName(),
+                stationState.getDirectionText()
+        );
     }
 
     private int resolvePeriodicGpsReportIntervalSeconds(ShellConfig shellConfig) {
@@ -764,25 +773,48 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
             resetSpeedWarningState();
             return;
         }
+        long now = System.currentTimeMillis();
+        if (!isGpsReadyForSpeedWarning(snapshot, now)) {
+            resetSpeedWarningState();
+            return;
+        }
         int speedLimit = resolveSpeedLimit(route);
         if (speedLimit <= 0) {
             resetSpeedWarningState();
             return;
         }
         int speedKmh = parseSpeedKmh(snapshot);
-        if (speedKmh <= 0 || speedKmh <= speedLimit - 4) {
+        if (!hasSpeedWarningInput(snapshot, speedKmh)) {
             resetSpeedWarningState();
             return;
         }
-        long now = System.currentTimeMillis();
-        if (speedingStartTimeMs <= 0L) {
-            speedingStartTimeMs = now;
+        if (!isSpeedWarningActive(speedKmh, speedLimit)) {
+            resetSpeedWarningState();
             return;
         }
-        if (now - speedingStartTimeMs < 2_000L || now - lastSpeedWarningTimeMs < 1_000L || stationAudioUseCase.isBusy()) {
+        if (speedingStartTimeMs <= 0L) {
+            speedingStartTimeMs = now;
+            speedingPeakKmh = speedKmh;
+            return;
+        }
+        speedingPeakKmh = Math.max(speedingPeakKmh, speedKmh);
+        if (now - speedingStartTimeMs < 2_000L
+            || now - lastSpeedWarningTimeMs < resolveSpeedWarningRepeatIntervalMs()
+            || stationAudioUseCase.isBusy()) {
             return;
         }
         lastSpeedWarningTimeMs = now;
+        if (stationState.isCrossingReminderActive()) {
+            dispatchBusinessModule.sendCrossingOverspeedReport(
+                    stationState,
+                    route,
+                    speedingPeakKmh,
+                    parseSpeedHundredKmh(snapshot),
+                    (now - speedingStartTimeMs) / 1000L,
+                    snapshot,
+                    traceId + "-speeding-cross"
+            );
+        }
         stationAudioUseCase.playSpeedWarning(context, shellConfig);
         AppLogCenter.log(
                 LogCategory.BIZ,
@@ -795,15 +827,57 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
 
     private void resetSpeedWarningState() {
         speedingStartTimeMs = 0L;
+        speedingPeakKmh = 0;
+    }
+
+    private long resolveSpeedWarningRepeatIntervalMs() {
+        return 2_500L;
+    }
+
+    private boolean isSpeedWarningActive(int speedKmh, int speedLimit) {
+        return speedKmh > 0 && speedLimit > 0 && speedKmh > speedLimit;
+    }
+
+    private boolean hasSpeedWarningInput(GpsFixSnapshot snapshot, int speedKmh) {
+        return snapshot != null
+                && speedKmh > 0
+                && speedKmh <= 90
+                && hasText(snapshot.getLatitudeDecimal())
+                && hasText(snapshot.getLongitudeDecimal());
+    }
+
+    private boolean isGpsReadyForSpeedWarning(GpsFixSnapshot snapshot, long nowMs) {
+        if (snapshot == null || !snapshot.isValid()) {
+            speedWarningGpsWarmupAnchorMs = nowMs;
+            return false;
+        }
+        if (speedWarningGpsWarmupAnchorMs < 0L) {
+            speedWarningGpsWarmupAnchorMs = nowMs;
+            return false;
+        }
+        return nowMs - speedWarningGpsWarmupAnchorMs > 3_000L;
     }
 
     private int resolveSpeedLimit(LegacyGpsRouteResource route) {
+        if (stationState.isCrossingReminderActive()) {
+            int crossingSpeedLimit = parseSpeedLimitValue(stationState.getActiveCrossSpeedLimit());
+            if (crossingSpeedLimit > 0) {
+                return crossingSpeedLimit;
+            }
+        }
         LegacyGpsRouteResource.StationPoint stationPoint = resolveSpeedReferenceStation(route);
-        if (stationPoint == null || stationPoint.getSpeedLimit() == null || stationPoint.getSpeedLimit().trim().isEmpty()) {
+        if (stationPoint == null) {
+            return 0;
+        }
+        return parseSpeedLimitValue(stationPoint.getSpeedLimit());
+    }
+
+    private int parseSpeedLimitValue(String rawValue) {
+        if (rawValue == null || rawValue.trim().isEmpty()) {
             return 0;
         }
         try {
-            return (int) Math.round(Double.parseDouble(stationPoint.getSpeedLimit().trim()));
+            return (int) Math.round(Double.parseDouble(rawValue.trim()));
         } catch (Exception ignore) {
             return 0;
         }
@@ -835,5 +909,20 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
         } catch (Exception ignore) {
             return 0;
         }
+    }
+
+    private int parseSpeedHundredKmh(GpsFixSnapshot snapshot) {
+        if (snapshot == null || snapshot.getSpeedKnots() == null || snapshot.getSpeedKnots().trim().isEmpty()) {
+            return 0;
+        }
+        try {
+            return (int) Math.round(Double.parseDouble(snapshot.getSpeedKnots().trim()) * 1.852d * 100d);
+        } catch (Exception ignore) {
+            return 0;
+        }
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.trim().isEmpty();
     }
 }

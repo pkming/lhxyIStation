@@ -83,7 +83,9 @@ public final class LegacyDispatchAttendanceFragment extends Fragment {
             tvDriverId.setText(state.getCardNo());
         }
         if (tvDriverName != null) {
-            tvDriverName.setText(state.getDriverName());
+            tvDriverName.setText(state.hasResolvedDriverIdentity()
+                    ? state.getDriverName()
+                    : getString(R.string.undetected));
         }
         if (rbGoToSignIn != null && rbGoOffSignIn != null) {
             if (state.isSignedIn()) {

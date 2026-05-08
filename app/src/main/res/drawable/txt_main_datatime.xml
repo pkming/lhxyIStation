@@ -2,12 +2,8 @@
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
     <item>
         <shape>
-            <!-- 圆角 -->
-            <corners android:radius="8dp" />
-
-            <!-- 填充 -->
-            <solid android:color="@color/c_0077ff" />
+            <corners android:radius="16dp" />
+            <solid android:color="#2c2c2c" />
         </shape>
     </item>
-
 </selector>

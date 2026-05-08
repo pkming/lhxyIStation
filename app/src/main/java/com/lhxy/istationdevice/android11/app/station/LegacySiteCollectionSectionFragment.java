@@ -16,6 +16,7 @@ import androidx.annotation.LayoutRes;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 
 import com.lhxy.istationdevice.android11.app.R;
@@ -290,6 +291,8 @@ public final class LegacySiteCollectionSectionFragment extends Fragment {
         bindText(tvLineName, selectedLineName);
         bindText(tvSiteName, siteName);
         bindText(tvOrderNumber, String.valueOf(Math.min(selectedSiteIndex, candidates.size() - 1) + 1));
+        applySelectedValueColor(tvLineName);
+        applySelectedValueColor(tvSiteName);
         renderGpsPanels(
                 root,
             learnedValue,
@@ -319,6 +322,8 @@ public final class LegacySiteCollectionSectionFragment extends Fragment {
         bindText(tvLineName, selectedLineName);
         bindText(tvAttributeName, attribute);
         bindText(tvOrderNumber, String.valueOf(Math.min(selectedAttributeIndex, candidates.size() - 1) + 1));
+        applySelectedValueColor(tvLineName);
+        applySelectedValueColor(tvAttributeName);
         renderGpsPanels(
                 root,
             learnedValue,
@@ -630,6 +635,13 @@ public final class LegacySiteCollectionSectionFragment extends Fragment {
             return;
         }
         textView.setText(valueOrDefault(value, "-"));
+    }
+
+    private void applySelectedValueColor(@Nullable TextView textView) {
+        if (textView == null || getContext() == null) {
+            return;
+        }
+        textView.setTextColor(ContextCompat.getColor(requireContext(), R.color.c_ffffff));
     }
 
     private String formatLongitude(@Nullable GpsFixSnapshot snapshot) {

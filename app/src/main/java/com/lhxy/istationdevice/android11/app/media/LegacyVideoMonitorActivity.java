@@ -3,10 +3,13 @@ package com.lhxy.istationdevice.android11.app.media;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.MotionEvent;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
+import android.widget.LinearLayout;
 import android.widget.Toast;
 
 import com.lhxy.istationdevice.android11.app.R;
@@ -18,26 +21,71 @@ import com.lhxy.istationdevice.android11.core.LogCategory;
 import com.lhxy.istationdevice.android11.core.LogLevel;
 import com.lhxy.istationdevice.android11.core.TraceIds;
 import com.lhxy.istationdevice.android11.domain.config.ShellConfig;
+import com.lhxy.istationdevice.android11.domain.module.CameraDvrBusinessModule;
 import com.lhxy.istationdevice.android11.domain.module.ModuleRunResult;
+import com.lhxy.istationdevice.android11.domain.module.TerminalBusinessModule;
 import com.lhxy.istationdevice.android11.runtime.ShellRuntime;
 
 /**
  * 旧版视频监控页。
  * <p>
- * 旧项目这里除了 Camera 预览，还有 DVR 键位发码和触摸协议。
- * 新壳当前已经把旧页壳、Camera 开关、DVR 键位和第一版触摸协议接回正式入口。
- * 触摸协议目前按文档摘要假设使用 M90 1280x800 坐标系，并把 down/move/up 映射成一帧触摸发送。
+ * 旧项目这里主要是 Camera 预览、返回浮层和触摸协议。
+ * 新壳当前已经把旧页壳、等待层、返回控件和触摸协议接回正式入口。
+ * 触摸协议按 M90 1280x800 坐标系缩放，并只发送 down/up 两种事件。
  */
 public final class LegacyVideoMonitorActivity extends AppCompatActivity {
     private static final String EXTRA_SOURCE = "source";
     private static final int DVR_TOUCH_WIDTH = 1280;
     private static final int DVR_TOUCH_HEIGHT = 800;
-    private static final long MOVE_REPORT_INTERVAL_MS = 40L;
-    private long lastTouchMoveReportAt;
+    private static final long DVR_OPENING_DELAY_MS = 2_000L;
+    private static final long HIDE_CONTROLS_DELAY_MS = 5_000L;
+    private static final long AUTO_MONITOR_POLL_INTERVAL_MS = 500L;
     private SurfaceView previewSurface;
+    private View controlsContainer;
+    private View openingOverlay;
+    private View contentContainer;
     private boolean pageResumed;
+    private boolean openingCompleted;
     private boolean previewOpened;
     private String currentCameraKey;
+    private String lastAutoMonitorCameraKey;
+    private final Handler uiHandler = new Handler(Looper.getMainLooper());
+    private final Runnable hideControlsRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (controlsContainer != null) {
+                controlsContainer.setVisibility(View.GONE);
+            }
+        }
+    };
+    private final Runnable autoMonitorRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (!pageResumed) {
+                return;
+            }
+            syncAutoMonitorChannel();
+            uiHandler.postDelayed(this, AUTO_MONITOR_POLL_INTERVAL_MS);
+        }
+    };
+    private final Runnable finishOpeningRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (!pageResumed) {
+                return;
+            }
+            openingCompleted = true;
+            if (openingOverlay != null) {
+                openingOverlay.setVisibility(View.GONE);
+            }
+            if (contentContainer != null) {
+                contentContainer.setVisibility(View.VISIBLE);
+            }
+            openPreviewIfReady(false);
+            syncAutoMonitorChannel();
+            scheduleAutoMonitorSync();
+        }
+    };
 
     public static Intent createIntent(Context context, String source) {
         Intent intent = new Intent(context, LegacyVideoMonitorActivity.class);
@@ -49,9 +97,12 @@ public final class LegacyVideoMonitorActivity extends AppCompatActivity {
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.act_video_monitor);
-        bindKeys();
+        controlsContainer = findViewById(R.id.lyBut);
+        openingOverlay = findViewById(R.id.lyDvrCameraOpen);
+        contentContainer = findViewById(R.id.lyDvrSurfaceView);
+        bindBackButton();
         bindCameraPreview();
-        bindPreviewTouch();
+        applyOpeningState();
         AppLogCenter.log(
                 LogCategory.UI,
                 LogLevel.INFO,
@@ -65,71 +116,67 @@ public final class LegacyVideoMonitorActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         pageResumed = true;
-        openPreviewIfReady(true);
+        applyOpeningState();
+        uiHandler.postDelayed(finishOpeningRunnable, DVR_OPENING_DELAY_MS);
     }
 
     @Override
     protected void onPause() {
         pageResumed = false;
+        uiHandler.removeCallbacks(finishOpeningRunnable);
+        cancelAutoMonitorSync();
+        lastAutoMonitorCameraKey = null;
+        cancelControlsHide();
+        applyOpeningState();
         closeActivePreview(false);
         super.onPause();
     }
 
-    private void bindKeys() {
-        bindKey(R.id.butBack, null);
-        bindCameraChannelButton(R.id.butMiddleDoorVideo, "middle_door");
-        bindCameraChannelButton(R.id.butReverseVideo, "reverse");
-        bindCameraChannelButton(R.id.butDvrVideo, "av_out");
-        bindCloseVideoButton(R.id.butCloseVideo);
-        bindKey(R.id.butNumber1, "1");
-        bindKey(R.id.butNumber2, "2");
-        bindKey(R.id.butNumber3, "3");
-        bindKey(R.id.butNumber4, "4");
-        bindKey(R.id.butNumber5, "5");
-        bindKey(R.id.butNumber6, "6");
-        bindKey(R.id.butNumber7, "7");
-        bindKey(R.id.butNumber8, "8");
-        bindKey(R.id.butNumber9, "9");
-        bindKey(R.id.butNumber0, "0");
-        bindKey(R.id.butDVRUP, "UP");
-        bindKey(R.id.butDVRDown, "DOWN");
-        bindKey(R.id.butDVRLeft, "LEFT");
-        bindKey(R.id.butDVRRight, "RIGHT");
-        bindKey(R.id.butDVRM, "M");
-        bindKey(R.id.butDVRENT, "ENT");
-        bindKey(R.id.butDVRDEL, "DEL");
-        bindKey(R.id.butDVRESC, "ESC");
+    @Override
+    public boolean dispatchTouchEvent(MotionEvent event) {
+        if (event != null && event.getActionMasked() == MotionEvent.ACTION_DOWN && controlsContainer != null) {
+            if (openingCompleted && controlsContainer.getVisibility() != View.VISIBLE) {
+                controlsContainer.setVisibility(View.VISIBLE);
+            }
+            if (openingCompleted) {
+                scheduleControlsHide();
+            }
+        }
+        return super.dispatchTouchEvent(event);
     }
 
-    private void bindKey(int viewId, @Nullable String keyLabel) {
-        View view = findViewById(viewId);
+    @Override
+    public boolean onTouchEvent(MotionEvent event) {
+        if (!openingCompleted) {
+            return super.onTouchEvent(event);
+        }
+        if (handlePageTouch(event)) {
+            return true;
+        }
+        return super.onTouchEvent(event);
+    }
+
+    private void applyOpeningState() {
+        openingCompleted = false;
+        if (openingOverlay != null) {
+            openingOverlay.setVisibility(View.VISIBLE);
+        }
+        if (contentContainer != null) {
+            contentContainer.setVisibility(View.GONE);
+        }
+        if (controlsContainer != null) {
+            controlsContainer.setVisibility(View.GONE);
+        }
+    }
+
+    private void bindBackButton() {
+        View view = findViewById(R.id.tvBack);
         if (view == null) {
             return;
         }
         view.setOnClickListener(v -> {
-            if (viewId == R.id.butBack) {
-                finish();
-                return;
-            }
-            String message = getString(R.string.legacy_video_key_pressed, keyLabel == null ? "-" : keyLabel);
-            ModuleRunResult result = runDvrKeyAction(viewId);
-            Toast.makeText(this, result.isSuccess() ? message : result.describeInline(), Toast.LENGTH_SHORT).show();
-            AppLogCenter.log(
-                    result.isSuccess() ? LogCategory.UI : LogCategory.ERROR,
-                    result.isSuccess() ? LogLevel.INFO : LogLevel.WARN,
-                    "LegacyVideoMonitorActivity",
-                    message + (result.isSuccess() ? " / 已发送 DVR 键码" : " / 发送失败: " + result.describeInline()),
-                    TraceIds.next("legacy-video-key")
-            );
+            finish();
         });
-    }
-
-    private void bindPreviewTouch() {
-        View preview = findViewById(R.id.core_surface);
-        if (preview == null) {
-            return;
-        }
-        preview.setOnTouchListener((v, event) -> handlePreviewTouch(v, event));
     }
 
     private void bindCameraPreview() {
@@ -158,8 +205,26 @@ public final class LegacyVideoMonitorActivity extends AppCompatActivity {
         });
     }
 
+    private void scheduleControlsHide() {
+        cancelControlsHide();
+        uiHandler.postDelayed(hideControlsRunnable, HIDE_CONTROLS_DELAY_MS);
+    }
+
+    private void cancelControlsHide() {
+        uiHandler.removeCallbacks(hideControlsRunnable);
+    }
+
+    private void scheduleAutoMonitorSync() {
+        cancelAutoMonitorSync();
+        uiHandler.postDelayed(autoMonitorRunnable, AUTO_MONITOR_POLL_INTERVAL_MS);
+    }
+
+    private void cancelAutoMonitorSync() {
+        uiHandler.removeCallbacks(autoMonitorRunnable);
+    }
+
     private void openPreviewIfReady(boolean showToastOnSuccess) {
-        if (!pageResumed || previewSurface == null || previewOpened) {
+        if (!pageResumed || !openingCompleted || previewSurface == null || previewOpened) {
             return;
         }
         SurfaceHolder holder = previewSurface.getHolder();
@@ -193,29 +258,6 @@ public final class LegacyVideoMonitorActivity extends AppCompatActivity {
         return shellConfig.getDebugReplay().getCameraChannelKey();
     }
 
-    private void bindCameraChannelButton(int viewId, String cameraKey) {
-        View view = findViewById(viewId);
-        if (view == null) {
-            return;
-        }
-        view.setOnClickListener(v -> openCameraChannel(cameraKey, true));
-    }
-
-    private void bindCloseVideoButton(int viewId) {
-        View view = findViewById(viewId);
-        if (view == null) {
-            return;
-        }
-        view.setOnClickListener(v -> {
-            closeActivePreview(true);
-            ShellRuntime.get().getModuleHub().runAction(
-                    "camera_dvr",
-                    "close_video",
-                    TraceIds.next("legacy-video-close-video")
-            );
-        });
-    }
-
     private void openCameraChannel(String cameraKey, boolean showToastOnSuccess) {
         if (previewSurface == null) {
             return;
@@ -226,6 +268,38 @@ public final class LegacyVideoMonitorActivity extends AppCompatActivity {
             return;
         }
         openPreviewForChannel(cameraKey, showToastOnSuccess);
+    }
+
+    private void syncAutoMonitorChannel() {
+        String desiredCameraKey = resolveAutoMonitorCameraKey();
+        if (desiredCameraKey == null || desiredCameraKey.trim().isEmpty()) {
+            return;
+        }
+        if (desiredCameraKey.equals(lastAutoMonitorCameraKey)) {
+            return;
+        }
+        lastAutoMonitorCameraKey = desiredCameraKey;
+        openCameraChannel(desiredCameraKey, false);
+    }
+
+    @Nullable
+    private String resolveAutoMonitorCameraKey() {
+        TerminalBusinessModule module = ShellRuntime.get().getModuleHub().findModule("camera_dvr");
+        if (!(module instanceof CameraDvrBusinessModule)) {
+            return null;
+        }
+        try {
+            return ((CameraDvrBusinessModule) module).resolveMonitorCameraKey(TraceIds.next("legacy-video-auto-monitor"));
+        } catch (Exception e) {
+            AppLogCenter.log(
+                    LogCategory.ERROR,
+                    LogLevel.WARN,
+                    "LegacyVideoMonitorActivity",
+                    "resolve auto monitor failed: " + e.getMessage(),
+                    TraceIds.next("legacy-video-auto-monitor-error")
+            );
+            return null;
+        }
     }
 
     private void openPreviewForChannel(String cameraKey, boolean showToastOnSuccess) {
@@ -323,7 +397,7 @@ public final class LegacyVideoMonitorActivity extends AppCompatActivity {
         return cameraKey == null ? "-" : cameraKey;
     }
 
-    private boolean handlePreviewTouch(View view, MotionEvent event) {
+    private boolean handlePageTouch(MotionEvent event) {
         if (event == null) {
             return false;
         }
@@ -331,43 +405,32 @@ public final class LegacyVideoMonitorActivity extends AppCompatActivity {
         if (phase == null) {
             return false;
         }
-        if ("move".equals(phase) && !shouldReportMove()) {
-            return true;
-        }
         float rawX = event.getX();
         float rawY = event.getY();
-        int viewWidth = view.getWidth();
-        int viewHeight = view.getHeight();
+        View rootView = findViewById(android.R.id.content);
+        int viewWidth = rootView == null ? 0 : rootView.getWidth();
+        int viewHeight = rootView == null ? 0 : rootView.getHeight();
         int touchX = scaleCoordinate(rawX, viewWidth, DVR_TOUCH_WIDTH);
         int touchY = scaleCoordinate(rawY, viewHeight, DVR_TOUCH_HEIGHT);
         ModuleRunResult result = ShellRuntime.get().getModuleHub().runAction(
                 "camera_dvr",
-            buildTouchActionKey(phase, touchX, touchY),
+                buildTouchActionKey(phase, touchX, touchY),
                 TraceIds.next("legacy-video-touch")
         );
         AppLogCenter.log(
                 result.isSuccess() ? LogCategory.UI : LogCategory.ERROR,
                 result.isSuccess() ? LogLevel.INFO : LogLevel.WARN,
                 "LegacyVideoMonitorActivity",
-            "touch phase=" + phase
-                + " / raw=(" + Math.round(rawX) + "," + Math.round(rawY) + ")"
-                + " / view=" + viewWidth + "x" + viewHeight
-                + " / scaled=(" + touchX + "," + touchY + ")"
+                "touch phase=" + phase
+                        + " / raw=(" + Math.round(rawX) + "," + Math.round(rawY) + ")"
+                        + " / view=" + viewWidth + "x" + viewHeight
+                        + " / scaled=(" + touchX + "," + touchY + ")"
                         + (result.isSuccess() ? " / DVR touch sent" : " / failed: " + result.describeInline()),
                 TraceIds.next("legacy-video-touch-log")
         );
         if (!result.isSuccess() && ("down".equals(phase) || "up".equals(phase))) {
             Toast.makeText(this, result.describeInline(), Toast.LENGTH_SHORT).show();
         }
-        return true;
-    }
-
-    private boolean shouldReportMove() {
-        long now = System.currentTimeMillis();
-        if (now - lastTouchMoveReportAt < MOVE_REPORT_INTERVAL_MS) {
-            return false;
-        }
-        lastTouchMoveReportAt = now;
         return true;
     }
 
@@ -379,8 +442,6 @@ public final class LegacyVideoMonitorActivity extends AppCompatActivity {
         switch (actionMasked) {
             case MotionEvent.ACTION_DOWN:
                 return "down";
-            case MotionEvent.ACTION_MOVE:
-                return "move";
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_CANCEL:
                 return "up";
@@ -395,84 +456,6 @@ public final class LegacyVideoMonitorActivity extends AppCompatActivity {
         }
         float clamped = Math.max(0f, Math.min(value, sourceSize));
         return Math.round((clamped / (float) sourceSize) * targetSize);
-    }
-
-    private ModuleRunResult runDvrKeyAction(int viewId) {
-        String actionKey = mapKeyAction(viewId);
-        if (actionKey == null) {
-            return ModuleRunResult.failure("camera_dvr", "摄像头/DVR", "DVR 键位发送失败", "未识别的键位");
-        }
-        return ShellRuntime.get().getModuleHub().runAction("camera_dvr", actionKey, TraceIds.next("legacy-video-key-action"));
-    }
-
-    private String mapKeyAction(int viewId) {
-        if (viewId == R.id.butDVRM) {
-            return "dvr_key_01";
-        }
-        if (viewId == R.id.butDVRENT) {
-            return "dvr_key_02";
-        }
-        if (viewId == R.id.butDVRESC) {
-            return "dvr_key_03";
-        }
-        if (viewId == R.id.butDVRUP) {
-            return "dvr_key_04";
-        }
-        if (viewId == R.id.butDVRDown) {
-            return "dvr_key_05";
-        }
-        if (viewId == R.id.butDVRLeft) {
-            return "dvr_key_06";
-        }
-        if (viewId == R.id.butDVRRight) {
-            return "dvr_key_07";
-        }
-        if (viewId == R.id.butDVRDEL) {
-            return "dvr_key_08";
-        }
-        if (viewId == R.id.butNumber1) {
-            return "dvr_key_09";
-        }
-        if (viewId == R.id.butNumber2) {
-            return "dvr_key_0A";
-        }
-        if (viewId == R.id.butNumber3) {
-            return "dvr_key_0B";
-        }
-        if (viewId == R.id.butNumber4) {
-            return "dvr_key_0C";
-        }
-        if (viewId == R.id.butNumber5) {
-            return "dvr_key_0D";
-        }
-        if (viewId == R.id.butNumber6) {
-            return "dvr_key_0E";
-        }
-        if (viewId == R.id.butNumber7) {
-            return "dvr_key_0F";
-        }
-        if (viewId == R.id.butNumber8) {
-            return "dvr_key_10";
-        }
-        if (viewId == R.id.butNumber9) {
-            return "dvr_key_11";
-        }
-        if (viewId == R.id.butNumber0) {
-            return "dvr_key_12";
-        }
-        return null;
-    }
-
-    private void runCameraAction(String actionKey, int toastResId, boolean showToastOnSuccess) {
-        ModuleRunResult result = ShellRuntime.get().getModuleHub()
-                .runAction("camera_dvr", actionKey, TraceIds.next("legacy-video-" + actionKey));
-        if (!result.isSuccess()) {
-            Toast.makeText(this, result.describeInline(), Toast.LENGTH_SHORT).show();
-            return;
-        }
-        if (showToastOnSuccess) {
-            Toast.makeText(this, toastResId, Toast.LENGTH_SHORT).show();
-        }
     }
 
     private String source() {

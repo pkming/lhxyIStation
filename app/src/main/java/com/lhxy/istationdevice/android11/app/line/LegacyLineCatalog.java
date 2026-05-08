@@ -350,6 +350,11 @@ public final class LegacyLineCatalog {
         }
 
         @NonNull
+        public String getLineNumber() {
+            return normalizeLineName(lineName);
+        }
+
+        @NonNull
         public String getLineAttribute() {
             return lineAttribute;
         }

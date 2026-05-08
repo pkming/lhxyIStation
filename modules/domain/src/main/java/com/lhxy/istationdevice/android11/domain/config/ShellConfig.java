@@ -238,6 +238,8 @@ public final class ShellConfig {
                 .append("\n- JT808 走 ").append(debugReplay.getJt808SocketKey())
                 .append("\n- AL808 走 ").append(debugReplay.getAl808SocketKey())
                 .append("\n- 默认 GPIO 走 ").append(debugReplay.getGpioPinKey())
+            .append("\n- 视频监视 GPIO-A 走 ").append(emptyAsDash(debugReplay.getMonitorPrimaryGpioKey()))
+            .append("\n- 视频监视 GPIO-B 走 ").append(emptyAsDash(debugReplay.getMonitorSecondaryGpioKey()))
                 .append("\n- 默认 Camera 走 ").append(debugReplay.getCameraChannelKey());
 
         builder.append("\n系统设置:")
@@ -256,6 +258,9 @@ public final class ShellConfig {
             .append("\n- 语言=").append(basicSetupConfig.getLanguageSettings().getLanguageCode())
             .append("\n- 其他: 喊话=").append(basicSetupConfig.getOtherSettings().getShoutingVolume())
             .append(" / 调度=").append(basicSetupConfig.getOtherSettings().getDispatchVolume())
+            .append(" / 车号=").append(emptyAsDash(basicSetupConfig.getOtherSettings().getVehicleNumber()))
+            .append(" / 喊话GPIO-A=").append(emptyAsDash(basicSetupConfig.getOtherSettings().getShoutingPrimaryGpioKey()))
+            .append(" / 喊话GPIO-B=").append(emptyAsDash(basicSetupConfig.getOtherSettings().getShoutingSecondaryGpioKey()))
             .append("\n- 协议互斥: dispatchOwner=").append(basicSetupConfig.getProtocolLinkageSettings().getDispatchOwner());
 
         return builder.toString();
@@ -629,6 +634,8 @@ public final class ShellConfig {
         private final String jt808SocketKey;
         private final String al808SocketKey;
         private final String gpioPinKey;
+        private final String monitorPrimaryGpioKey;
+        private final String monitorSecondaryGpioKey;
         private final String cameraChannelKey;
 
         public DebugReplay(
@@ -639,16 +646,31 @@ public final class ShellConfig {
                 String gpioPinKey,
                 String cameraChannelKey
         ) {
+            this(displaySerialKey, gpsSerialKey, jt808SocketKey, al808SocketKey, gpioPinKey, "", "", cameraChannelKey);
+        }
+
+        public DebugReplay(
+                String displaySerialKey,
+                String gpsSerialKey,
+                String jt808SocketKey,
+                String al808SocketKey,
+                String gpioPinKey,
+                String monitorPrimaryGpioKey,
+                String monitorSecondaryGpioKey,
+                String cameraChannelKey
+        ) {
             this.displaySerialKey = displaySerialKey;
             this.gpsSerialKey = gpsSerialKey;
             this.jt808SocketKey = jt808SocketKey;
             this.al808SocketKey = al808SocketKey;
             this.gpioPinKey = gpioPinKey;
+            this.monitorPrimaryGpioKey = monitorPrimaryGpioKey == null ? "" : monitorPrimaryGpioKey;
+            this.monitorSecondaryGpioKey = monitorSecondaryGpioKey == null ? "" : monitorSecondaryGpioKey;
             this.cameraChannelKey = cameraChannelKey;
         }
 
         public static DebugReplay defaultReplay() {
-            return new DebugReplay("rs485_1", "gps", "jt808", "al808", "inner_audio", "av_out");
+            return new DebugReplay("rs485_1", "gps", "jt808", "al808", "inner_audio", "", "", "av_out");
         }
 
         public String getDisplaySerialKey() {
@@ -669,6 +691,14 @@ public final class ShellConfig {
 
         public String getGpioPinKey() {
             return gpioPinKey;
+        }
+
+        public String getMonitorPrimaryGpioKey() {
+            return monitorPrimaryGpioKey;
+        }
+
+        public String getMonitorSecondaryGpioKey() {
+            return monitorSecondaryGpioKey;
         }
 
         public String getCameraChannelKey() {
@@ -888,6 +918,7 @@ public final class ShellConfig {
         private final String dispatchId;
         private final int longInterval;
         private final int infoInterval;
+        private final int speedingInterval;
         private final boolean adwordsEnabled;
         private final String adwordsId;
         private final String adwordsUser;
@@ -897,6 +928,7 @@ public final class ShellConfig {
                 String dispatchId,
                 int longInterval,
                 int infoInterval,
+                int speedingInterval,
                 boolean adwordsEnabled,
                 String adwordsId,
                 String adwordsUser,
@@ -905,6 +937,7 @@ public final class ShellConfig {
             this.dispatchId = dispatchId == null ? "1" : dispatchId;
             this.longInterval = longInterval;
             this.infoInterval = infoInterval;
+            this.speedingInterval = speedingInterval;
             this.adwordsEnabled = adwordsEnabled;
             this.adwordsId = adwordsId == null ? "1" : adwordsId;
             this.adwordsUser = adwordsUser == null ? "admin" : adwordsUser;
@@ -912,12 +945,13 @@ public final class ShellConfig {
         }
 
         public static NetworkSettings defaults() {
-            return new NetworkSettings("1", 30, 5, true, "1", "admin", 10);
+            return new NetworkSettings("1", 30, 5, 10, true, "1", "admin", 10);
         }
 
         public String getDispatchId() { return dispatchId; }
         public int getLongInterval() { return longInterval; }
         public int getInfoInterval() { return infoInterval; }
+        public int getSpeedingInterval() { return speedingInterval; }
         public boolean isAdwordsEnabled() { return adwordsEnabled; }
         public String getAdwordsId() { return adwordsId; }
         public String getAdwordsUser() { return adwordsUser; }
@@ -928,20 +962,27 @@ public final class ShellConfig {
         private final String rs2321Protocol;
         private final String rs2322Protocol;
         private final String rs485Protocol;
+        private final String rs4852Protocol;
 
         public SerialSettings(String rs2321Protocol, String rs2322Protocol, String rs485Protocol) {
+            this(rs2321Protocol, rs2322Protocol, rs485Protocol, "无");
+        }
+
+        public SerialSettings(String rs2321Protocol, String rs2322Protocol, String rs485Protocol, String rs4852Protocol) {
             this.rs2321Protocol = rs2321Protocol == null ? "JT808" : rs2321Protocol;
             this.rs2322Protocol = rs2322Protocol == null ? "AL808" : rs2322Protocol;
             this.rs485Protocol = rs485Protocol == null ? "通达" : rs485Protocol;
+            this.rs4852Protocol = rs4852Protocol == null ? "无" : rs4852Protocol;
         }
 
         public static SerialSettings defaults() {
-            return new SerialSettings("JT808", "AL808", "通达");
+            return new SerialSettings("JT808", "AL808", "通达", "无");
         }
 
         public String getRs2321Protocol() { return rs2321Protocol; }
         public String getRs2322Protocol() { return rs2322Protocol; }
         public String getRs485Protocol() { return rs485Protocol; }
+        public String getRs4852Protocol() { return rs4852Protocol; }
     }
 
     public static final class TtsSettings {
@@ -981,18 +1022,37 @@ public final class ShellConfig {
     public static final class OtherSettings {
         private final int shoutingVolume;
         private final int dispatchVolume;
+        private final String vehicleNumber;
+        private final String shoutingPrimaryGpioKey;
+        private final String shoutingSecondaryGpioKey;
 
         public OtherSettings(int shoutingVolume, int dispatchVolume) {
+            this(shoutingVolume, dispatchVolume, "", "", "");
+        }
+
+        public OtherSettings(
+                int shoutingVolume,
+                int dispatchVolume,
+                String vehicleNumber,
+                String shoutingPrimaryGpioKey,
+                String shoutingSecondaryGpioKey
+        ) {
             this.shoutingVolume = shoutingVolume;
             this.dispatchVolume = dispatchVolume;
+            this.vehicleNumber = vehicleNumber == null ? "" : vehicleNumber.trim();
+            this.shoutingPrimaryGpioKey = shoutingPrimaryGpioKey == null ? "" : shoutingPrimaryGpioKey.trim();
+            this.shoutingSecondaryGpioKey = shoutingSecondaryGpioKey == null ? "" : shoutingSecondaryGpioKey.trim();
         }
 
         public static OtherSettings defaults() {
-            return new OtherSettings(50, 7);
+            return new OtherSettings(50, 7, "", "", "");
         }
 
         public int getShoutingVolume() { return shoutingVolume; }
         public int getDispatchVolume() { return dispatchVolume; }
+        public String getVehicleNumber() { return vehicleNumber; }
+        public String getShoutingPrimaryGpioKey() { return shoutingPrimaryGpioKey; }
+        public String getShoutingSecondaryGpioKey() { return shoutingSecondaryGpioKey; }
     }
 
     public static final class WirelessSettings {

@@ -11,6 +11,7 @@ import java.util.Locale;
  */
 public final class SignInState {
     private String cardNo = "-";
+    private String driverId = "-";
     private String driverName = "未签到";
     private String attendanceMode = "待签到";
     private boolean signedIn;
@@ -29,6 +30,9 @@ public final class SignInState {
         } else {
             signedIn = true;
             attendanceMode = "上班签到";
+            if (!cardNo.equals(card)) {
+                driverId = "-";
+            }
         }
         cardNo = card;
         driverName = "司机 " + suffix(card);
@@ -42,10 +46,10 @@ public final class SignInState {
         lastAttendanceTimeMillis = System.currentTimeMillis();
     }
 
-    public void applyDriverIdentity(String rawCardNo, String rawDriverName) {
-        String normalizedCard = normalizeCard(rawCardNo);
-        if (!"00000000".equals(normalizedCard)) {
-            cardNo = normalizedCard;
+    public void applyDriverIdentity(String rawDriverId, String rawDriverName) {
+        String normalizedDriverId = normalizeDriverId(rawDriverId);
+        if (!"-".equals(normalizedDriverId)) {
+            driverId = normalizedDriverId;
         }
         if (rawDriverName != null && !rawDriverName.trim().isEmpty() && !"-".equals(rawDriverName.trim())) {
             driverName = rawDriverName.trim();
@@ -61,8 +65,25 @@ public final class SignInState {
         return cardNo;
     }
 
+    public String getDriverId() {
+        return driverId;
+    }
+
     public String getDriverName() {
         return driverName;
+    }
+
+    public boolean hasResolvedDriverIdentity() {
+        String normalizedCardNo = cardNo == null ? "" : cardNo.trim();
+        String normalizedDriverId = driverId == null ? "" : driverId.trim();
+        String normalizedDriverName = driverName == null ? "" : driverName.trim();
+        if (normalizedDriverName.isEmpty() || "未签到".equals(normalizedDriverName) || "-".equals(normalizedDriverName)) {
+            return false;
+        }
+        if (normalizedDriverName.startsWith("司机 ") && (normalizedDriverId.isEmpty() || "-".equals(normalizedDriverId))) {
+            return false;
+        }
+        return !"00000000".equals(normalizedCardNo);
     }
 
     public String getAttendanceMode() {
@@ -83,6 +104,7 @@ public final class SignInState {
 
     public String describe() {
         return "driverName=" + driverName
+                + "\n- driverId=" + driverId
                 + "\n- cardNo=" + cardNo
                 + "\n- signedIn=" + (signedIn ? "是" : "否")
                 + "\n- attendanceMode=" + attendanceMode
@@ -96,6 +118,14 @@ public final class SignInState {
         }
         String card = rawCardNo.trim();
         return card.length() <= 8 ? card : card.substring(card.length() - 8);
+    }
+
+    private String normalizeDriverId(String rawDriverId) {
+        if (rawDriverId == null || rawDriverId.trim().isEmpty()) {
+            return "-";
+        }
+        String digits = rawDriverId.trim().replaceAll("[^0-9A-Za-z]", "");
+        return digits.isEmpty() ? "-" : digits;
     }
 
     private void markSignedOut() {

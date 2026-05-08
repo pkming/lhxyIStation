@@ -231,11 +231,11 @@ public final class ModuleCenterActivity extends AppCompatActivity {
                 return new ModuleScreenSpec(
                         "gps",
                         "GPS中心",
-                        "这里承接 GPS 串口绑定、线路资源核对和完整迁移前的基线扫描。",
+                        "这里承接 GPS 串口绑定、线路资源核对，以及自动报站判定的独立诊断入口。",
                         "绑定 GPS",
                         new ActionSpec("扫描线路", "scan_active_route", "module-gps-route"),
-                        new ActionSpec("L1 基线", "scan_l1_baseline", "module-gps-baseline"),
-                        new ActionSpec("切换方向", "switch_direction", "module-gps-direction")
+                        new ActionSpec("自动判定", "evaluate_auto_report", "module-gps-auto-report"),
+                        new ActionSpec("GPS校时", "sync_gps_time", "module-gps-time-sync")
                 );
             }
             if ("signin".equals(moduleKey)) {

@@ -2,6 +2,9 @@ package com.lhxy.istationdevice.android11.domain.module;
 
 import android.content.Context;
 
+import com.lhxy.istationdevice.android11.core.AppLogCenter;
+import com.lhxy.istationdevice.android11.core.LogCategory;
+import com.lhxy.istationdevice.android11.core.LogLevel;
 import com.lhxy.istationdevice.android11.domain.config.ShellConfig;
 
 /**
@@ -21,7 +24,25 @@ abstract class AbstractTerminalBusinessModule implements TerminalBusinessModule 
     public final void updateContext(Context context, ShellConfig shellConfig) {
         this.appContext = context == null ? null : context.getApplicationContext();
         this.shellConfig = shellConfig;
-        onContextUpdated();
+        try {
+            onContextUpdated();
+            AppLogCenter.log(
+                    LogCategory.BIZ,
+                    LogLevel.DEBUG,
+                    moduleTag(),
+                    "模块上下文已刷新 module=" + getKey(),
+                    getKey() + "-context"
+            );
+        } catch (RuntimeException e) {
+            AppLogCenter.log(
+                    LogCategory.ERROR,
+                    LogLevel.ERROR,
+                    moduleTag(),
+                    "模块上下文刷新失败 module=" + getKey() + " / error=" + safeErrorMessage(e),
+                    getKey() + "-context"
+            );
+            throw e;
+        }
     }
 
     /**
@@ -56,6 +77,13 @@ abstract class AbstractTerminalBusinessModule implements TerminalBusinessModule 
 
     protected final ModuleRunResult success(String summary, String detail) {
         rememberAction(true, summary, detail);
+        AppLogCenter.log(
+            LogCategory.BIZ,
+            LogLevel.INFO,
+            moduleTag(),
+            buildOutcomeMessage("OK", summary, detail),
+            getKey() + "-result"
+        );
         return ModuleRunResult.success(getKey(), getTitle(), summary, detail);
     }
 
@@ -64,11 +92,25 @@ abstract class AbstractTerminalBusinessModule implements TerminalBusinessModule 
                 ? exception == null ? "未知错误" : exception.getClass().getSimpleName()
                 : exception.getMessage().trim();
         rememberAction(false, summary, detail);
+        AppLogCenter.log(
+            LogCategory.ERROR,
+            LogLevel.ERROR,
+            moduleTag(),
+            buildOutcomeMessage("FAIL", summary, detail),
+            getKey() + "-result"
+        );
         return ModuleRunResult.failure(getKey(), getTitle(), summary, detail);
     }
 
     protected final ModuleRunResult failureText(String summary, String detail) {
         rememberAction(false, summary, detail);
+        AppLogCenter.log(
+            LogCategory.ERROR,
+            LogLevel.WARN,
+            moduleTag(),
+            buildOutcomeMessage("FAIL", summary, detail),
+            getKey() + "-result"
+        );
         return ModuleRunResult.failure(getKey(), getTitle(), summary, detail);
     }
 
@@ -93,5 +135,30 @@ abstract class AbstractTerminalBusinessModule implements TerminalBusinessModule 
             builder.append(" / ").append(detail.trim());
         }
         lastActionSummary = builder.toString();
+    }
+
+    private String moduleTag() {
+        return getClass().getSimpleName();
+    }
+
+    private String buildOutcomeMessage(String status, String summary, String detail) {
+        StringBuilder builder = new StringBuilder();
+        builder.append("模块结果 ")
+                .append(status)
+                .append(" / module=")
+                .append(getKey())
+                .append(" / summary=")
+                .append(emptyAsDash(summary));
+        if (detail != null && !detail.trim().isEmpty()) {
+            builder.append(" / detail=").append(detail.trim());
+        }
+        return builder.toString();
+    }
+
+    private String safeErrorMessage(Exception exception) {
+        if (exception == null || exception.getMessage() == null || exception.getMessage().trim().isEmpty()) {
+            return exception == null ? "未知错误" : exception.getClass().getSimpleName();
+        }
+        return exception.getMessage().trim();
     }
 }

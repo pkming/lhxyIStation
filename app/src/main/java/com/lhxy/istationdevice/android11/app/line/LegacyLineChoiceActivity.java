@@ -1,15 +1,16 @@
 package com.lhxy.istationdevice.android11.app.line;
 
 import android.os.Bundle;
-import android.widget.AdapterView;
 import android.view.View;
 import android.widget.Button;
-import android.widget.ListView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.Nullable;
+import androidx.recyclerview.widget.DividerItemDecoration;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.lhxy.istationdevice.android11.app.R;
 import com.lhxy.istationdevice.android11.app.common.LegacyBaseActivity;
@@ -46,8 +47,9 @@ public final class LegacyLineChoiceActivity extends LegacyBaseActivity {
     @Override
     protected void onPageReady(@Nullable Bundle savedInstanceState) {
         LinearLayout emptyView = findViewById(R.id.lyNotLine);
-        View titleBar = findViewById(R.id.rlLineInfoTitle);
-        ListView listView = findViewById(R.id.lvLine);
+        View titleBar = findViewById(R.id.lyLineInfoTitle);
+        View affirmPanel = findViewById(R.id.rlAffirm);
+        RecyclerView recyclerView = findViewById(R.id.recyclerViewLine);
         TextView emptyTip = findViewById(R.id.tvLineTip);
         Button affirmButton = findViewById(R.id.butAffirm);
         List<LegacyLineCatalog.LineProfile> lineProfiles = LegacyLineCatalog.all(this);
@@ -62,6 +64,12 @@ public final class LegacyLineChoiceActivity extends LegacyBaseActivity {
             if (affirmButton != null) {
                 affirmButton.setEnabled(false);
             }
+            if (recyclerView != null) {
+                recyclerView.setVisibility(View.GONE);
+            }
+            if (affirmPanel != null) {
+                affirmPanel.setVisibility(View.GONE);
+            }
             return;
         }
 
@@ -71,19 +79,30 @@ public final class LegacyLineChoiceActivity extends LegacyBaseActivity {
         if (titleBar != null) {
             titleBar.setVisibility(View.VISIBLE);
         }
-        if (listView != null) {
+        if (affirmPanel != null) {
+            affirmPanel.setVisibility(View.VISIBLE);
+        }
+        if (recyclerView != null) {
             selectedLineIndex = resolveCurrentLineIndex();
-            lineChoiceAdapter = new LegacyLineChoiceAdapter(this, lineProfiles, selectedLineIndex);
-            listView.setAdapter(lineChoiceAdapter);
-            listView.setOnItemClickListener((AdapterView<?> parent, View view, int position, long id) -> {
+            lineChoiceAdapter = new LegacyLineChoiceAdapter(this, lineProfiles, selectedLineIndex, position -> {
                 selectedLineIndex = position;
-                if (lineChoiceAdapter != null) {
-                    lineChoiceAdapter.setSelectedPosition(position);
-                }
             });
+            recyclerView.setLayoutManager(new LinearLayoutManager(this));
+            if (recyclerView.getItemDecorationCount() == 0) {
+                recyclerView.addItemDecoration(new DividerItemDecoration(this, DividerItemDecoration.VERTICAL));
+            }
+            recyclerView.setAdapter(lineChoiceAdapter);
+            recyclerView.setVisibility(View.VISIBLE);
         }
         if (affirmButton != null) {
-            affirmButton.setOnClickListener(v -> confirmSelection());
+            affirmButton.setEnabled(selectedLineIndex >= 0);
+            affirmButton.setOnClickListener(v -> {
+                if (selectedLineIndex < 0) {
+                    Toast.makeText(this, R.string.line_choice_pick_first, Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                confirmSelection();
+            });
         }
     }
 
@@ -138,11 +157,7 @@ public final class LegacyLineChoiceActivity extends LegacyBaseActivity {
                 direction,
                 profile.getLineAttribute()
         );
-        Toast.makeText(
-                this,
-                profile.getLineName() + " / " + direction + " / " + profile.getLineAttribute(),
-                Toast.LENGTH_SHORT
-        ).show();
+        Toast.makeText(this, R.string.line_line_switch_suc, Toast.LENGTH_SHORT).show();
         finish();
     }
 

@@ -21,4 +21,9 @@ public interface SystemOps {
      * 请求设置系统时间。
      */
     void setSystemTime(long timeMillis, String traceId);
+
+    /**
+     * 请求安装本地 APK 包。
+     */
+    void installPackage(String apkPath, String traceId);
 }

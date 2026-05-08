@@ -36,4 +36,9 @@ public final class M90StubSystemOps implements SystemOps {
     public void setSystemTime(long timeMillis, String traceId) {
         AppLogCenter.log(LogCategory.DEVICE, LogLevel.WARN, TAG, "stub setTime blocked: " + timeMillis, traceId);
     }
+
+    @Override
+    public void installPackage(String apkPath, String traceId) {
+        AppLogCenter.log(LogCategory.DEVICE, LogLevel.WARN, TAG, "stub install blocked: " + apkPath, traceId);
+    }
 }

@@ -2,6 +2,9 @@ package com.lhxy.istationdevice.android11.domain.module;
 
 import android.content.Context;
 
+import com.lhxy.istationdevice.android11.core.AppLogCenter;
+import com.lhxy.istationdevice.android11.core.LogCategory;
+import com.lhxy.istationdevice.android11.core.LogLevel;
 import com.lhxy.istationdevice.android11.deviceapi.CameraAdapter;
 import com.lhxy.istationdevice.android11.deviceapi.GpioAdapter;
 import com.lhxy.istationdevice.android11.deviceapi.RfidAdapter;
@@ -30,6 +33,7 @@ import java.util.function.Supplier;
  * 调度、GPS、报站、签到、摄像头/DVR、升级、文件。
  */
 public final class TerminalModuleHub {
+    private static final String TAG = "TerminalModuleHub";
     private final Map<String, TerminalBusinessModule> modules = new LinkedHashMap<>();
     private final DvrSerialMonitor dvrSerialMonitor;
 
@@ -52,11 +56,12 @@ public final class TerminalModuleHub {
         DispatchBusinessModule dispatchModule =
             new DispatchBusinessModule(protocolReplayUseCase, socketClientAdapter, gpioAdapter, jt808SocketMonitor, dvrSerialDispatchUseCase);
         GpsBusinessModule gpsModule =
-            new GpsBusinessModule(serialPortAdapter, gpsSerialMonitor);
+            new GpsBusinessModule(serialPortAdapter, gpsSerialMonitor, systemOps);
         StationBusinessModule stationModule =
                 new StationBusinessModule(protocolReplayUseCase, serialPortAdapter, gpioAdapter, gpsSerialMonitor, dispatchModule, dvrSerialDispatchUseCase);
         SignInBusinessModule signInModule =
                 new SignInBusinessModule(protocolReplayUseCase, socketClientAdapter, rfidAdapter, dvrSerialDispatchUseCase);
+        dispatchModule.attachStateProviders(signInModule::getSignInState, stationModule::getStationState);
         dvrSerialMonitor = new DvrSerialMonitor(
             dispatchModule.getDispatchState(),
             signInModule.getSignInState(),
@@ -77,7 +82,7 @@ public final class TerminalModuleHub {
         register(stationModule);
         register(signInModule);
         register(cameraModule);
-        register(new UpgradeBusinessModule(protocolReplayUseCase, socketClientAdapter, systemOps));
+        register(new UpgradeBusinessModule(protocolReplayUseCase, socketClientAdapter, systemOps, jt808SocketMonitor));
         register(new FileBusinessModule(
                 exportDirSupplier,
                 gpsSerialMonitor,
@@ -99,9 +104,23 @@ public final class TerminalModuleHub {
      * 同步上下文和配置到全部业务模块。
      */
     public void updateContext(Context context, ShellConfig shellConfig) {
+        AppLogCenter.log(
+                LogCategory.BIZ,
+                LogLevel.DEBUG,
+                TAG,
+                "开始刷新业务模块上下文 count=" + modules.size(),
+                "module-hub-context"
+        );
         for (TerminalBusinessModule module : modules.values()) {
             module.updateContext(context, shellConfig);
         }
+        AppLogCenter.log(
+                LogCategory.BIZ,
+                LogLevel.DEBUG,
+                TAG,
+                "业务模块上下文刷新完成 count=" + modules.size(),
+                "module-hub-context"
+        );
     }
 
     /**
@@ -124,9 +143,18 @@ public final class TerminalModuleHub {
     public ModuleRunResult runModule(String moduleKey, String traceId) {
         TerminalBusinessModule module = modules.get(moduleKey);
         if (module == null) {
+            AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, TAG, "模块样例执行失败，未找到模块 module=" + safeText(moduleKey), traceId);
             return ModuleRunResult.failure(moduleKey, moduleKey, "模块样例执行失败", "没有找到模块");
         }
-        return module.runSample(traceId);
+        AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, TAG, "开始执行模块样例 module=" + module.getKey(), traceId);
+        try {
+            ModuleRunResult result = module.runSample(traceId);
+            logResult("模块样例执行完成", module.getKey(), result.isSuccess(), result.describeInline(), traceId);
+            return result;
+        } catch (RuntimeException e) {
+            AppLogCenter.log(LogCategory.ERROR, LogLevel.ERROR, TAG, "模块样例执行异常 module=" + module.getKey() + " / error=" + safeErrorMessage(e), traceId);
+            throw e;
+        }
     }
 
     /**
@@ -134,9 +162,20 @@ public final class TerminalModuleHub {
      */
     public List<ModuleRunResult> runAll(String traceIdPrefix) {
         List<ModuleRunResult> results = new ArrayList<>();
+        AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, TAG, "开始批量执行模块样例 count=" + modules.size(), traceIdPrefix + "-all");
         for (TerminalBusinessModule module : modules.values()) {
-            results.add(module.runSample(traceIdPrefix + "-" + module.getKey()));
+            String traceId = traceIdPrefix + "-" + module.getKey();
+            AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, TAG, "批量执行模块样例 module=" + module.getKey(), traceId);
+            try {
+                ModuleRunResult result = module.runSample(traceId);
+                results.add(result);
+                logResult("批量模块样例完成", module.getKey(), result.isSuccess(), result.describeInline(), traceId);
+            } catch (RuntimeException e) {
+                AppLogCenter.log(LogCategory.ERROR, LogLevel.ERROR, TAG, "批量模块样例异常 module=" + module.getKey() + " / error=" + safeErrorMessage(e), traceId);
+                throw e;
+            }
         }
+        AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, TAG, "批量执行模块样例结束 successCount=" + countSuccess(results) + " / total=" + results.size(), traceIdPrefix + "-all");
         return results;
     }
 
@@ -146,9 +185,36 @@ public final class TerminalModuleHub {
     public ModuleRunResult runAction(String moduleKey, String actionKey, String traceId) {
         TerminalBusinessModule module = modules.get(moduleKey);
         if (module == null) {
+            AppLogCenter.log(
+                    LogCategory.ERROR,
+                    LogLevel.WARN,
+                    TAG,
+                    "模块动作执行失败，未找到模块 module=" + safeText(moduleKey) + " / action=" + safeText(actionKey),
+                    traceId
+            );
             return ModuleRunResult.failure(moduleKey, moduleKey, "模块动作执行失败", "没有找到模块");
         }
-        return module.runAction(actionKey, traceId);
+        AppLogCenter.log(
+                LogCategory.BIZ,
+                LogLevel.INFO,
+                TAG,
+                "开始执行模块动作 module=" + module.getKey() + " / action=" + safeText(actionKey),
+                traceId
+        );
+        try {
+            ModuleRunResult result = module.runAction(actionKey, traceId);
+            logResult("模块动作执行完成", module.getKey(), result.isSuccess(), result.describeInline(), traceId);
+            return result;
+        } catch (RuntimeException e) {
+            AppLogCenter.log(
+                    LogCategory.ERROR,
+                    LogLevel.ERROR,
+                    TAG,
+                    "模块动作执行异常 module=" + module.getKey() + " / action=" + safeText(actionKey) + " / error=" + safeErrorMessage(e),
+                    traceId
+            );
+            throw e;
+        }
     }
 
     /**
@@ -223,5 +289,36 @@ public final class TerminalModuleHub {
             }
         }
         return builder.toString();
+    }
+
+    private void logResult(String prefix, String moduleKey, boolean success, String message, String traceId) {
+        AppLogCenter.log(
+                success ? LogCategory.BIZ : LogCategory.ERROR,
+                success ? LogLevel.INFO : LogLevel.WARN,
+                TAG,
+                prefix + " module=" + moduleKey + " / " + safeText(message),
+                traceId
+        );
+    }
+
+    private int countSuccess(List<ModuleRunResult> results) {
+        int count = 0;
+        for (ModuleRunResult result : results) {
+            if (result != null && result.isSuccess()) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private String safeErrorMessage(RuntimeException exception) {
+        if (exception == null || exception.getMessage() == null || exception.getMessage().trim().isEmpty()) {
+            return exception == null ? "未知错误" : exception.getClass().getSimpleName();
+        }
+        return exception.getMessage().trim();
+    }
+
+    private String safeText(String text) {
+        return text == null || text.trim().isEmpty() ? "-" : text.trim();
     }
 }

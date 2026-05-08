@@ -1,37 +1,34 @@
 package com.lhxy.istationdevice.android11.app.info;
 
 import android.os.Bundle;
-import android.widget.ArrayAdapter;
-import android.widget.Button;
+import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuItem;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.AdapterView;
+import android.widget.BaseAdapter;
 import android.widget.LinearLayout;
 import android.widget.ListView;
-import android.widget.Toast;
+import android.widget.TextView;
 
 import com.lhxy.istationdevice.android11.app.R;
 import com.lhxy.istationdevice.android11.app.common.LegacyBaseActivity;
-import com.lhxy.istationdevice.android11.app.station.LegacyStationResourceStateRepository;
-import com.lhxy.istationdevice.android11.core.AppLogCenter;
-import com.lhxy.istationdevice.android11.core.AppLogEntry;
-import com.lhxy.istationdevice.android11.domain.config.ShellConfig;
-import com.lhxy.istationdevice.android11.domain.config.ShellConfigRepository;
-import com.lhxy.istationdevice.android11.runtime.ShellRuntime;
+import com.lhxy.istationdevice.android11.core.LegacyInfoMessageRepository;
 
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Date;
 import java.util.List;
-import java.util.Locale;
 
 /**
  * 旧版信息浏览页。
  * <p>
- * 先承接离线可见的运行摘要和最近日志，
- * 真机协议消息后面继续叠到同一页，不再保留空壳。
+ * 对齐 M90，只显示消息仓中的持久消息。
  */
 public final class LegacyInfoBrowsActivity extends LegacyBaseActivity {
-    private final List<String> lines = new ArrayList<>();
-    private ArrayAdapter<String> adapter;
+    private final List<InfoRow> rows = new ArrayList<>();
+    private ListView listView;
+    private LinearLayout emptyView;
+    private InfoRowAdapter adapter;
 
     @Override
     protected int getLayoutId() {
@@ -45,95 +42,144 @@ public final class LegacyInfoBrowsActivity extends LegacyBaseActivity {
 
     @Override
     protected void onPageReady(Bundle savedInstanceState) {
-        ListView listView = findViewById(R.id.lvInfoBrows);
-        LinearLayout emptyView = findViewById(R.id.lyNotInfo);
+        listView = findViewById(R.id.lvInfoMessage);
+        emptyView = findViewById(R.id.lyNotInfoMessage);
         if (listView != null) {
-            adapter = new ArrayAdapter<>(this, R.layout.item_legacy_info_line, R.id.tvInfoLine, lines);
+            adapter = new InfoRowAdapter();
             listView.setAdapter(adapter);
-            if (emptyView != null) {
-                listView.setEmptyView(emptyView);
-            }
+            listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+                private int currentNum = -1;
+
+                @Override
+                public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                    if (currentNum == -1) {
+                        currentNum = position;
+                    } else if (currentNum == position) {
+                        currentNum = -1;
+                    } else {
+                        currentNum = position;
+                    }
+                    adapter.notifyDataSetChanged();
+                }
+            });
         }
-        Button affirmButton = findViewById(R.id.butAffirm);
-        if (affirmButton != null) {
-            affirmButton.setText(R.string.legacy_refresh);
-            affirmButton.setOnClickListener(v -> refreshContent(true));
-        }
-        refreshContent(false);
+        refreshContent();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        refreshContent(false);
+        refreshContent();
     }
 
-    private void refreshContent(boolean notify) {
-        lines.clear();
-        lines.addAll(buildLines());
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.menu_del, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == R.id.del || item.getItemId() != R.id.index) {
+            return true;
+        }
+        setResult(RESULT_OK);
+        finish();
+        return true;
+    }
+
+    private void refreshContent() {
+        rows.clear();
+        rows.addAll(buildRows());
+        boolean hasMessages = !rows.isEmpty();
+        if (listView != null) {
+            listView.setVisibility(hasMessages ? View.VISIBLE : View.GONE);
+        }
+        if (emptyView != null) {
+            emptyView.setVisibility(hasMessages ? View.GONE : View.VISIBLE);
+        }
         if (adapter != null) {
             adapter.notifyDataSetChanged();
         }
-        if (notify) {
-            Toast.makeText(this, "信息浏览已刷新。", Toast.LENGTH_SHORT).show();
-        }
     }
 
-    private List<String> buildLines() {
-        List<String> result = new ArrayList<>();
-        ShellRuntime runtime = ShellRuntime.get();
-        ShellConfig config = runtime.getActiveConfig();
-        if (config == null) {
-            config = ShellConfigRepository.get(this);
-            runtime.applyConfig(this, config);
-        }
-        LegacyStationResourceStateRepository.StationResourceState resourceState =
-                LegacyStationResourceStateRepository.getState(this);
-
-        result.add("运行概览");
-        result.add("配置: " + safe(config.getDeviceProfile()) + " / 版本 " + safe(config.getConfigVersion()));
-        result.add("资源导入: " + (resourceState.isImported() ? "已导入" : "未导入"));
-        result.add("当前线路: " + safe(resourceState.getLineName()) + " / 来源 " + safe(resourceState.getSource()));
-        result.add("最近更新: " + formatTime(resourceState.getUpdatedAt()));
-        appendMultiline(result, runtime.describeFoundationStatus());
-        appendMultiline(result, runtime.getModuleHub().describeStatus());
-
-        result.add("最近日志");
-        List<AppLogEntry> snapshot = AppLogCenter.snapshot();
-        if (snapshot.isEmpty()) {
-            result.add("暂无运行日志。");
-            return result;
-        }
-        int start = Math.max(0, snapshot.size() - 40);
-        List<AppLogEntry> recentEntries = new ArrayList<>(snapshot.subList(start, snapshot.size()));
-        Collections.reverse(recentEntries);
-        for (AppLogEntry entry : recentEntries) {
-            result.add(entry.toDisplayLine());
-        }
+    private List<InfoRow> buildRows() {
+        List<InfoRow> result = new ArrayList<>();
+        List<LegacyInfoMessageRepository.InfoMessage> infoMessages = LegacyInfoMessageRepository.snapshot(this);
+        appendInfoMessages(result, infoMessages);
         return result;
     }
 
-    private void appendMultiline(List<String> target, String block) {
-        if (block == null || block.trim().isEmpty()) {
-            return;
+    private void appendInfoMessages(List<InfoRow> target, List<LegacyInfoMessageRepository.InfoMessage> messages) {
+        for (LegacyInfoMessageRepository.InfoMessage message : messages) {
+            target.add(new InfoRow(
+                    String.valueOf(message.getNumber()),
+                    safe(message.getMessageTime()),
+                    safe(message.getContent())
+            ));
         }
-        String[] rows = block.trim().split("\\n");
-        for (String row : rows) {
-            String line = row == null ? "" : row.trim();
-            if (!line.isEmpty()) {
-                target.add(line);
-            }
-        }
-    }
-
-    private String formatTime(long timeMillis) {
-        if (timeMillis <= 0L) {
-            return "-";
-        }
-        return new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(new Date(timeMillis));
     }
 
     private String safe(String value) {
         return value == null || value.trim().isEmpty() ? "-" : value.trim();
+    }
+
+    private static final class InfoRow {
+        private final String number;
+        private final String time;
+        private final String content;
+
+        private InfoRow(String number, String time, String content) {
+            this.number = number;
+            this.time = time;
+            this.content = content;
+        }
+    }
+
+    private final class InfoRowAdapter extends BaseAdapter {
+        @Override
+        public int getCount() {
+            return rows.size();
+        }
+
+        @Override
+        public Object getItem(int position) {
+            return rows.get(position);
+        }
+
+        @Override
+        public long getItemId(int position) {
+            return position;
+        }
+
+        @Override
+        public View getView(int position, View convertView, ViewGroup parent) {
+            ViewHolder holder;
+            if (convertView == null) {
+                convertView = LayoutInflater.from(parent.getContext())
+                        .inflate(R.layout.item_legacy_info_line, parent, false);
+                holder = new ViewHolder(convertView);
+                convertView.setTag(holder);
+            } else {
+                holder = (ViewHolder) convertView.getTag();
+            }
+            InfoRow row = rows.get(position);
+            holder.numberView.setText(row.number);
+            holder.timeView.setText(row.time);
+            holder.contentView.setText(row.content);
+            return convertView;
+        }
+    }
+
+    private static final class ViewHolder {
+        private final TextView numberView;
+        private final TextView timeView;
+        private final TextView contentView;
+
+        private ViewHolder(View root) {
+            numberView = root.findViewById(R.id.tvInfoMessageNo);
+            timeView = root.findViewById(R.id.tvInfoMessageTime);
+            contentView = root.findViewById(R.id.tvInfoMessageContent);
+        }
     }
 }

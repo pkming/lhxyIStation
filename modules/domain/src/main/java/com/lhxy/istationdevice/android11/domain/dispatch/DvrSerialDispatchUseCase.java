@@ -227,14 +227,13 @@ public final class DvrSerialDispatchUseCase {
     }
 
     private byte[] buildTouchPayload(int x, int y, boolean pressed) {
-        // 文档摘要只给出 55 AA + 05 + X/Y + 按下/松开 + 校验，当前沿用小端坐标打包；
-        // 真机阶段重点验证坐标范围与字节序是否完全匹配实际 DVR。
+        // M90 旧机实现和协议文档都要求触摸坐标按高字节在前发送。
         byte[] payload = new byte[9];
         payload[0] = 0x55;
         payload[1] = (byte) 0xAA;
         payload[2] = 0x05;
-        writeLittleEndianShort(payload, 3, clampCoordinate(x));
-        writeLittleEndianShort(payload, 5, clampCoordinate(y));
+        writeBigEndianShort(payload, 3, clampCoordinate(x));
+        writeBigEndianShort(payload, 5, clampCoordinate(y));
         payload[7] = (byte) (pressed ? 0x01 : 0x00);
         payload[8] = checksum(payload, 8);
         return payload;
@@ -276,6 +275,11 @@ public final class DvrSerialDispatchUseCase {
     private void writeLittleEndianShort(byte[] payload, int offset, int value) {
         payload[offset] = (byte) (value & 0xFF);
         payload[offset + 1] = (byte) ((value >> 8) & 0xFF);
+    }
+
+    private void writeBigEndianShort(byte[] payload, int offset, int value) {
+        payload[offset] = (byte) ((value >> 8) & 0xFF);
+        payload[offset + 1] = (byte) (value & 0xFF);
     }
 
     private byte checksum(byte[] payload, int endExclusive) {
@@ -365,10 +369,14 @@ public final class DvrSerialDispatchUseCase {
     }
 
     private int toDriverId(SignInState signInState) {
-        if (signInState == null || signInState.getCardNo() == null) {
+        if (signInState == null) {
             return 0;
         }
-        String digits = signInState.getCardNo().replaceAll("[^0-9]", "");
+        String source = signInState.getDriverId();
+        if (source == null || source.trim().isEmpty() || "-".equals(source.trim())) {
+            source = signInState.getCardNo();
+        }
+        String digits = source == null ? "" : source.replaceAll("[^0-9]", "");
         if (digits.isEmpty()) {
             return 0;
         }

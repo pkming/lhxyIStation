@@ -1,231 +1,176 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical">
 
+    <Button
+        android:id="@+id/butRequestSchedule"
+        android:layout_width="150dp"
+        android:layout_height="100dp"
+        android:background="@drawable/btn_operation_bg"
+        android:text="@string/dispatch_center_request_schedule"
+        android:textColor="@color/c_ffffff"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        app:layout_constraintBottom_toTopOf="@+id/butRequestCharge"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toLeftOf="@+id/butRequestHandover"
+        app:layout_constraintTop_toTopOf="parent" />
 
-        <RelativeLayout
-            android:id="@+id/itemDispatchJoinOperation"
-            android:layout_width="match_parent"
-            android:layout_height="@dimen/d_52"
-            android:layout_marginLeft="@dimen/d_16"
-            android:layout_marginRight="@dimen/d_22"
-            android:orientation="horizontal">
+    <Button
+        android:id="@+id/butRequestHandover"
+        android:layout_width="150dp"
+        android:layout_height="100dp"
+        android:background="@drawable/btn_operation_bg"
+        android:text="@string/dispatch_center_request_handover"
+        android:textColor="@color/c_ffffff"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        app:layout_constraintBottom_toTopOf="@+id/butExitOperation"
+        app:layout_constraintLeft_toRightOf="@+id/butRequestSchedule"
+        app:layout_constraintRight_toLeftOf="@+id/butRequestOil"
+        app:layout_constraintTop_toTopOf="parent" />
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_centerVertical="true"
-                tools:ignore="RelativeOverlap"
-                android:text="@string/dispatch_center_operation"
-                android:textColor="@color/c_ffffff"
-                android:textSize="22sp" />
+    <Button
+        android:id="@+id/butRequestOil"
+        android:layout_width="150dp"
+        android:layout_height="100dp"
+        android:background="@drawable/btn_operation_bg"
+        android:text="@string/dispatch_center_request_oil"
+        android:textColor="@color/c_ffffff"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        app:layout_constraintBottom_toTopOf="@+id/butManualStart"
+        app:layout_constraintLeft_toRightOf="@+id/butRequestHandover"
+        app:layout_constraintRight_toLeftOf="@+id/butRequestAerate"
+        app:layout_constraintTop_toTopOf="parent" />
 
-            <ImageView
-                android:layout_width="wrap_content"
-                android:layout_alignParentRight="true"
-                android:layout_centerVertical="true"
-                android:contentDescription="@string/ingoto"
-                android:layout_height="wrap_content" android:src="@drawable/icon_direction" />
-        </RelativeLayout>
+    <Button
+        android:id="@+id/butRequestAerate"
+        android:layout_width="150dp"
+        android:layout_height="100dp"
+        android:background="@drawable/btn_operation_bg"
+        android:text="@string/dispatch_center_request_aerate"
+        android:textColor="@color/c_ffffff"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        app:layout_constraintBottom_toTopOf="@+id/butManualEnd"
+        app:layout_constraintLeft_toRightOf="@+id/butRequestOil"
+        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
 
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="@dimen/d_1px"
-            android:layout_marginLeft="@dimen/d_22"
-            android:layout_marginRight="@dimen/d_22"
-            android:background="@color/c_ffffff" />
+    <Button
+        android:id="@+id/butRequestCharge"
+        android:layout_width="150dp"
+        android:layout_height="100dp"
+        android:background="@drawable/btn_operation_bg"
+        android:text="@string/dispatch_center_request_charging"
+        android:textColor="@color/c_ffffff"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        app:layout_constraintBottom_toTopOf="@+id/butRequestCharter"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toLeftOf="@+id/butExitOperation"
+        app:layout_constraintTop_toBottomOf="@+id/butRequestSchedule" />
 
-        <RelativeLayout
-            android:id="@+id/itemDispatchConfirmDispatch"
-            android:layout_width="match_parent"
-            android:layout_height="@dimen/d_52"
-            android:layout_marginLeft="@dimen/d_16"
-            android:layout_marginRight="@dimen/d_22"
-            android:orientation="horizontal">
+    <Button
+        android:id="@+id/butExitOperation"
+        android:layout_width="150dp"
+        android:layout_height="100dp"
+        android:background="@drawable/btn_operation_bg"
+        android:text="@string/dispatch_center_exit_operation"
+        android:textColor="@color/c_ffffff"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        app:layout_constraintBottom_toTopOf="@+id/butRequestRepair"
+        app:layout_constraintLeft_toRightOf="@+id/butRequestCharge"
+        app:layout_constraintRight_toLeftOf="@+id/butManualStart"
+        app:layout_constraintTop_toBottomOf="@+id/butRequestHandover" />
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_centerVertical="true"
-                android:text="@string/dispatch_center_confirm_dispatch"
-                android:textColor="@color/c_ffffff"
-                android:textSize="22sp"
-                tools:ignore="RelativeOverlap" />
+    <Button
+        android:id="@+id/butManualStart"
+        android:layout_width="150dp"
+        android:layout_height="100dp"
+        android:background="@drawable/btn_operation_bg"
+        android:text="@string/dispatch_center_manual_start"
+        android:textColor="@color/c_ffffff"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        app:layout_constraintBottom_toTopOf="@+id/butOtherRequests"
+        app:layout_constraintLeft_toRightOf="@+id/butExitOperation"
+        app:layout_constraintRight_toLeftOf="@+id/butManualEnd"
+        app:layout_constraintTop_toBottomOf="@+id/butRequestOil" />
 
-            <ImageView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_alignParentRight="true"
-                android:layout_centerVertical="true"
-                android:contentDescription="@string/ingoto"
-                android:src="@drawable/icon_direction" />
-        </RelativeLayout>
+    <Button
+        android:id="@+id/butManualEnd"
+        android:layout_width="150dp"
+        android:layout_height="100dp"
+        android:background="@drawable/btn_operation_bg"
+        android:text="@string/dispatch_center_manual_end"
+        android:textColor="@color/c_ffffff"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        app:layout_constraintBottom_toTopOf="@+id/butIntercom"
+        app:layout_constraintLeft_toRightOf="@+id/butManualStart"
+        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/butRequestAerate" />
 
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="@dimen/d_1px"
-            android:layout_marginLeft="@dimen/d_22"
-            android:layout_marginRight="@dimen/d_22"
-            android:background="@color/c_ffffff" />
+    <Button
+        android:id="@+id/butRequestCharter"
+        android:layout_width="150dp"
+        android:layout_height="100dp"
+        android:background="@drawable/btn_operation_bg"
+        android:text="@string/dispatch_center_request_charter"
+        android:textColor="@color/c_ffffff"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toLeftOf="@+id/butRequestRepair"
+        app:layout_constraintTop_toBottomOf="@+id/butRequestCharge" />
 
-        <RelativeLayout
-            android:id="@+id/itemDispatchAckNotice"
-            android:layout_width="match_parent"
-            android:layout_height="@dimen/d_52"
-            android:layout_marginLeft="@dimen/d_16"
-            android:layout_marginRight="@dimen/d_22"
-            android:orientation="horizontal">
+    <Button
+        android:id="@+id/butRequestRepair"
+        android:layout_width="150dp"
+        android:layout_height="100dp"
+        android:background="@drawable/btn_operation_bg"
+        android:text="@string/dispatch_center_request_repair"
+        android:textColor="@color/c_ffffff"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintLeft_toRightOf="@+id/butRequestCharge"
+        app:layout_constraintRight_toLeftOf="@+id/butManualStart"
+        app:layout_constraintTop_toBottomOf="@+id/butExitOperation" />
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_centerVertical="true"
-                android:text="@string/dispatch_center_ack_notice"
-                android:textColor="@color/c_ffffff"
-                android:textSize="22sp"
-                tools:ignore="RelativeOverlap" />
+    <Button
+        android:id="@+id/butOtherRequests"
+        android:layout_width="150dp"
+        android:layout_height="100dp"
+        android:background="@drawable/btn_operation_bg"
+        android:text="@string/dispatch_center_other_requests"
+        android:textColor="@color/c_ffffff"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintLeft_toRightOf="@+id/butExitOperation"
+        app:layout_constraintRight_toLeftOf="@+id/butIntercom"
+        app:layout_constraintTop_toBottomOf="@+id/butManualStart" />
 
-            <ImageView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_alignParentRight="true"
-                android:layout_centerVertical="true"
-                android:contentDescription="@string/ingoto"
-                android:src="@drawable/icon_direction" />
-        </RelativeLayout>
+    <Button
+        android:id="@+id/butIntercom"
+        android:layout_width="150dp"
+        android:layout_height="100dp"
+        android:background="@drawable/btn_operation_bg"
+        android:text="@string/dispatch_center_intercom"
+        android:textColor="@color/c_ffffff"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintLeft_toRightOf="@+id/butOtherRequests"
+        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/butManualEnd" />
 
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="@dimen/d_1px"
-            android:layout_marginLeft="@dimen/d_22"
-            android:layout_marginRight="@dimen/d_22"
-            android:background="@color/c_ffffff" />
-
-        <RelativeLayout
-            android:id="@+id/itemDispatchRequestCharge"
-            android:layout_width="match_parent"
-            android:layout_height="@dimen/d_52"
-            android:layout_marginLeft="@dimen/d_16"
-            android:layout_marginRight="@dimen/d_22"
-            android:orientation="horizontal">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_centerVertical="true"
-                tools:ignore="RelativeOverlap"
-                android:text="@string/dispatch_center_request_charging"
-                android:textColor="@color/c_ffffff"
-                android:textSize="22sp" />
-
-            <ImageView
-                android:layout_width="wrap_content"
-                android:layout_alignParentRight="true"
-                android:layout_centerVertical="true"
-                android:contentDescription="@string/ingoto"
-                android:layout_height="wrap_content" android:src="@drawable/icon_direction" />
-        </RelativeLayout>
-
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="@dimen/d_1px"
-            android:layout_marginLeft="@dimen/d_22"
-            android:layout_marginRight="@dimen/d_22"
-            android:background="@color/c_ffffff" />
-
-        <RelativeLayout
-            android:id="@+id/itemDispatchVehicleFailure"
-            android:layout_width="match_parent"
-            android:layout_height="@dimen/d_52"
-            android:layout_marginLeft="@dimen/d_16"
-            android:layout_marginRight="@dimen/d_22"
-            android:orientation="horizontal">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_centerVertical="true"
-                tools:ignore="RelativeOverlap"
-                android:text="@string/dispatch_center_vehicle_failure"
-                android:textColor="@color/c_ffffff"
-                android:textSize="22sp" />
-
-            <ImageView
-                android:layout_width="wrap_content"
-                android:layout_alignParentRight="true"
-                android:layout_centerVertical="true"
-                android:contentDescription="@string/ingoto"
-                android:layout_height="wrap_content" android:src="@drawable/icon_direction" />
-        </RelativeLayout>
-
-
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="@dimen/d_1px"
-            android:layout_marginLeft="@dimen/d_22"
-            android:layout_marginRight="@dimen/d_22"
-            android:background="@color/c_ffffff" />
-
-        <RelativeLayout
-            android:id="@+id/itemDispatchStartBus"
-            android:layout_width="match_parent"
-            android:layout_height="@dimen/d_52"
-            android:layout_marginLeft="@dimen/d_16"
-            android:layout_marginRight="@dimen/d_22"
-            android:orientation="horizontal">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_centerVertical="true"
-                android:text="@string/dispatch_center_start_bus"
-                android:textColor="@color/c_ffffff"
-                android:textSize="22sp"
-                tools:ignore="RelativeOverlap" />
-
-            <ImageView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_alignParentRight="true"
-                android:layout_centerVertical="true"
-                android:contentDescription="@string/ingoto"
-                android:src="@drawable/icon_direction" />
-        </RelativeLayout>
-
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="@dimen/d_1px"
-            android:layout_marginLeft="@dimen/d_22"
-            android:layout_marginRight="@dimen/d_22"
-            android:background="@color/c_ffffff" />
-
-        <RelativeLayout
-            android:id="@+id/itemDispatchLeaveOperation"
-            android:layout_width="match_parent"
-            android:layout_height="@dimen/d_52"
-            android:layout_marginLeft="@dimen/d_16"
-            android:layout_marginRight="@dimen/d_22"
-            android:orientation="horizontal">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_centerVertical="true"
-                tools:ignore="RelativeOverlap"
-                android:text="@string/dispatch_center_exit_operation"
-                android:textColor="@color/c_ffffff"
-                android:textSize="22sp" />
-
-            <ImageView
-                android:layout_width="wrap_content"
-                android:layout_alignParentRight="true"
-                android:layout_centerVertical="true"
-                android:contentDescription="@string/ingoto"
-                android:layout_height="wrap_content" android:src="@drawable/icon_direction" />
-        </RelativeLayout>
-
-
-</LinearLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>

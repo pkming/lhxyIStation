@@ -16,7 +16,7 @@
     },
     "gps": {
       "portName": "ttyS5",
-      "baudRate": 9600,
+      "baudRate": 115200,
       "mode": "stub",
       "note": "GPS"
     },
@@ -146,6 +146,7 @@
       "dispatchId": "1",
       "longInterval": 30,
       "infoInterval": 5,
+      "speedingInterval": 10,
       "adwordsEnabled": true,
       "adwordsId": "1",
       "adwordsUser": "admin",
@@ -154,7 +155,8 @@
     "serialSettings": {
       "rs2321Protocol": "JT808",
       "rs2322Protocol": "AL808",
-      "rs485Protocol": "通达"
+      "rs485Protocol": "通达",
+      "rs4852Protocol": "无"
     },
     "tts": {
       "enabled": true,
@@ -166,7 +168,10 @@
     },
     "other": {
       "shoutingVolume": 50,
-      "dispatchVolume": 7
+      "dispatchVolume": 7,
+      "vehicleNumber": "",
+      "shoutingPrimaryGpioKey": "",
+      "shoutingSecondaryGpioKey": ""
     },
     "wireless": {
       "systemEntryEnabled": true
@@ -178,6 +183,8 @@
     "jt808SocketKey": "jt808",
     "al808SocketKey": "al808",
     "gpioPinKey": "inner_audio",
+    "monitorPrimaryGpioKey": "",
+    "monitorSecondaryGpioKey": "",
     "cameraChannelKey": "av_out"
   }
 }

@@ -31,9 +31,13 @@ public final class GpsState {
     private int reminderCount;
     private int reminderCoordinateCount;
     private String baselineSummary = "未扫描 L1 基线";
+    private String autoReportSummary = "还没有执行自动报站判定";
+    private String timeSyncSummary = "还没有执行 GPS 校时";
     private long lastFixTimeMillis;
     private long lastRouteSyncTimeMillis;
     private long lastBaselineScanTimeMillis;
+    private long lastAutoReportTimeMillis;
+    private long lastTimeSyncMillis;
 
     public void bindMonitor(String channelKey, String portName, boolean attached) {
         gpsChannelKey = emptyAsDash(channelKey);
@@ -103,6 +107,26 @@ public final class GpsState {
         lastBaselineScanTimeMillis = System.currentTimeMillis();
     }
 
+    public void recordAutoReport(String summary, String detail) {
+        StringBuilder builder = new StringBuilder();
+        builder.append(emptyAsDash(summary));
+        if (detail != null && !detail.trim().isEmpty()) {
+            builder.append(" / ").append(detail.trim());
+        }
+        autoReportSummary = builder.toString();
+        lastAutoReportTimeMillis = System.currentTimeMillis();
+    }
+
+    public void recordTimeSync(String summary, String detail) {
+        StringBuilder builder = new StringBuilder();
+        builder.append(emptyAsDash(summary));
+        if (detail != null && !detail.trim().isEmpty()) {
+            builder.append(" / ").append(detail.trim());
+        }
+        timeSyncSummary = builder.toString();
+        lastTimeSyncMillis = System.currentTimeMillis();
+    }
+
     public String getLineName() {
         return lineName;
     }
@@ -126,10 +150,14 @@ public final class GpsState {
                 + "\n- stations(coord/total)=" + stationCoordinateCount + "/" + stationCount
                 + "\n- reminders(coord/total)=" + reminderCoordinateCount + "/" + reminderCount
                 + "\n- baseline=" + baselineSummary
+                + "\n- autoReport=" + autoReportSummary
+                + "\n- timeSync=" + timeSyncSummary
                 + "\n- migrationTodo=自动报站 / 友情提醒 / GPS 校时 / 站点学习落库 / 网络上报对齐"
                 + "\n- lastFixTime=" + formatTime(lastFixTimeMillis)
                 + "\n- lastRouteSync=" + formatTime(lastRouteSyncTimeMillis)
-                + "\n- lastBaselineScan=" + formatTime(lastBaselineScanTimeMillis);
+                + "\n- lastBaselineScan=" + formatTime(lastBaselineScanTimeMillis)
+                + "\n- lastAutoReport=" + formatTime(lastAutoReportTimeMillis)
+                + "\n- lastTimeSync=" + formatTime(lastTimeSyncMillis);
     }
 
     private int countStationCoordinates(LegacyGpsRouteResource route) {

@@ -19,9 +19,12 @@ import java.util.List;
  * 应用入口
  */
 public class ShellApplication extends Application {
+    public static boolean isUserPassword = false;
+
     @Override
     public void onCreate() {
         super.onCreate();
+        AppLogCenter.init(this);
         String traceId = TraceIds.next("app");
         try {
             File runtimeConfigFile = ShellConfigLoader.bootstrapRuntimeConfig(this);

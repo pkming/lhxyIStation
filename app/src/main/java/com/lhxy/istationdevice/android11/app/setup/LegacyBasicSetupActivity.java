@@ -38,39 +38,64 @@ public final class LegacyBasicSetupActivity extends LegacyBaseActivity {
         if (defaultButton != null) {
             defaultButton.setChecked(true);
         }
-        showContent(LegacyBasicSetupSectionFragment.newInstance(R.layout.f_newspaper_setup, SECTION_NEWSPAPER));
+        showContent(SECTION_NEWSPAPER);
         if (radioGroup != null) {
             radioGroup.setOnCheckedChangeListener((group, checkedId) -> {
-                int layoutRes = R.layout.f_newspaper_setup;
                 String section = SECTION_NEWSPAPER;
                 if (checkedId == R.id.rb_radio_network) {
-                    layoutRes = R.layout.f_network;
                     section = SECTION_NETWORK;
                 } else if (checkedId == R.id.rb_radio_serial_port) {
-                    layoutRes = R.layout.f_serial_port;
                     section = SECTION_SERIAL_PORT;
                 } else if (checkedId == R.id.rb_radio_tts) {
-                    layoutRes = R.layout.f_tts_setup;
                     section = SECTION_TTS;
                 } else if (checkedId == R.id.rb_radio_language) {
-                    layoutRes = R.layout.f_language;
                     section = SECTION_LANGUAGE;
                 } else if (checkedId == R.id.rb_radio_other) {
-                    layoutRes = R.layout.f_other_setup;
                     section = SECTION_OTHER;
                 } else if (checkedId == R.id.rb_radio_wireless) {
-                    layoutRes = R.layout.f_wireless_setup;
                     section = SECTION_WIRELESS;
                 }
-                showContent(LegacyBasicSetupSectionFragment.newInstance(layoutRes, section));
+                showContent(section);
             });
         }
     }
 
-    private void showContent(Fragment fragment) {
-        getSupportFragmentManager()
-                .beginTransaction()
-                .replace(R.id.flSetupContext, fragment)
-                .commit();
+    private void showContent(String section) {
+        androidx.fragment.app.FragmentManager fragmentManager = getSupportFragmentManager();
+        androidx.fragment.app.FragmentTransaction transaction = fragmentManager.beginTransaction();
+        for (Fragment fragment : fragmentManager.getFragments()) {
+            transaction.hide(fragment);
+        }
+
+        Fragment target = fragmentManager.findFragmentByTag(section);
+        if (target == null) {
+            target = LegacyBasicSetupSectionFragment.newInstance(resolveLayoutRes(section), section);
+            transaction.add(R.id.flSetupContext, target, section);
+        } else {
+            transaction.show(target);
+        }
+        transaction.commit();
+    }
+
+    private int resolveLayoutRes(String section) {
+        if (SECTION_NETWORK.equals(section)) {
+            return R.layout.f_network;
+        }
+        if (SECTION_SERIAL_PORT.equals(section)) {
+            return R.layout.f_serial_port;
+        }
+        if (SECTION_TTS.equals(section)) {
+            return R.layout.f_tts_setup;
+        }
+        if (SECTION_LANGUAGE.equals(section)) {
+            return R.layout.f_language;
+        }
+        if (SECTION_OTHER.equals(section)) {
+            return R.layout.f_other_setup;
+        }
+        if (SECTION_WIRELESS.equals(section)) {
+            return R.layout.f_wireless_setup;
+        }
+        return R.layout.f_newspaper_setup;
     }
 }

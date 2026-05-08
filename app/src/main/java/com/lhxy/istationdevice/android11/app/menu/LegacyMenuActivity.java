@@ -2,15 +2,18 @@ package com.lhxy.istationdevice.android11.app.menu;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.view.MenuItem;
 import android.view.View;
+import android.widget.Toast;
 
 import com.lhxy.istationdevice.android11.app.R;
+import com.lhxy.istationdevice.android11.app.ShellApplication;
+import com.lhxy.istationdevice.android11.app.auth.LegacyPasswordActivity;
 import com.lhxy.istationdevice.android11.app.common.LegacyBaseActivity;
 import com.lhxy.istationdevice.android11.app.dispatch.LegacyDispatchCenterActivity;
 import com.lhxy.istationdevice.android11.app.file.LegacyFileManageActivity;
 import com.lhxy.istationdevice.android11.app.info.LegacyInfoBrowsActivity;
-import com.lhxy.istationdevice.android11.app.line.LegacyLineChoiceActivity;
-import com.lhxy.istationdevice.android11.app.media.LegacyVoiceCallActivity;
+import com.lhxy.istationdevice.android11.app.media.LegacyVideoMonitorActivity;
 import com.lhxy.istationdevice.android11.app.setup.LegacyBasicSetupActivity;
 import com.lhxy.istationdevice.android11.app.station.LegacySiteCollectionActivity;
 import com.lhxy.istationdevice.android11.app.sysinfo.LegacySystemInfoActivity;
@@ -39,14 +42,28 @@ public final class LegacyMenuActivity extends LegacyBaseActivity {
     }
 
     private void bindMenuEntries() {
-        bindEntry(R.id.lyLineSele, LegacyLineChoiceActivity.class);
+        bindEntry(R.id.lyLineSele, LegacyVideoMonitorActivity.createIntent(this, "legacy-menu"));
         bindEntry(R.id.lySiteLearn, LegacySiteCollectionActivity.class);
-        bindEntry(R.id.lyFileManage, LegacyFileManageActivity.class);
+        bindFileManageEntry();
         bindEntry(R.id.lySystemSet, LegacyBasicSetupActivity.class);
-        bindEntry(R.id.lyVoiceCall, LegacyVoiceCallActivity.class);
+        bindEntry(R.id.lyVoiceCall, LegacyPasswordActivity.class);
         bindEntry(R.id.lyDispatchingCenter, LegacyDispatchCenterActivity.class);
         bindEntry(R.id.lyInfoBrowsing, LegacyInfoBrowsActivity.class);
         bindEntry(R.id.lySysInfo, LegacySystemInfoActivity.class);
+    }
+
+    private void bindFileManageEntry() {
+        View view = findViewById(R.id.lyFileManage);
+        if (view == null) {
+            return;
+        }
+        view.setOnClickListener(v -> {
+            if (!ShellApplication.isUserPassword) {
+                startActivityForResult(new Intent(this, LegacyFileManageActivity.class), REQUEST_SET_CODE);
+                return;
+            }
+            Toast.makeText(this, R.string.legacy_password_super_required, Toast.LENGTH_SHORT).show();
+        });
     }
 
     private void bindEntry(int id, Class<?> targetClass) {
@@ -57,11 +74,28 @@ public final class LegacyMenuActivity extends LegacyBaseActivity {
         view.setOnClickListener(v -> startActivityForResult(new Intent(this, targetClass), REQUEST_SET_CODE));
     }
 
+    private void bindEntry(int id, Intent intent) {
+        View view = findViewById(id);
+        if (view == null) {
+            return;
+        }
+        view.setOnClickListener(v -> startActivityForResult(intent, REQUEST_SET_CODE));
+    }
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == REQUEST_SET_CODE && resultCode == RESULT_OK) {
             finish();
         }
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == R.id.index) {
+            finish();
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
     }
 }

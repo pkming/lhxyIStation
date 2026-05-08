@@ -17,11 +17,14 @@ public final class LegacyGpsAutoReportEngine {
 
     public static final int STATION_TYPE_ENTER = 0;
     public static final int STATION_TYPE_LEAVE = 1;
+    public static final int REMINDER_TYPE_ENTER = 0;
+    public static final int REMINDER_TYPE_LEAVE = 1;
 
     private String activeRouteKey = "";
     private int lastStationNo;
     private boolean stationInner = true;
     private int lastReminderNo = -1;
+    private boolean reminderActive;
     private boolean initSite = true;
     private final List<String> directionSwitchVotes = new ArrayList<>();
 
@@ -30,6 +33,7 @@ public final class LegacyGpsAutoReportEngine {
         lastStationNo = 0;
         stationInner = true;
         lastReminderNo = -1;
+        reminderActive = false;
         initSite = true;
         directionSwitchVotes.clear();
     }
@@ -62,17 +66,20 @@ public final class LegacyGpsAutoReportEngine {
         if (reminder == null) {
             return AutoReportEvent.none();
         }
-        if (lastReminderNo == reminder.getReminderNo()) {
+        double triggerDistance = reminder.getMileage() + 20d;
+        if (lastReminderNo == reminder.getReminderNo() && reminderActive) {
+            if (match.distanceMeters > triggerDistance) {
+                reminderActive = false;
+                return AutoReportEvent.reminder(reminder, REMINDER_TYPE_LEAVE, match.distanceMeters);
+            }
             return AutoReportEvent.none();
         }
-        if (match.distanceMeters > reminder.getMileage() + 20d) {
-            return AutoReportEvent.none();
-        }
-        if (angleEnabled && angleMismatch(reminder.getAngle(), snapshot.getCourse())) {
+        if (match.distanceMeters > triggerDistance) {
             return AutoReportEvent.none();
         }
         lastReminderNo = reminder.getReminderNo();
-        return AutoReportEvent.reminder(reminder, match.distanceMeters);
+        reminderActive = true;
+        return AutoReportEvent.reminder(reminder, REMINDER_TYPE_ENTER, match.distanceMeters);
     }
 
     private AutoReportEvent handleStation(
@@ -108,7 +115,7 @@ public final class LegacyGpsAutoReportEngine {
             } else {
                 if (attribute == LegacyGpsRouteResource.ATTRIBUTE_UP_DOWN) {
                     addDirectionVote(station.getStationNo());
-                    if (directionSwitchVotes.size() < 3) {
+                    if (directionSwitchVotes.size() < 5) {
                         operationType = OP_INVALID;
                     } else {
                         clearDirectionVotes();
@@ -139,12 +146,6 @@ public final class LegacyGpsAutoReportEngine {
                 }
             }
 
-            if (operationType == OP_STATION && station.getStationNo() < route.getStations().size() - 1) {
-                if (altitudeMismatch(station.getAltitude(), snapshot.getAltitudeMeters())) {
-                    operationType = OP_INVALID;
-                }
-            }
-
             if (operationType == OP_STATION) {
                 clearDirectionVotes();
             }
@@ -160,6 +161,7 @@ public final class LegacyGpsAutoReportEngine {
         lastStationNo = station.getStationNo();
         stationInner = stationType == STATION_TYPE_ENTER;
         lastReminderNo = -1;
+        reminderActive = false;
         return AutoReportEvent.station(station, stationType, distance);
     }
 
@@ -236,21 +238,6 @@ public final class LegacyGpsAutoReportEngine {
         return diff > 60 && diff < 300;
     }
 
-    /**
-     * Mirrors the legacy implementation exactly. The original condition uses ||,
-     * so any non-empty altitude pair becomes a mismatch.
-     */
-    private boolean altitudeMismatch(String stationAltitude, String currentAltitude) {
-        if (stationAltitude == null || stationAltitude.trim().isEmpty()) {
-            return false;
-        }
-        if (currentAltitude == null || currentAltitude.trim().isEmpty()) {
-            return false;
-        }
-        double delta = parseDouble(currentAltitude, 0d) - parseDouble(stationAltitude, 0d);
-        return delta >= -100d || delta <= 100d;
-    }
-
     private void addDirectionVote(int stationNo) {
         String value = String.valueOf(stationNo);
         if (!directionSwitchVotes.contains(value)) {
@@ -289,6 +276,7 @@ public final class LegacyGpsAutoReportEngine {
     public static final class AutoReportEvent {
         private final int operationType;
         private final int stationType;
+        private final int reminderType;
         private final LegacyGpsRouteResource.StationPoint stationPoint;
         private final LegacyGpsRouteResource.ReminderPoint reminderPoint;
         private final double distanceMeters;
@@ -296,19 +284,21 @@ public final class LegacyGpsAutoReportEngine {
         private AutoReportEvent(
                 int operationType,
                 int stationType,
+                int reminderType,
                 LegacyGpsRouteResource.StationPoint stationPoint,
                 LegacyGpsRouteResource.ReminderPoint reminderPoint,
                 double distanceMeters
         ) {
             this.operationType = operationType;
             this.stationType = stationType;
+            this.reminderType = reminderType;
             this.stationPoint = stationPoint;
             this.reminderPoint = reminderPoint;
             this.distanceMeters = distanceMeters;
         }
 
         public static AutoReportEvent none() {
-            return new AutoReportEvent(OP_INVALID, STATION_TYPE_ENTER, null, null, 0d);
+            return new AutoReportEvent(OP_INVALID, STATION_TYPE_ENTER, REMINDER_TYPE_ENTER, null, null, 0d);
         }
 
         public static AutoReportEvent station(
@@ -316,21 +306,22 @@ public final class LegacyGpsAutoReportEngine {
                 int stationType,
                 double distanceMeters
         ) {
-            return new AutoReportEvent(OP_STATION, stationType, stationPoint, null, distanceMeters);
+            return new AutoReportEvent(OP_STATION, stationType, REMINDER_TYPE_ENTER, stationPoint, null, distanceMeters);
         }
 
         public static AutoReportEvent reminder(
                 LegacyGpsRouteResource.ReminderPoint reminderPoint,
+                int reminderType,
                 double distanceMeters
         ) {
-            return new AutoReportEvent(OP_REMINDER, STATION_TYPE_ENTER, null, reminderPoint, distanceMeters);
+            return new AutoReportEvent(OP_REMINDER, STATION_TYPE_ENTER, reminderType, null, reminderPoint, distanceMeters);
         }
 
         public static AutoReportEvent switchDirection(
                 LegacyGpsRouteResource.StationPoint stationPoint,
                 double distanceMeters
         ) {
-            return new AutoReportEvent(OP_SWITCH_DIRECTION, STATION_TYPE_ENTER, stationPoint, null, distanceMeters);
+            return new AutoReportEvent(OP_SWITCH_DIRECTION, STATION_TYPE_ENTER, REMINDER_TYPE_ENTER, stationPoint, null, distanceMeters);
         }
 
         public int getOperationType() {
@@ -339,6 +330,10 @@ public final class LegacyGpsAutoReportEngine {
 
         public int getStationType() {
             return stationType;
+        }
+
+        public int getReminderType() {
+            return reminderType;
         }
 
         public LegacyGpsRouteResource.StationPoint getStationPoint() {
@@ -366,7 +361,9 @@ public final class LegacyGpsAutoReportEngine {
                         + " distance=" + String.format(Locale.US, "%.1f", distanceMeters);
             }
             if (operationType == OP_REMINDER && reminderPoint != null) {
-                return "reminder no=" + reminderPoint.getReminderNo()
+                return "reminder "
+                    + (reminderType == REMINDER_TYPE_LEAVE ? "leave" : "enter")
+                    + " no=" + reminderPoint.getReminderNo()
                         + " name=" + reminderPoint.getReminderName()
                         + " distance=" + String.format(Locale.US, "%.1f", distanceMeters);
             }

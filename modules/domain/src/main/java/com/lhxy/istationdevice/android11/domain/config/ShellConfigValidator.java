@@ -126,6 +126,14 @@ public final class ShellConfigValidator {
         if (!shellConfig.getGpioConfig().getPins().containsKey(debugReplay.getGpioPinKey())) {
             issues.add("debugReplay.gpioPinKey 对不上当前 GPIO 配置");
         }
+        if (!debugReplay.getMonitorPrimaryGpioKey().trim().isEmpty()
+                && !shellConfig.getGpioConfig().getPins().containsKey(debugReplay.getMonitorPrimaryGpioKey())) {
+            issues.add("debugReplay.monitorPrimaryGpioKey 对不上当前 GPIO 配置");
+        }
+        if (!debugReplay.getMonitorSecondaryGpioKey().trim().isEmpty()
+                && !shellConfig.getGpioConfig().getPins().containsKey(debugReplay.getMonitorSecondaryGpioKey())) {
+            issues.add("debugReplay.monitorSecondaryGpioKey 对不上当前 GPIO 配置");
+        }
         if (!shellConfig.getCameraConfig().getChannels().containsKey(debugReplay.getCameraChannelKey())) {
             issues.add("debugReplay.cameraChannelKey 对不上当前 Camera 配置");
         }
@@ -148,6 +156,14 @@ public final class ShellConfigValidator {
         }
         if (basicSetupConfig.getOtherSettings().getShoutingVolume() < 0 || basicSetupConfig.getOtherSettings().getShoutingVolume() > 100) {
             issues.add("basicSetup.other.shoutingVolume 超出范围");
+        }
+        if (!basicSetupConfig.getOtherSettings().getShoutingPrimaryGpioKey().trim().isEmpty()
+                && !shellConfig.getGpioConfig().getPins().containsKey(basicSetupConfig.getOtherSettings().getShoutingPrimaryGpioKey())) {
+            issues.add("basicSetup.other.shoutingPrimaryGpioKey 对不上当前 GPIO 配置");
+        }
+        if (!basicSetupConfig.getOtherSettings().getShoutingSecondaryGpioKey().trim().isEmpty()
+                && !shellConfig.getGpioConfig().getPins().containsKey(basicSetupConfig.getOtherSettings().getShoutingSecondaryGpioKey())) {
+            issues.add("basicSetup.other.shoutingSecondaryGpioKey 对不上当前 GPIO 配置");
         }
         if (basicSetupConfig.getProtocolLinkageSettings().isNetworkDispatchEnabled()
                 && !"无".equals(basicSetupConfig.getSerialSettings().getRs2321Protocol())) {

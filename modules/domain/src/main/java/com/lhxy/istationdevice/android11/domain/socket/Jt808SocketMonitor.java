@@ -7,6 +7,8 @@ import com.lhxy.istationdevice.android11.core.LogLevel;
 import com.lhxy.istationdevice.android11.deviceapi.SocketClientAdapter;
 import com.lhxy.istationdevice.android11.deviceapi.SocketReceiveListener;
 import com.lhxy.istationdevice.android11.domain.config.ShellConfig;
+import com.lhxy.istationdevice.android11.protocol.jt808.Jt808Frame;
+import com.lhxy.istationdevice.android11.protocol.jt808.Jt808FrameDecoder;
 import com.lhxy.istationdevice.android11.protocol.jt808.Jt808FrameInspector;
 import com.lhxy.istationdevice.android11.protocol.jt808.Jt808FrameStreamParser;
 
@@ -28,7 +30,26 @@ public final class Jt808SocketMonitor {
     private final Map<String, Jt808FrameStreamParser> parsers = new ConcurrentHashMap<>();
     private final Map<String, String> channelKeyByName = new ConcurrentHashMap<>();
     private final Map<String, String> latestInspectByName = new ConcurrentHashMap<>();
+    private final Map<String, FrameListener> frameListeners = new ConcurrentHashMap<>();
     private final Set<String> attachedChannelNames = ConcurrentHashMap.newKeySet();
+
+    public interface FrameListener {
+        void onFrame(String channelName, byte[] rawFrame, Jt808Frame frame);
+    }
+
+    public void registerFrameListener(String listenerKey, FrameListener listener) {
+        if (listenerKey == null || listenerKey.trim().isEmpty() || listener == null) {
+            return;
+        }
+        frameListeners.put(listenerKey.trim(), listener);
+    }
+
+    public void unregisterFrameListener(String listenerKey) {
+        if (listenerKey == null || listenerKey.trim().isEmpty()) {
+            return;
+        }
+        frameListeners.remove(listenerKey.trim());
+    }
 
     /**
      * 绑定一条 Socket 通道。
@@ -169,8 +190,43 @@ public final class Jt808SocketMonitor {
                         socketChannel.getKey() + "/" + channelName + "\n" + inspect,
                         traceId + "-socket-frame"
                 );
+                dispatchFrame(channelName, frame, traceId);
             }
         };
+    }
+
+    private void dispatchFrame(String channelName, byte[] rawFrame, String traceId) {
+        if (frameListeners.isEmpty()) {
+            return;
+        }
+
+        Jt808Frame decodedFrame;
+        try {
+            decodedFrame = Jt808FrameDecoder.decode(rawFrame);
+        } catch (RuntimeException e) {
+            AppLogCenter.log(
+                    LogCategory.ERROR,
+                    LogLevel.DEBUG,
+                    TAG,
+                    "Socket 帧解码失败，跳过分发 channel=" + channelName + " / error=" + e.getMessage(),
+                    traceId + "-socket-dispatch"
+            );
+            return;
+        }
+
+        for (FrameListener listener : frameListeners.values()) {
+            try {
+                listener.onFrame(channelName, rawFrame, decodedFrame);
+            } catch (RuntimeException e) {
+                AppLogCenter.log(
+                        LogCategory.ERROR,
+                        LogLevel.WARN,
+                        TAG,
+                        "Socket 帧监听器执行失败 channel=" + channelName + " / error=" + e.getMessage(),
+                        traceId + "-socket-dispatch"
+                );
+            }
+        }
     }
 
     private String compactInspect(String inspectText) {

@@ -192,6 +192,8 @@ public final class ShellConfigLoader {
                 debugReplayObject == null ? "jt808" : debugReplayObject.optString("jt808SocketKey", "jt808"),
                 debugReplayObject == null ? "al808" : debugReplayObject.optString("al808SocketKey", "al808"),
                 debugReplayObject == null ? "inner_audio" : debugReplayObject.optString("gpioPinKey", "inner_audio"),
+            debugReplayObject == null ? "" : debugReplayObject.optString("monitorPrimaryGpioKey", ""),
+            debugReplayObject == null ? "" : debugReplayObject.optString("monitorSecondaryGpioKey", ""),
                 debugReplayObject == null ? "av_out" : debugReplayObject.optString("cameraChannelKey", "av_out")
         );
 
@@ -222,6 +224,7 @@ public final class ShellConfigLoader {
                     networkSettingsObject == null ? "1" : networkSettingsObject.optString("dispatchId", "1"),
                     networkSettingsObject == null ? 30 : networkSettingsObject.optInt("longInterval", 30),
                     networkSettingsObject == null ? 5 : networkSettingsObject.optInt("infoInterval", 5),
+                    networkSettingsObject == null ? 10 : networkSettingsObject.optInt("speedingInterval", 10),
                     networkSettingsObject == null || networkSettingsObject.optBoolean("adwordsEnabled", true),
                     networkSettingsObject == null ? "1" : networkSettingsObject.optString("adwordsId", "1"),
                     networkSettingsObject == null ? "admin" : networkSettingsObject.optString("adwordsUser", "admin"),
@@ -230,7 +233,8 @@ public final class ShellConfigLoader {
                 new ShellConfig.SerialSettings(
                     serialSettingsObject == null ? "JT808" : serialSettingsObject.optString("rs2321Protocol", "JT808"),
                     serialSettingsObject == null ? "AL808" : serialSettingsObject.optString("rs2322Protocol", "AL808"),
-                    serialSettingsObject == null ? "通达" : serialSettingsObject.optString("rs485Protocol", "通达")
+                    serialSettingsObject == null ? "通达" : serialSettingsObject.optString("rs485Protocol", "通达"),
+                    serialSettingsObject == null ? "无" : serialSettingsObject.optString("rs4852Protocol", "无")
                 ),
                 new ShellConfig.TtsSettings(
                     ttsObject == null || ttsObject.optBoolean("enabled", true),
@@ -240,7 +244,10 @@ public final class ShellConfigLoader {
                 new ShellConfig.LanguageSettings(languageObject == null ? "auto" : languageObject.optString("languageCode", "auto")),
                 new ShellConfig.OtherSettings(
                     otherObject == null ? 50 : otherObject.optInt("shoutingVolume", 50),
-                    otherObject == null ? 7 : otherObject.optInt("dispatchVolume", 7)
+                    otherObject == null ? 7 : otherObject.optInt("dispatchVolume", 7),
+                    otherObject == null ? "" : otherObject.optString("vehicleNumber", ""),
+                    otherObject == null ? "" : otherObject.optString("shoutingPrimaryGpioKey", ""),
+                    otherObject == null ? "" : otherObject.optString("shoutingSecondaryGpioKey", "")
                 ),
                 new ShellConfig.WirelessSettings(wirelessObject == null || wirelessObject.optBoolean("systemEntryEnabled", true)),
                 new ShellConfig.ResourceImportSettings(
@@ -283,7 +290,7 @@ public final class ShellConfigLoader {
         Map<String, ShellConfig.SerialChannel> serialChannels = new LinkedHashMap<>();
         serialChannels.put("rs232_1", new ShellConfig.SerialChannel("rs232_1", "ttyS3", 9600, SerialMode.STUB, "DVR / RS232-1"));
         serialChannels.put("rs232_2", new ShellConfig.SerialChannel("rs232_2", "ttyS4", 9600, SerialMode.STUB, "RS232-2"));
-        serialChannels.put("gps", new ShellConfig.SerialChannel("gps", "ttyS5", 9600, SerialMode.STUB, "GPS"));
+        serialChannels.put("gps", new ShellConfig.SerialChannel("gps", "ttyS5", 115200, SerialMode.STUB, "GPS"));
         serialChannels.put("rs485_1", new ShellConfig.SerialChannel("rs485_1", "ttyS7", 9600, SerialMode.STUB, "RS485-1"));
         serialChannels.put("rs485_2", new ShellConfig.SerialChannel("rs485_2", "ttyS9", 9600, SerialMode.STUB, "RS485-2"));
 
@@ -315,7 +322,7 @@ public final class ShellConfigLoader {
                 new ShellConfig.CameraConfig(DeviceMode.STUB, cameraChannels, "M90 预置 Camera 通道"),
                 new ShellConfig.RfidConfig(DeviceMode.STUB, "RFID-DEMO-001", "", "", "RFID 默认走 stub"),
                 new ShellConfig.SystemConfig(DeviceMode.STUB, false, false, false, "", "", "", "系统能力默认走 stub"),
-                new ShellConfig.DebugReplay("rs485_1", "gps", "jt808", "al808", "inner_audio", "av_out"),
+                new ShellConfig.DebugReplay("rs485_1", "gps", "jt808", "al808", "inner_audio", "", "", "av_out"),
                 ShellConfig.BasicSetupConfig.defaults()
         );
     }
@@ -485,6 +492,8 @@ public final class ShellConfigLoader {
         debugReplayObject.put("jt808SocketKey", shellConfig.getDebugReplay().getJt808SocketKey());
         debugReplayObject.put("al808SocketKey", shellConfig.getDebugReplay().getAl808SocketKey());
         debugReplayObject.put("gpioPinKey", shellConfig.getDebugReplay().getGpioPinKey());
+        debugReplayObject.put("monitorPrimaryGpioKey", shellConfig.getDebugReplay().getMonitorPrimaryGpioKey());
+        debugReplayObject.put("monitorSecondaryGpioKey", shellConfig.getDebugReplay().getMonitorSecondaryGpioKey());
         debugReplayObject.put("cameraChannelKey", shellConfig.getDebugReplay().getCameraChannelKey());
         root.put("debugReplay", debugReplayObject);
 
@@ -505,6 +514,7 @@ public final class ShellConfigLoader {
         networkSettingsObject.put("dispatchId", shellConfig.getBasicSetupConfig().getNetworkSettings().getDispatchId());
         networkSettingsObject.put("longInterval", shellConfig.getBasicSetupConfig().getNetworkSettings().getLongInterval());
         networkSettingsObject.put("infoInterval", shellConfig.getBasicSetupConfig().getNetworkSettings().getInfoInterval());
+        networkSettingsObject.put("speedingInterval", shellConfig.getBasicSetupConfig().getNetworkSettings().getSpeedingInterval());
         networkSettingsObject.put("adwordsEnabled", shellConfig.getBasicSetupConfig().getNetworkSettings().isAdwordsEnabled());
         networkSettingsObject.put("adwordsId", shellConfig.getBasicSetupConfig().getNetworkSettings().getAdwordsId());
         networkSettingsObject.put("adwordsUser", shellConfig.getBasicSetupConfig().getNetworkSettings().getAdwordsUser());
@@ -515,6 +525,7 @@ public final class ShellConfigLoader {
         serialSettingsObject.put("rs2321Protocol", shellConfig.getBasicSetupConfig().getSerialSettings().getRs2321Protocol());
         serialSettingsObject.put("rs2322Protocol", shellConfig.getBasicSetupConfig().getSerialSettings().getRs2322Protocol());
         serialSettingsObject.put("rs485Protocol", shellConfig.getBasicSetupConfig().getSerialSettings().getRs485Protocol());
+        serialSettingsObject.put("rs4852Protocol", shellConfig.getBasicSetupConfig().getSerialSettings().getRs4852Protocol());
         basicSetupObject.put("serialSettings", serialSettingsObject);
 
         JSONObject ttsObject = new JSONObject();
@@ -530,6 +541,9 @@ public final class ShellConfigLoader {
         JSONObject otherObject = new JSONObject();
         otherObject.put("shoutingVolume", shellConfig.getBasicSetupConfig().getOtherSettings().getShoutingVolume());
         otherObject.put("dispatchVolume", shellConfig.getBasicSetupConfig().getOtherSettings().getDispatchVolume());
+        otherObject.put("vehicleNumber", shellConfig.getBasicSetupConfig().getOtherSettings().getVehicleNumber());
+        otherObject.put("shoutingPrimaryGpioKey", shellConfig.getBasicSetupConfig().getOtherSettings().getShoutingPrimaryGpioKey());
+        otherObject.put("shoutingSecondaryGpioKey", shellConfig.getBasicSetupConfig().getOtherSettings().getShoutingSecondaryGpioKey());
         basicSetupObject.put("other", otherObject);
 
         JSONObject wirelessObject = new JSONObject();

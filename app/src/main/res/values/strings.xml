@@ -72,6 +72,8 @@
     <string name="legacy_video_camera_opened">已进入视频监控，默认 Camera 已打开。</string>
     <string name="legacy_video_camera_closed">默认 Camera 已关闭。</string>
     <string name="legacy_video_key_pressed">已按下监控键 %1$s</string>
+    <string name="legacy_video_opening">Wait a moment,
+DVR menu is opening...</string>
     <string name="legacy_site_collection_saved">当前学习项已暂存，已推进到下一项。</string>
     <string name="legacy_site_collection_save_failed">站点学习暂存失败，请看日志。</string>
     <string name="legacy_site_collection_switched_direction">已自动切到%1$s继续学习。</string>

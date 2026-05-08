@@ -38,6 +38,11 @@ public final class M90ManagedSystemOps implements SystemOps {
         delegate().setSystemTime(timeMillis, traceId);
     }
 
+    @Override
+    public void installPackage(String apkPath, String traceId) {
+        delegate().installPackage(apkPath, traceId);
+    }
+
     /**
      * 输出系统能力当前状态摘要。
      */

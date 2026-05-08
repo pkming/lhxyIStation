@@ -119,10 +119,17 @@ public final class LegacyGpsRouteCatalog {
                     latitude.raw,
                     longitude.decimal,
                     latitude.decimal,
-                    cell(row, 4),
-                    cell(row, 5),
-                    parseDouble(cell(row, 6), 0d),
-                    cell(row, 7)
+                    "",
+                    "",
+                    parseDouble(cell(row, 4), 0d),
+                    hasExtendedReminderColumns(row) ? cell(row, 5) : "",
+                    hasExtendedReminderColumns(row) ? cell(row, 6) : "",
+                    hasExtendedReminderColumns(row) ? cell(row, 7) : "",
+                    hasExtendedReminderColumns(row) ? cell(row, 8) : "",
+                    hasExtendedReminderColumns(row) ? cell(row, 9) : "",
+                    hasExtendedReminderColumns(row) ? cell(row, 10) : "",
+                    hasExtendedReminderColumns(row) ? cell(row, 11) : "",
+                    hasExtendedReminderColumns(row) ? cell(row, 12) : cell(row, 5)
             ));
         }
 
@@ -250,6 +257,10 @@ public final class LegacyGpsRouteCatalog {
             return "下行";
         }
         return "上行";
+    }
+
+    private boolean hasExtendedReminderColumns(List<String> row) {
+        return row != null && row.size() >= 13;
     }
 
     private String cell(List<String> row, int index) {

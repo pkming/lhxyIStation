@@ -9,6 +9,7 @@ import android.widget.TextView;
 import com.lhxy.istationdevice.android11.app.R;
 import com.lhxy.istationdevice.android11.app.common.LegacyBaseActivity;
 import com.lhxy.istationdevice.android11.core.AppLogCenter;
+import com.lhxy.istationdevice.android11.core.LegacyHomeStatusRepository;
 import com.lhxy.istationdevice.android11.core.LogCategory;
 import com.lhxy.istationdevice.android11.core.LogLevel;
 import com.lhxy.istationdevice.android11.core.TraceIds;
@@ -73,6 +74,7 @@ public final class LegacyVoiceCallActivity extends LegacyBaseActivity {
         if (connected) {
             shellRuntime.getSocketClientAdapter().disconnect(VOICE_CHANNEL, TraceIds.next("legacy-voice-destroy"));
         }
+        LegacyHomeStatusRepository.clearShouting(this);
         super.onDestroy();
     }
 
@@ -125,6 +127,7 @@ public final class LegacyVoiceCallActivity extends LegacyBaseActivity {
             connected = true;
             activeHost = host;
             activePort = port;
+            LegacyHomeStatusRepository.setShouting(this, "IP PHONE...");
             if (stateView != null) {
                 stateView.setText(getString(
                         R.string.legacy_voice_connected_state,
@@ -166,6 +169,7 @@ public final class LegacyVoiceCallActivity extends LegacyBaseActivity {
         connected = false;
         activeHost = "-";
         activePort = 0;
+        LegacyHomeStatusRepository.clearShouting(this);
         if (stateView != null) {
             stateView.setText(R.string.legacy_voice_idle_state);
         }

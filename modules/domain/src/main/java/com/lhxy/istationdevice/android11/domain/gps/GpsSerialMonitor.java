@@ -11,6 +11,7 @@ import com.lhxy.istationdevice.android11.protocol.gps.GpsStreamParser;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * GPS 串口监视器
@@ -24,6 +25,7 @@ public final class GpsSerialMonitor {
     private static final int INITIAL_RAW_LOG_LIMIT = 3;
 
     private final GpsStreamParser streamParser = new GpsStreamParser();
+    private final CopyOnWriteArrayList<SnapshotListener> snapshotListeners = new CopyOnWriteArrayList<>();
     private volatile String attachedChannelKey;
     private volatile String attachedPortName;
     private volatile GpsFixSnapshot latestSnapshot;
@@ -98,6 +100,20 @@ public final class GpsSerialMonitor {
         return attachedPortName;
     }
 
+    public void addSnapshotListener(SnapshotListener listener) {
+        if (listener == null) {
+            return;
+        }
+        snapshotListeners.addIfAbsent(listener);
+    }
+
+    public void removeSnapshotListener(SnapshotListener listener) {
+        if (listener == null) {
+            return;
+        }
+        snapshotListeners.remove(listener);
+    }
+
     /**
      * 返回当前 GPS 监听状态，统一给首页、调试页和导出包复用。
      */
@@ -125,8 +141,19 @@ public final class GpsSerialMonitor {
             for (GpsFixSnapshot snapshot : snapshots) {
                 latestSnapshot = snapshot;
                 logFixIfNeeded(snapshot, traceId);
+                notifySnapshotListeners(snapshot);
             }
         };
+    }
+
+    private void notifySnapshotListeners(GpsFixSnapshot snapshot) {
+        for (SnapshotListener listener : snapshotListeners) {
+            try {
+                listener.onSnapshot(snapshot);
+            } catch (RuntimeException ignored) {
+                // Snapshot side effects should not break GPS serial parsing.
+            }
+        }
     }
 
     private void resetLogState() {
@@ -209,5 +236,9 @@ public final class GpsSerialMonitor {
                 .replace("\n", "\\n");
         int maxLength = 160;
         return text.length() <= maxLength ? text : text.substring(0, maxLength) + "...";
+    }
+
+    public interface SnapshotListener {
+        void onSnapshot(GpsFixSnapshot snapshot);
     }
 }

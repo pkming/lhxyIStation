@@ -1,9 +1,20 @@
 <resources>
-    <dimen name="d_40">52dp</dimen>
-    <dimen name="d_50">56dp</dimen>
-    <dimen name="d_54">62dp</dimen>
-    <dimen name="d_60">68dp</dimen>
-    <dimen name="d_70">88dp</dimen>
-    <dimen name="d_80">96dp</dimen>
-    <dimen name="d_270">340dp</dimen>
+    <dimen name="d_40">40dp</dimen>
+    <dimen name="d_50">50dp</dimen>
+    <dimen name="d_54">54dp</dimen>
+    <dimen name="d_60">60dp</dimen>
+    <dimen name="d_70">70dp</dimen>
+    <dimen name="d_80">80dp</dimen>
+    <dimen name="d_270">270dp</dimen>
+    <dimen name="d_350">350dp</dimen>
+    <dimen name="home_m90_d_50">50dp</dimen>
+    <dimen name="home_m90_d_60">60dp</dimen>
+    <dimen name="home_m90_d_70">70dp</dimen>
+    <dimen name="home_m90_d_80">80dp</dimen>
+    <dimen name="home_m90_d_350">350dp</dimen>
+    <dimen name="home_m90_button_height">70dp</dimen>
+    <dimen name="home_m90_button_first_margin_top">35dp</dimen>
+    <dimen name="home_m90_button_margin_top">12dp</dimen>
+    <dimen name="home_m90_planned_margin_top">250dp</dimen>
+    <dimen name="home_m90_line_card_height">300dp</dimen>
 </resources>
