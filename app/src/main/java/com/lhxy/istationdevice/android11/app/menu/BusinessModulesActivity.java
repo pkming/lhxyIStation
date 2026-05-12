@@ -29,6 +29,8 @@ import java.util.List;
  * <p>
  * 这一页不再只是入口列表，而是业务模块的操作台：
  * 每块都能看状态，也能直接跑当前最常用的一组业务动作。
+ * <p>
+ * 查找关键字：模块总览、批量执行、模块动作面板、运行时重载。
  */
 public final class BusinessModulesActivity extends AppCompatActivity {
     private static final String TAG = "BusinessModulesActivity";
@@ -63,6 +65,11 @@ public final class BusinessModulesActivity extends AppCompatActivity {
         renderAll();
     }
 
+    /**
+     * 绑定页面上所有模块按钮。
+     * <p>
+     * 后续排查某个按钮触发了什么动作时，从这里开始找最直接。
+     */
     private void bindActions() {
         binding.btnBack.setOnClickListener(v -> finish());
         binding.btnOpenDebug.setOnClickListener(v -> startActivity(DebugIntentFactory.create(this)));
@@ -96,12 +103,20 @@ public final class BusinessModulesActivity extends AppCompatActivity {
         binding.btnResetRuntimeConfig.setOnClickListener(v -> resetRuntimeConfig());
     }
 
+    /**
+     * 重新拉取当前配置并同步到底层运行时。
+     * <p>
+     * 这里是业务模块页感知最新串口、Socket、GPIO 配置的入口。
+     */
     private void refreshConfig() {
         shellConfig = ShellConfigRepository.get(this);
         shellRuntime.applyConfig(this, shellConfig);
         jt808SocketMonitor.syncDefaultChannels(socketClientAdapter, shellConfig, TraceIds.next("biz-socket-monitor"));
     }
 
+    /**
+     * 依次执行当前注册的全部业务模块。
+     */
     private void runAllModules() {
         String traceId = TraceIds.next("biz-all");
         List<ModuleRunResult> results = moduleHub.runAll(traceId);
@@ -109,6 +124,9 @@ public final class BusinessModulesActivity extends AppCompatActivity {
         renderAll();
     }
 
+    /**
+     * 执行指定模块的默认主动作。
+     */
     private void runModule(String moduleKey) {
         String traceId = TraceIds.next("biz-" + moduleKey);
         ModuleRunResult result = moduleHub.runModule(moduleKey, traceId);
@@ -168,6 +186,9 @@ public final class BusinessModulesActivity extends AppCompatActivity {
         runModuleAction("file", "reset_runtime_config", "biz-reset-config");
     }
 
+    /**
+     * 统一写最近一次动作结果，同时打业务日志。
+     */
     private void setLatestAction(String text, String traceId, boolean success) {
         latestActionText = text == null || text.trim().isEmpty() ? "最近动作:\n- 没有可展示内容" : text.trim();
         AppLogCenter.log(
@@ -179,6 +200,11 @@ public final class BusinessModulesActivity extends AppCompatActivity {
         );
     }
 
+    /**
+     * 执行模块内的具名动作。
+     * <p>
+     * 文件模块在重置运行时配置后，会额外把最新配置重新同步进 ShellRuntime。
+     */
     private void runModuleAction(String moduleKey, String actionKey, String tracePrefix) {
         String traceId = TraceIds.next(tracePrefix);
         ModuleRunResult result = moduleHub.runAction(moduleKey, actionKey, traceId);
@@ -191,6 +217,9 @@ public final class BusinessModulesActivity extends AppCompatActivity {
         renderAll();
     }
 
+    /**
+     * 刷新页面摘要和每个模块的状态块。
+     */
     private void renderAll() {
         binding.tvSummary.setText(
                 shellRuntime.describeFoundationStatus()
@@ -207,6 +236,9 @@ public final class BusinessModulesActivity extends AppCompatActivity {
         binding.tvFileStatus.setText(findModuleStatus("file"));
     }
 
+    /**
+     * 根据模块 key 查找当前模块标题和状态文本。
+     */
     private String findModuleStatus(String moduleKey) {
         for (TerminalBusinessModule module : moduleHub.getModules()) {
             if (module.getKey().equals(moduleKey)) {

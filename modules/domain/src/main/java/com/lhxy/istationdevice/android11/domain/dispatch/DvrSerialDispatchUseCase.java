@@ -20,6 +20,8 @@ import java.nio.charset.Charset;
  * 先承接旧项目已经明确存在的几类串口上报帧，
  * 让 RS232-1 作为调度归属时不再只是页面状态切换。
  * 其中触摸协议当前按文档摘要实现第一版：55 AA + 05 + X/Y + 按下状态 + 校验。
+ * <p>
+ * 查找关键字：DVR 串口发帧、触摸协议、GPS 上报、发车上报、司机考勤。
  */
 public final class DvrSerialDispatchUseCase {
     private static final Charset GB2312 = Charset.forName("GB2312");
@@ -29,18 +31,27 @@ public final class DvrSerialDispatchUseCase {
         this.serialPortAdapter = serialPortAdapter;
     }
 
+    /**
+     * 判断当前配置是否允许走 RS232-1/DVR 串口主链。
+     */
     public boolean canUse(ShellConfig shellConfig) {
         return shellConfig != null
                 && shellConfig.getBasicSetupConfig().getProtocolLinkageSettings().isSerialDispatchEnabled()
                 && "DVR".equalsIgnoreCase(shellConfig.getBasicSetupConfig().getSerialSettings().getRs2321Protocol());
     }
 
+    /**
+     * 发送 GPS 上报帧。
+     */
     public void sendGpsReport(ShellConfig shellConfig, StationState stationState, GpsFixSnapshot snapshot, String traceId) {
         ShellConfig.SerialChannel channel = ensureReady(shellConfig, traceId);
         byte[] payload = buildGpsPayload(stationState, snapshot);
         send(channel, payload, "DVR_GPS_REPORT", traceId);
     }
 
+    /**
+     * 发送站点信息帧。
+     */
     public void sendSiteInfo(ShellConfig shellConfig, StationState stationState, GpsFixSnapshot snapshot, String traceId) {
         ShellConfig.SerialChannel channel = ensureReady(shellConfig, traceId);
         byte[] payload = buildSiteInfoPayload(stationState, snapshot);
@@ -77,12 +88,18 @@ public final class DvrSerialDispatchUseCase {
         send(channel, payload, "DVR_KEY_EVENT", traceId);
     }
 
+    /**
+     * 发送 DVR 触摸帧。
+     */
     public void sendTouchEvent(ShellConfig shellConfig, int x, int y, boolean pressed, String traceId) {
         ShellConfig.SerialChannel channel = ensureReady(shellConfig, traceId);
         byte[] payload = buildTouchPayload(x, y, pressed);
         send(channel, payload, "DVR_TOUCH_EVENT", traceId);
     }
 
+    /**
+     * 确保 RS232-1 已经打开，并且当前配置确实允许 DVR 串口主链。
+     */
     private ShellConfig.SerialChannel ensureReady(ShellConfig shellConfig, String traceId) {
         if (!canUse(shellConfig)) {
             throw new IllegalStateException("当前不是 DVR 串口调度模式");
@@ -94,6 +111,9 @@ public final class DvrSerialDispatchUseCase {
         return channel;
     }
 
+    /**
+     * 统一输出协议日志并发到串口。
+     */
     private void send(ShellConfig.SerialChannel channel, byte[] payload, String protocolName, String traceId) {
         AppLogCenter.log(
                 LogCategory.PROTOCOL_TX,
@@ -226,6 +246,11 @@ public final class DvrSerialDispatchUseCase {
         return payload;
     }
 
+    /**
+     * 构造 DVR 触摸报文。
+     * <p>
+     * 当前按 M90 的高字节在前坐标格式输出。
+     */
     private byte[] buildTouchPayload(int x, int y, boolean pressed) {
         // M90 旧机实现和协议文档都要求触摸坐标按高字节在前发送。
         byte[] payload = new byte[9];

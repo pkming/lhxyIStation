@@ -17,13 +17,20 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * Loads legacy line CSV resources and converts NMEA-style coordinates to decimal degrees.
+ * 旧版 GPS 线路资源目录。
+ * <p>
+ * 负责加载旧 CSV 线路文件，并把旧坐标格式转换成十进制度数。
+ * <p>
+ * 查找关键字：CSV 线路加载、坐标转换、lineInfo、提醒点解析。
  */
 public final class LegacyGpsRouteCatalog {
     private static final Charset LEGACY_CSV_CHARSET = Charset.forName("GB18030");
 
     private final Map<String, LegacyGpsRouteResource> cache = new LinkedHashMap<>();
 
+    /**
+     * 加载指定线路和方向的资源。
+     */
     public synchronized LegacyGpsRouteResource load(
             Context context,
             String preferredLineName,
@@ -50,10 +57,16 @@ public final class LegacyGpsRouteCatalog {
         return loaded;
     }
 
+    /**
+     * 清空已解析线路缓存。
+     */
     public synchronized void clearCache() {
         cache.clear();
     }
 
+    /**
+     * 读取某条线路的站点和提醒点 CSV。
+     */
     private LegacyGpsRouteResource loadRoute(File busDir, String lineName, int attribute, String directionText) {
         File lineDir = new File(busDir, lineName);
         String suffix = directionText.contains("下") ? "X" : "S";
@@ -136,15 +149,22 @@ public final class LegacyGpsRouteCatalog {
         return new LegacyGpsRouteResource(lineName, attribute, directionText, stations, reminders);
     }
 
+    /**
+     * 定位托管后的 Bus 资源目录。
+     */
     private File resolveBusDir(Context context) {
         if (context == null) {
             return null;
         }
-        File managedRoot = new StationResourceArchiveUseCase().resolveManagedResourceRoot(context.getApplicationContext());
-        File busDir = new File(managedRoot, "SourceFile/Bus");
+        StationResourceArchiveUseCase stationResourceArchiveUseCase = new StationResourceArchiveUseCase();
+        File sourceRoot = stationResourceArchiveUseCase.resolveManagedSourceRoot(context.getApplicationContext());
+        File busDir = new File(sourceRoot, "Bus");
         return busDir.exists() && busDir.isDirectory() ? busDir : null;
     }
 
+    /**
+     * 从 lineInfo.csv 里找出首选线路的基础信息。
+     */
     private LineInfo resolveLineInfo(File busDir, String preferredLineName) {
         File lineInfoFile = new File(busDir, "lineInfo.csv");
         List<List<String>> rows = readCsvRows(lineInfoFile);
@@ -172,6 +192,9 @@ public final class LegacyGpsRouteCatalog {
         return first;
     }
 
+    /**
+     * 读取 CSV 所有行，并处理 BOM 与空行。
+     */
     private List<List<String>> readCsvRows(File csvFile) {
         if (csvFile == null || !csvFile.exists() || !csvFile.isFile()) {
             return Collections.emptyList();
@@ -192,6 +215,9 @@ public final class LegacyGpsRouteCatalog {
         return rows;
     }
 
+    /**
+     * 把一行 CSV 安全拆成列。
+     */
     private List<String> parseCsvRow(String line) {
         List<String> columns = new ArrayList<>();
         StringBuilder current = new StringBuilder();
@@ -218,6 +244,9 @@ public final class LegacyGpsRouteCatalog {
         return columns;
     }
 
+    /**
+     * 解析旧坐标字段，必要时把 NMEA 风格值转成十进制度。
+     */
     private Coordinate parseCoordinate(String rawValue, boolean longitude) {
         String raw = rawValue == null ? "" : rawValue.trim();
         if (raw.isEmpty()) {

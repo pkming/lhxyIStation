@@ -5,8 +5,11 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Bundle;
+import android.text.TextUtils;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.Button;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AlertDialog;
@@ -20,6 +23,8 @@ import com.lhxy.istationdevice.android11.core.AppLogCenter;
 import com.lhxy.istationdevice.android11.core.LegacyHomeStatusRepository;
 import com.lhxy.istationdevice.android11.core.TraceIds;
 import com.lhxy.istationdevice.android11.domain.config.ShellConfigRepository;
+import com.lhxy.istationdevice.android11.domain.file.StationResourceArchiveUseCase;
+import com.lhxy.istationdevice.android11.domain.module.FileBusinessModule;
 import com.lhxy.istationdevice.android11.domain.module.ModuleRunResult;
 import com.lhxy.istationdevice.android11.domain.module.TerminalBusinessModule;
 import com.lhxy.istationdevice.android11.domain.module.StationBusinessModule;
@@ -77,11 +82,103 @@ public final class LegacyFileManageActivity extends LegacyBaseActivity {
         }
         button.setEnabled(true);
         button.setTextColor(ContextCompat.getColor(this, R.color.c_000000));
-        button.setOnClickListener(v -> confirmAndRunFileAction(
-                R.string.file_import_tip,
-                R.string.file_import_load_tip,
-                "import_station_resources"
-        ));
+        button.setOnClickListener(v -> promptImportCandidateSelection());
+    }
+
+    private void promptImportCandidateSelection() {
+        FileBusinessModule fileBusinessModule = resolveFileBusinessModule();
+        if (fileBusinessModule == null) {
+            confirmAndRunFileAction(
+                    R.string.file_import_tip,
+                    R.string.file_import_load_tip,
+                    "import_station_resources"
+            );
+            return;
+        }
+        java.util.List<StationResourceArchiveUseCase.ImportCandidate> candidates = fileBusinessModule.listImportCandidates();
+        if (candidates.isEmpty()) {
+            fileBusinessModule.setPendingImportCandidatePath(null);
+            confirmAndRunFileAction(
+                    R.string.file_import_tip,
+                    R.string.file_import_load_tip,
+                    "import_station_resources"
+            );
+            return;
+        }
+        if (candidates.size() == 1) {
+            fileBusinessModule.setPendingImportCandidatePath(candidates.get(0).getAbsolutePath());
+            confirmAndRunFileAction(
+                    R.string.file_import_tip,
+                    R.string.file_import_load_tip,
+                    "import_station_resources"
+            );
+            return;
+        }
+
+        CharSequence[] items = new CharSequence[candidates.size()];
+        int defaultIndex = 0;
+        for (int index = 0; index < candidates.size(); index++) {
+            StationResourceArchiveUseCase.ImportCandidate candidate = candidates.get(index);
+            items[index] = buildImportCandidateLabel(candidate);
+            if (defaultIndex == 0 && candidate.isZip()) {
+                defaultIndex = index;
+            }
+        }
+        final int[] selectedIndex = {defaultIndex};
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.file_import_choose_package_title)
+                .setSingleChoiceItems(items, defaultIndex, (dialog, which) -> selectedIndex[0] = which)
+                .setPositiveButton(R.string.file_import_choose_package_confirm, (dialog, which) -> {
+                    StationResourceArchiveUseCase.ImportCandidate selected = candidates.get(selectedIndex[0]);
+                    fileBusinessModule.setPendingImportCandidatePath(selected.getAbsolutePath());
+                    runFileActionAsync("import_station_resources", getString(R.string.file_import_load_tip));
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    private FileBusinessModule resolveFileBusinessModule() {
+        TerminalBusinessModule module = ShellRuntime.get().getModuleHub().findModule("file");
+        if (module instanceof FileBusinessModule) {
+            return (FileBusinessModule) module;
+        }
+        return null;
+    }
+
+    private CharSequence buildImportCandidateLabel(StationResourceArchiveUseCase.ImportCandidate candidate) {
+        StringBuilder builder = new StringBuilder();
+        builder.append(candidate.getFileName())
+                .append("  ")
+                .append(candidate.getArchiveTypeLabel())
+                .append(candidate.isSupported()
+                        ? (candidate.isRar() ? " / 可导入(旧格式)" : " / 可导入")
+                        : " / 当前不支持");
+        if (!candidate.isSupported() && candidate.getUnsupportedReason() != null && !candidate.getUnsupportedReason().trim().isEmpty()) {
+            builder.append("\n限制：").append(candidate.getUnsupportedReason().trim());
+        }
+        String sourceLabel = candidate.getSourceLabel();
+        if (sourceLabel != null && !sourceLabel.trim().isEmpty()) {
+            builder.append("\n来源：").append(sourceLabel.trim());
+        }
+        builder.append("\n大小：").append(formatFileSize(candidate.getFileSize()));
+        if (candidate.getLastModified() > 0) {
+            builder.append("  修改：")
+                    .append(DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(candidate.getLastModified()));
+        }
+        return builder.toString();
+    }
+
+    private String formatFileSize(long fileSize) {
+        if (fileSize <= 0) {
+            return "0 B";
+        }
+        if (fileSize < 1024L) {
+            return fileSize + " B";
+        }
+        if (fileSize < 1024L * 1024L) {
+            return String.format(java.util.Locale.getDefault(), "%.1f KB", fileSize / 1024d);
+        }
+        return String.format(java.util.Locale.getDefault(), "%.2f MB", fileSize / (1024d * 1024d));
     }
 
     private void bindExportAction() {
@@ -219,8 +316,150 @@ public final class LegacyFileManageActivity extends LegacyBaseActivity {
                 publishHomeResultState(actionKey, result);
                 renderResourceStatus(result.describeBlock());
                 refreshFileActionState();
+                maybeShowImportDiagnostics(actionKey, result);
             });
         }, "legacy-file-manage-" + actionKey).start();
+    }
+
+    private void maybeShowImportDiagnostics(String actionKey, ModuleRunResult result) {
+        if (!"import_station_resources".equals(actionKey) || result == null || !result.hasDiagnostics() || isFinishing()) {
+            return;
+        }
+        View dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_file_import_diagnostics, null, false);
+        TextView summaryView = dialogView.findViewById(R.id.tvImportDiagnosticsSummary);
+        LinearLayout itemsContainer = dialogView.findViewById(R.id.llImportDiagnosticsItems);
+        if (summaryView != null) {
+            summaryView.setText(buildDiagnosticsSummary(result));
+        }
+        if (itemsContainer != null) {
+            itemsContainer.removeAllViews();
+            for (ModuleRunResult.DiagnosticItem item : result.getDiagnostics()) {
+                itemsContainer.addView(createDiagnosticItemView(item));
+            }
+        }
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.file_import_diagnostics_title)
+                .setView(dialogView)
+                .setPositiveButton(android.R.string.ok, null)
+                .show();
+    }
+
+    private CharSequence buildDiagnosticsSummary(ModuleRunResult result) {
+        int okCount = 0;
+        int warnCount = 0;
+        int failCount = 0;
+        for (ModuleRunResult.DiagnosticItem item : result.getDiagnostics()) {
+            if (ModuleRunResult.DiagnosticItem.LEVEL_OK.equals(item.getLevel())) {
+                okCount++;
+            } else if (ModuleRunResult.DiagnosticItem.LEVEL_FAIL.equals(item.getLevel())) {
+                failCount++;
+            } else {
+                warnCount++;
+            }
+        }
+        return getString(
+                R.string.file_import_diagnostics_summary,
+                result.getSummary(),
+                okCount,
+                warnCount,
+            failCount
+        );
+    }
+
+    private View createDiagnosticItemView(ModuleRunResult.DiagnosticItem item) {
+        boolean isFailure = ModuleRunResult.DiagnosticItem.LEVEL_FAIL.equals(item.getLevel());
+        boolean showMessageBlock = !ModuleRunResult.DiagnosticItem.LEVEL_OK.equals(item.getLevel())
+            && item.getMessage() != null
+            && !item.getMessage().trim().isEmpty();
+        LinearLayout container = new LinearLayout(this);
+        container.setOrientation(LinearLayout.VERTICAL);
+        container.setPadding(dp(14), isFailure ? dp(12) : dp(10), dp(14), isFailure ? dp(12) : dp(10));
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+        );
+        params.bottomMargin = dp(6);
+        container.setLayoutParams(params);
+        container.setBackgroundColor(ContextCompat.getColor(this, R.color.c_f6f6f6));
+
+        TextView titleView = new TextView(this);
+        titleView.setTextSize(15f);
+        titleView.setTextColor(resolveDiagnosticColor(item.getLevel()));
+        if (showMessageBlock) {
+            titleView.setText("[" + item.getLevel() + "] " + compactDiagnosticTarget(item.getTarget()));
+        } else {
+            titleView.setEllipsize(TextUtils.TruncateAt.END);
+            titleView.setSingleLine(true);
+            titleView.setText("[" + item.getLevel() + "] " + buildCompactDiagnosticLine(item));
+        }
+        container.addView(titleView);
+
+        if (showMessageBlock) {
+            TextView messageView = new TextView(this);
+            messageView.setTextSize(14f);
+            messageView.setTextColor(ContextCompat.getColor(this, R.color.c_333333));
+            messageView.setPadding(0, dp(6), 0, 0);
+            messageView.setText(item.getMessage());
+            container.addView(messageView);
+        }
+
+        return container;
+    }
+
+    private String buildCompactDiagnosticLine(ModuleRunResult.DiagnosticItem item) {
+        String target = compactDiagnosticTarget(item.getTarget());
+        String message = normalizeSingleLine(item.getMessage());
+        if (target.isEmpty()) {
+            return message;
+        }
+        if (message.isEmpty()) {
+            return target;
+        }
+        return target + "  " + message;
+    }
+
+    private String compactDiagnosticTarget(String target) {
+        if (target == null || target.trim().isEmpty()) {
+            return "-";
+        }
+        String normalized = target.trim().replace('\\', '/');
+        String[] parts = normalized.split("/");
+        if (parts.length == 0) {
+            return normalized;
+        }
+        String last = parts[parts.length - 1];
+        if (last.endsWith(".csv") || last.endsWith(".xls") || last.endsWith(".xlsx")) {
+            if (parts.length >= 2) {
+                return parts[parts.length - 2] + "/" + last;
+            }
+            return last;
+        }
+        return last;
+    }
+
+    private String normalizeSingleLine(String value) {
+        if (value == null || value.trim().isEmpty()) {
+            return "";
+        }
+        return value.replace('\n', ' ')
+                .replace('\r', ' ')
+                .replaceAll("\\s+", " ")
+                .trim();
+    }
+
+    private int resolveDiagnosticColor(String level) {
+        if (ModuleRunResult.DiagnosticItem.LEVEL_FAIL.equals(level)) {
+            return ContextCompat.getColor(this, R.color.c_b31800);
+        }
+        if (ModuleRunResult.DiagnosticItem.LEVEL_OK.equals(level)) {
+            return ContextCompat.getColor(this, R.color.c_66cdaa);
+        }
+        return ContextCompat.getColor(this, R.color.c_8b6914);
+    }
+
+    private int dp(int value) {
+        float density = getResources().getDisplayMetrics().density;
+        return Math.round(value * density);
     }
 
     private void runUpgradeAsync() {

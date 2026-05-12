@@ -7,6 +7,8 @@ import com.lhxy.istationdevice.android11.core.LogCategory;
 import com.lhxy.istationdevice.android11.core.LogLevel;
 import com.lhxy.istationdevice.android11.domain.config.ShellConfig;
 
+import java.util.List;
+
 /**
  * 模块基类
  * <p>
@@ -76,6 +78,10 @@ abstract class AbstractTerminalBusinessModule implements TerminalBusinessModule 
     }
 
     protected final ModuleRunResult success(String summary, String detail) {
+        return success(summary, detail, null);
+    }
+
+    protected final ModuleRunResult success(String summary, String detail, List<ModuleRunResult.DiagnosticItem> diagnostics) {
         rememberAction(true, summary, detail);
         AppLogCenter.log(
             LogCategory.BIZ,
@@ -84,7 +90,7 @@ abstract class AbstractTerminalBusinessModule implements TerminalBusinessModule 
             buildOutcomeMessage("OK", summary, detail),
             getKey() + "-result"
         );
-        return ModuleRunResult.success(getKey(), getTitle(), summary, detail);
+        return ModuleRunResult.success(getKey(), getTitle(), summary, detail, diagnostics);
     }
 
     protected final ModuleRunResult failure(String summary, Exception exception) {
@@ -103,6 +109,10 @@ abstract class AbstractTerminalBusinessModule implements TerminalBusinessModule 
     }
 
     protected final ModuleRunResult failureText(String summary, String detail) {
+        return failureText(summary, detail, null);
+    }
+
+    protected final ModuleRunResult failureText(String summary, String detail, List<ModuleRunResult.DiagnosticItem> diagnostics) {
         rememberAction(false, summary, detail);
         AppLogCenter.log(
             LogCategory.ERROR,
@@ -111,7 +121,7 @@ abstract class AbstractTerminalBusinessModule implements TerminalBusinessModule 
             buildOutcomeMessage("FAIL", summary, detail),
             getKey() + "-result"
         );
-        return ModuleRunResult.failure(getKey(), getTitle(), summary, detail);
+        return ModuleRunResult.failure(getKey(), getTitle(), summary, detail, diagnostics);
     }
 
     protected final ModuleRunResult unsupportedAction(String actionKey) {

@@ -23,6 +23,8 @@ import com.lhxy.istationdevice.android11.app.R;
  * <p>
  * 统一处理旧版 Toolbar、返回键和右侧占位内容，
  * 这样后面逐页接业务时不会重复写一遍骨架代码。
+ * <p>
+ * 查找关键字：旧壳基类、Toolbar 初始化、统一返回、占位页。
  */
 public abstract class LegacyBaseActivity extends AppCompatActivity {
     @Override
@@ -36,13 +38,24 @@ public abstract class LegacyBaseActivity extends AppCompatActivity {
     @LayoutRes
     protected abstract int getLayoutId();
 
+    /**
+     * 返回当前旧壳页面对应的标题资源。
+     */
     @StringRes
     protected abstract int getTitleResId();
 
+    /**
+     * 子类页面初始化入口。
+     * <p>
+     * 旧壳 Activity 的控件绑定、数据刷新、Fragment 装载都从这里继续展开。
+     */
     protected void onPageReady(@Nullable Bundle savedInstanceState) {
         // optional
     }
 
+    /**
+     * 统一初始化顶部标题和返回按钮。
+     */
     protected final void initToolbar(@StringRes int titleResId) {
         Toolbar toolbar = findViewById(R.id.toolbar);
         TextView title = findViewById(R.id.toolbar_title);
@@ -79,6 +92,11 @@ public abstract class LegacyBaseActivity extends AppCompatActivity {
         ).show();
     }
 
+    /**
+     * 在旧壳容器里放一个纯文本占位块。
+     * <p>
+     * 适合暂未接入正式业务、但页面骨架已经恢复的区域。
+     */
     protected final void showPlaceholder(int containerId, @StringRes int titleResId, @StringRes int messageResId) {
         FrameLayout container = findViewById(containerId);
         if (container == null) {

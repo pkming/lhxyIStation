@@ -75,12 +75,12 @@
         "pinId": "GPIO1_D0",
         "valuePath": "",
         "defaultValue": 1,
-        "note": "IO1"
+        "note": "IO1 / 倒车"
       },
       "io2": {
         "pinId": "GPIO1_D1",
         "valuePath": "",
-        "defaultValue": 0,
+        "defaultValue": 1,
         "note": "IO2 / 中门开"
       },
       "io5": {
@@ -96,19 +96,19 @@
     "note": "Camera ID 先按 0~3 占位，真机时按 M90 联调结果修正",
     "channels": {
       "av_out": {
-        "cameraId": "0",
+        "cameraId": "100",
         "note": "AV-OUT / DVR"
       },
       "reverse": {
-        "cameraId": "1",
+        "cameraId": "101",
         "note": "倒车"
       },
       "middle_door": {
-        "cameraId": "2",
+        "cameraId": "102",
         "note": "中门"
       },
       "monitor": {
-        "cameraId": "3",
+        "cameraId": "103",
         "note": "监控"
       }
     }
@@ -153,9 +153,9 @@
       "adwordsInterval": 10
     },
     "serialSettings": {
-      "rs2321Protocol": "JT808",
-      "rs2322Protocol": "AL808",
-      "rs485Protocol": "通达",
+        "rs2321Protocol": "无",
+        "rs2322Protocol": "无",
+        "rs485Protocol": "无",
       "rs4852Protocol": "无"
     },
     "tts": {
@@ -183,8 +183,8 @@
     "jt808SocketKey": "jt808",
     "al808SocketKey": "al808",
     "gpioPinKey": "inner_audio",
-    "monitorPrimaryGpioKey": "",
-    "monitorSecondaryGpioKey": "",
+    "monitorPrimaryGpioKey": "io1",
+    "monitorSecondaryGpioKey": "io2",
     "cameraChannelKey": "av_out"
   }
 }

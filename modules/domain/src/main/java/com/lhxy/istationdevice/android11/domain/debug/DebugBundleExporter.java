@@ -12,9 +12,11 @@ import com.lhxy.istationdevice.android11.protocol.ProtocolMockCatalog;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.FileInputStream;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.List;
 import java.util.Locale;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -53,11 +55,7 @@ public final class DebugBundleExporter {
         );
 
         try (ZipOutputStream outputStream = new ZipOutputStream(new FileOutputStream(exportFile))) {
-            writeEntry(outputStream, "logs/app-log.txt", AppLogCenter.dumpSessionFileText());
-            writeEntry(outputStream, "logs/app-log-buffer.txt", AppLogCenter.dumpPlainText());
-            writeEntry(outputStream, "logs/by-module.txt", AppLogCenter.dumpByTag());
-            writeEntry(outputStream, "logs/by-trace.txt", AppLogCenter.dumpByTraceId());
-            writeEntry(outputStream, "logs/session-info.txt", AppLogCenter.describeSession());
+            writeLogEntries(outputStream);
             writeEntry(outputStream, "config/config-summary.txt", shellConfig.describe());
             writeEntry(outputStream, "config/config-validation.txt", ShellConfigValidator.describe(shellConfig));
             writeEntry(outputStream, "config/config-source.txt", shellConfig.getConfigSource());
@@ -82,10 +80,64 @@ public final class DebugBundleExporter {
         return exportFile;
     }
 
+    /**
+     * 单独导出日志包。
+     */
+    public static File exportLogs(Context context) throws Exception {
+        File baseDir = context.getExternalFilesDir("exports");
+        if (baseDir == null) {
+            baseDir = new File(context.getFilesDir(), "exports");
+        }
+        if (!baseDir.exists() && !baseDir.mkdirs()) {
+            throw new IllegalStateException("无法创建日志包目录: " + baseDir.getAbsolutePath());
+        }
+
+        File exportFile = new File(
+                baseDir,
+                "logs-bundle-" + new SimpleDateFormat("yyyyMMdd-HHmmss", Locale.getDefault()).format(new Date()) + ".zip"
+        );
+        try (ZipOutputStream outputStream = new ZipOutputStream(new FileOutputStream(exportFile))) {
+            writeLogEntries(outputStream);
+        }
+        return exportFile;
+    }
+
+    private static void writeLogEntries(ZipOutputStream outputStream) throws Exception {
+        writeEntry(outputStream, "logs/app-log.txt", AppLogCenter.dumpSessionFileText());
+        writeEntry(outputStream, "logs/app-log-buffer.txt", AppLogCenter.dumpPlainText());
+        writeEntry(outputStream, "logs/by-module.txt", AppLogCenter.dumpByTag());
+        writeEntry(outputStream, "logs/by-trace.txt", AppLogCenter.dumpByTraceId());
+        writeEntry(outputStream, "logs/summary.txt", AppLogCenter.dumpSummary());
+        writeEntry(outputStream, "logs/recent-errors.txt", AppLogCenter.dumpRecentErrors(200));
+        writeEntry(outputStream, "logs/session-info.txt", AppLogCenter.describeSession());
+        writeEntry(outputStream, "logs/recent-sessions.txt", AppLogCenter.describeRecentSessions(10));
+
+        List<File> sessionFiles = AppLogCenter.listSessionFiles(10);
+        for (File sessionFile : sessionFiles) {
+            writeFileEntry(outputStream, "logs/history/" + sessionFile.getName(), sessionFile);
+        }
+    }
+
     private static void writeEntry(ZipOutputStream outputStream, String entryName, String content) throws Exception {
         ZipEntry zipEntry = new ZipEntry(entryName);
         outputStream.putNextEntry(zipEntry);
         outputStream.write((content == null ? "" : content).getBytes(StandardCharsets.UTF_8));
+        outputStream.closeEntry();
+    }
+
+    private static void writeFileEntry(ZipOutputStream outputStream, String entryName, File file) throws Exception {
+        if (file == null || !file.exists() || !file.isFile()) {
+            return;
+        }
+        ZipEntry zipEntry = new ZipEntry(entryName);
+        outputStream.putNextEntry(zipEntry);
+        byte[] buffer = new byte[4096];
+        try (FileInputStream inputStream = new FileInputStream(file)) {
+            int length;
+            while ((length = inputStream.read(buffer)) != -1) {
+                outputStream.write(buffer, 0, length);
+            }
+        }
         outputStream.closeEntry();
     }
 }

@@ -17,6 +17,10 @@ import java.util.Calendar;
 
 /**
  * GPS 独立业务模块。
+ * <p>
+ * 负责 GPS 串口绑定、线路资源扫描、自动报站判定和 GPS 校时。
+ * <p>
+ * 查找关键字：GPS 绑定、自动报站判定、线路扫描、GPS 校时。
  */
 public final class GpsBusinessModule extends AbstractTerminalBusinessModule {
     private final SerialPortAdapter serialPortAdapter;
@@ -52,6 +56,11 @@ public final class GpsBusinessModule extends AbstractTerminalBusinessModule {
 
     @Override
     protected void onContextUpdated() {
+        try {
+            ensureGpsReady("gps-context");
+        } catch (Exception ignore) {
+            // Keep the module context refresh resilient while the device config is still incomplete.
+        }
         syncMonitorState();
         syncPreferredRouteSelection();
         if (getContext() != null && hasPreferredLineName()) {
@@ -73,6 +82,9 @@ public final class GpsBusinessModule extends AbstractTerminalBusinessModule {
         return bindGps(traceId);
     }
 
+    /**
+     * GPS 模块动作总入口。
+     */
     @Override
     public ModuleRunResult runAction(String actionKey, String traceId) {
         if ("bind_gps".equals(actionKey)) {
@@ -96,6 +108,9 @@ public final class GpsBusinessModule extends AbstractTerminalBusinessModule {
         return unsupportedAction(actionKey);
     }
 
+    /**
+     * 绑定 GPS 串口与监听器，并在可用时补看当前线路。
+     */
     private ModuleRunResult bindGps(String traceId) {
         try {
             ShellConfig.SerialChannel gpsChannel = ensureGpsReady(traceId);
@@ -110,6 +125,9 @@ public final class GpsBusinessModule extends AbstractTerminalBusinessModule {
         }
     }
 
+    /**
+     * 扫描当前生效线路资源。
+     */
     private ModuleRunResult scanActiveRoute(String traceId) {
         try {
             syncMonitorState();
@@ -126,6 +144,9 @@ public final class GpsBusinessModule extends AbstractTerminalBusinessModule {
         }
     }
 
+    /**
+     * 扫描 L1 基线线路，便于和旧项目资源做快速对照。
+     */
     private ModuleRunResult scanL1Baseline(String traceId) {
         try {
             Context context = requireContextOrThrow();
@@ -144,6 +165,11 @@ public final class GpsBusinessModule extends AbstractTerminalBusinessModule {
         }
     }
 
+    /**
+     * 执行一次自动报站判定。
+     * <p>
+     * 这里只做判定和摘要，不直接推进站点状态。
+     */
     private ModuleRunResult evaluateAutoReport(String traceId) {
         try {
             ensureGpsReady(traceId);
@@ -185,6 +211,9 @@ public final class GpsBusinessModule extends AbstractTerminalBusinessModule {
         }
     }
 
+    /**
+     * 按当前 GPS 时间执行校时。
+     */
     private ModuleRunResult syncGpsTime(String traceId, boolean force) {
         try {
             ensureGpsReady(traceId);
@@ -214,6 +243,9 @@ public final class GpsBusinessModule extends AbstractTerminalBusinessModule {
         }
     }
 
+    /**
+     * 切换当前偏好的上下行方向，并重新加载对应线路。
+     */
     private ModuleRunResult switchDirection(String traceId) {
         try {
             syncPreferredRouteSelection();
@@ -231,11 +263,17 @@ public final class GpsBusinessModule extends AbstractTerminalBusinessModule {
         }
     }
 
+    /**
+     * 把 GPS 监听器里的最新状态同步到页面状态对象。
+     */
     private void syncMonitorState() {
         gpsState.bindMonitor(gpsSerialMonitor.getAttachedChannelKey(), gpsSerialMonitor.getAttachedPortName(), gpsSerialMonitor.isAttached());
         gpsState.applySnapshot(gpsSerialMonitor.getLatestSnapshot());
     }
 
+    /**
+     * 从资源导入配置里同步首选线路和方向。
+     */
     private void syncPreferredRouteSelection() {
         ShellConfig.ResourceImportSettings resourceImportSettings = requireShellConfig().getBasicSetupConfig().getResourceImportSettings();
         if (resourceImportSettings.getLineName() != null
@@ -252,6 +290,9 @@ public final class GpsBusinessModule extends AbstractTerminalBusinessModule {
         gpsState.setPreferredDirectionText(gpsState.getDirectionText());
     }
 
+    /**
+     * 确保 GPS 串口和监听器已经附着完成。
+     */
     private ShellConfig.SerialChannel ensureGpsReady(String traceId) {
         ShellConfig shellConfig = requireShellConfig();
         ShellConfig.SerialChannel gpsChannel = shellConfig.requireSerialChannel(shellConfig.getDebugReplay().getGpsSerialKey());
@@ -266,6 +307,9 @@ public final class GpsBusinessModule extends AbstractTerminalBusinessModule {
         return gpsChannel;
     }
 
+    /**
+     * 解析当前激活线路，并把摘要回写到 GPS 状态。
+     */
     private LegacyGpsRouteResource inspectActiveRoute() {
         Context context = requireContextOrThrow();
         LegacyGpsRouteResource route = gpsFlowUseCase.resolveActiveRoute(

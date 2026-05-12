@@ -31,6 +31,8 @@ import java.util.function.Supplier;
  * <p>
  * 新壳后面的业务都从这里挂：
  * 调度、GPS、报站、签到、摄像头/DVR、升级、文件。
+ * <p>
+ * 查找关键字：模块注册、模块分发、模块批量执行、上下文刷新。
  */
 public final class TerminalModuleHub {
     private static final String TAG = "TerminalModuleHub";
@@ -96,6 +98,9 @@ public final class TerminalModuleHub {
         return dvrSerialMonitor;
     }
 
+    /**
+     * 把模块按 key 注册到统一路由表。
+     */
     private void register(TerminalBusinessModule module) {
         modules.put(module.getKey(), module);
     }
@@ -138,7 +143,9 @@ public final class TerminalModuleHub {
     }
 
     /**
-     * 执行单个模块样例。
+        * 执行单个模块样例。
+        * <p>
+        * 页面点击“执行主链”时，最终会先落到这里。
      */
     public ModuleRunResult runModule(String moduleKey, String traceId) {
         TerminalBusinessModule module = modules.get(moduleKey);
@@ -158,7 +165,9 @@ public final class TerminalModuleHub {
     }
 
     /**
-     * 执行全部模块样例。
+        * 执行全部模块样例。
+        * <p>
+        * 主要供总览页一次性联调所有模块时使用。
      */
     public List<ModuleRunResult> runAll(String traceIdPrefix) {
         List<ModuleRunResult> results = new ArrayList<>();
@@ -180,7 +189,9 @@ public final class TerminalModuleHub {
     }
 
     /**
-     * 执行单个模块的扩展动作。
+        * 执行单个模块的扩展动作。
+        * <p>
+        * 像确认公告、切换方向、发送 DVR 触摸这类具名动作都会先经过这里。
      */
     public ModuleRunResult runAction(String moduleKey, String actionKey, String traceId) {
         TerminalBusinessModule module = modules.get(moduleKey);
@@ -267,6 +278,9 @@ public final class TerminalModuleHub {
         return builder.toString();
     }
 
+    /**
+     * 把多行状态压成短摘要，适合总览页展示。
+     */
     private String compact(String text) {
         if (text == null || text.trim().isEmpty()) {
             return "-";
@@ -291,6 +305,9 @@ public final class TerminalModuleHub {
         return builder.toString();
     }
 
+    /**
+     * 统一输出模块执行日志，避免每个入口重复拼接格式。
+     */
     private void logResult(String prefix, String moduleKey, boolean success, String message, String traceId) {
         AppLogCenter.log(
                 success ? LogCategory.BIZ : LogCategory.ERROR,

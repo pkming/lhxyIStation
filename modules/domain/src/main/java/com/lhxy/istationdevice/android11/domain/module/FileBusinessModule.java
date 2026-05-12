@@ -14,12 +14,16 @@ import com.lhxy.istationdevice.android11.domain.gps.GpsSerialMonitor;
 import com.lhxy.istationdevice.android11.domain.socket.Jt808SocketMonitor;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.Supplier;
 
 /**
  * 文件模块
  * <p>
  * 当前先承接运行配置、调试包导出目录和后续导入导出入口。
+ * <p>
+ * 查找关键字：调试包导出、运行配置重置、报站资源导入导出。
  */
 public final class FileBusinessModule extends AbstractTerminalBusinessModule {
     private final Supplier<File> exportDirSupplier;
@@ -32,6 +36,8 @@ public final class FileBusinessModule extends AbstractTerminalBusinessModule {
     private String lastRuntimeConfigPath = "-";
     private String lastResourceImportPath = "-";
     private String lastResourceExportPath = "-";
+    private String lastLogExportPath = "-";
+    private String pendingImportCandidatePath;
 
     public FileBusinessModule(
             Supplier<File> exportDirSupplier,
@@ -62,6 +68,20 @@ public final class FileBusinessModule extends AbstractTerminalBusinessModule {
         return "承接运行配置、调试包和后续导入导出链路。";
     }
 
+    public List<StationResourceArchiveUseCase.ImportCandidate> listImportCandidates() {
+        Context context = getContext();
+        if (context == null) {
+            return new ArrayList<>();
+        }
+        return stationResourceArchiveUseCase.listImportCandidates(context);
+    }
+
+    public void setPendingImportCandidatePath(String pendingImportCandidatePath) {
+        this.pendingImportCandidatePath = pendingImportCandidatePath == null || pendingImportCandidatePath.trim().isEmpty()
+                ? null
+                : pendingImportCandidatePath.trim();
+    }
+
     @Override
     public String describeStatus() {
         Context context = getContext();
@@ -84,6 +104,7 @@ public final class FileBusinessModule extends AbstractTerminalBusinessModule {
             + "\n- lastImport=" + lastResourceImportPath
             + "\n- lastResourceExport=" + lastResourceExportPath
                 + "\n- lastExport=" + lastExportFilePath
+                + "\n- lastLogExport=" + lastLogExportPath
                 + "\n- " + describeActionMemory();
     }
 
@@ -92,6 +113,9 @@ public final class FileBusinessModule extends AbstractTerminalBusinessModule {
         return checkFileRuntime(traceId);
     }
 
+    /**
+     * 文件模块动作总入口。
+     */
     @Override
     public ModuleRunResult runAction(String actionKey, String traceId) {
         if ("export_bundle".equals(actionKey)) {
@@ -103,12 +127,18 @@ public final class FileBusinessModule extends AbstractTerminalBusinessModule {
         if ("export_station_resources".equals(actionKey)) {
             return exportStationResources(traceId);
         }
+        if ("export_logs".equals(actionKey)) {
+            return exportLogs(traceId);
+        }
         if ("reset_runtime_config".equals(actionKey)) {
             return resetRuntimeConfig(traceId);
         }
         return unsupportedAction(actionKey);
     }
 
+    /**
+     * 检查运行时配置文件和导出目录是否就绪。
+     */
     private ModuleRunResult checkFileRuntime(String traceId) {
         Context context = getContext();
         if (context == null) {
@@ -131,6 +161,9 @@ public final class FileBusinessModule extends AbstractTerminalBusinessModule {
         }
     }
 
+    /**
+     * 导出当前调试包。
+     */
     private ModuleRunResult exportBundle(String traceId) {
         Context context = getContext();
         if (context == null) {
@@ -153,16 +186,37 @@ public final class FileBusinessModule extends AbstractTerminalBusinessModule {
         }
     }
 
+    private ModuleRunResult exportLogs(String traceId) {
+        Context context = getContext();
+        if (context == null) {
+            return failureText("导出日志包失败", "当前没有可用上下文");
+        }
+        try {
+            File exportFile = DebugBundleExporter.exportLogs(context);
+            lastLogExportPath = exportFile.getAbsolutePath();
+            AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, "FileBusinessModule", "已导出日志包: " + lastLogExportPath, traceId);
+            return success("已导出日志包", lastLogExportPath);
+        } catch (Exception e) {
+            AppLogCenter.log(LogCategory.ERROR, LogLevel.ERROR, "FileBusinessModule", "导出日志包失败: " + emptyAsDash(e.getMessage()), traceId);
+            return failure("导出日志包失败", e);
+        }
+    }
+
+    /**
+     * 导入报站资源，并把结果写回运行时配置。
+     */
     private ModuleRunResult importStationResources(String traceId) {
         Context context = getContext();
         if (context == null) {
             return failureText("导入报站资源失败", "当前没有可用上下文");
         }
+        String selectedCandidatePath = pendingImportCandidatePath;
+        pendingImportCandidatePath = null;
         try {
-            StationResourceArchiveUseCase.OperationResult result = stationResourceArchiveUseCase.importStationResources(context);
+            StationResourceArchiveUseCase.OperationResult result = stationResourceArchiveUseCase.importStationResources(context, selectedCandidatePath);
             if (!result.isSuccess()) {
                 AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, "FileBusinessModule", result.getSummary() + ": " + result.getDetail(), traceId);
-                return failureText(result.getSummary(), result.getDetail());
+                return failureText(result.getSummary(), result.getDetail(), toDiagnostics(result));
             }
 
             lastResourceImportPath = result.getArchiveFile() == null ? "-" : result.getArchiveFile().getAbsolutePath();
@@ -170,13 +224,16 @@ public final class FileBusinessModule extends AbstractTerminalBusinessModule {
             ShellConfigRepository.save(context, updated);
             updateContext(context, updated);
             AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, "FileBusinessModule", result.getSummary() + ": " + result.getDetail(), traceId);
-            return success(result.getSummary(), result.getDetail());
+            return success(result.getSummary(), result.getDetail(), toDiagnostics(result));
         } catch (Exception e) {
             AppLogCenter.log(LogCategory.ERROR, LogLevel.ERROR, "FileBusinessModule", "导入报站资源失败: " + emptyAsDash(e.getMessage()), traceId);
             return failure("导入报站资源失败", e);
         }
     }
 
+    /**
+     * 导出当前托管的报站资源包。
+     */
     private ModuleRunResult exportStationResources(String traceId) {
         Context context = getContext();
         if (context == null) {
@@ -197,6 +254,9 @@ public final class FileBusinessModule extends AbstractTerminalBusinessModule {
         }
     }
 
+    /**
+     * 重置运行期配置文件。
+     */
     private ModuleRunResult resetRuntimeConfig(String traceId) {
         Context context = getContext();
         if (context == null) {
@@ -211,6 +271,9 @@ public final class FileBusinessModule extends AbstractTerminalBusinessModule {
         }
     }
 
+    /**
+     * 把导入后的资源信息合并回当前运行时配置。
+     */
     private ShellConfig buildShellConfigWithImportedResources(ShellConfig current, StationResourceArchiveUseCase.OperationResult result) {
         ShellConfig.BasicSetupConfig basicSetup = current.getBasicSetupConfig();
         return new ShellConfig(
@@ -241,5 +304,16 @@ public final class FileBusinessModule extends AbstractTerminalBusinessModule {
                         basicSetup.getProtocolLinkageSettings()
                 )
         );
+    }
+
+    private List<ModuleRunResult.DiagnosticItem> toDiagnostics(StationResourceArchiveUseCase.OperationResult result) {
+        List<ModuleRunResult.DiagnosticItem> diagnostics = new ArrayList<>();
+        if (result == null) {
+            return diagnostics;
+        }
+        for (StationResourceArchiveUseCase.DiagnosticItem item : result.getDiagnostics()) {
+            diagnostics.add(new ModuleRunResult.DiagnosticItem(item.getLevel(), item.getTarget(), item.getMessage()));
+        }
+        return diagnostics;
     }
 }

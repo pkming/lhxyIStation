@@ -8,6 +8,7 @@ import android.text.TextUtils;
 import android.view.View;
 import android.view.ViewTreeObserver;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
@@ -24,7 +25,6 @@ import com.lhxy.istationdevice.android11.core.AppLogCenter;
 import com.lhxy.istationdevice.android11.core.LogCategory;
 import com.lhxy.istationdevice.android11.core.LogLevel;
 import com.lhxy.istationdevice.android11.core.TraceIds;
-import com.rengwuxian.materialedittext.MaterialEditText;
 
 /**
  * 旧版登录页。
@@ -73,7 +73,7 @@ public final class LegacyLoginActivity extends AppCompatActivity {
     }
 
     private void bindLogin() {
-        MaterialEditText etUserPwd = findViewById(R.id.etUserPwd);
+        EditText etUserPwd = findViewById(R.id.etUserPwd);
         Button butLogin = findViewById(R.id.butLogin);
         if (butLogin == null) {
             return;

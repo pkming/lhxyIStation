@@ -6,20 +6,35 @@ import com.lhxy.istationdevice.android11.domain.config.ShellConfig;
 import com.lhxy.istationdevice.android11.protocol.gps.GpsFixSnapshot;
 
 /**
- * Owns the legacy GPS runtime flow: route resolution, auto-report evaluation, and direction switch routing.
+ * 旧版 GPS 运行流程用例。
+ * <p>
+ * 负责线路解析、自动报站判定和方向切换后的线路重选。
+ * <p>
+ * 查找关键字：线路解析、自动报站流程、切换方向、GPS 流程总入口。
  */
 public final class LegacyGpsFlowUseCase {
     private final LegacyGpsRouteCatalog routeCatalog = new LegacyGpsRouteCatalog();
     private final LegacyGpsAutoReportEngine autoReportEngine = new LegacyGpsAutoReportEngine();
 
+    /**
+     * 清空线路资源缓存。
+     */
     public void clearCache() {
         routeCatalog.clearCache();
     }
 
+    /**
+     * 直接按线路名和方向读取线路资源。
+     */
     public LegacyGpsRouteResource load(Context context, String lineName, String directionText) {
         return routeCatalog.load(context, lineName, directionText);
     }
 
+    /**
+     * 解析当前激活线路。
+     * <p>
+     * 优先使用资源导入配置里的线路和方向，再回退到调用方给的兜底值。
+     */
     public LegacyGpsRouteResource resolveActiveRoute(
             Context context,
             ShellConfig shellConfig,
@@ -36,6 +51,9 @@ public final class LegacyGpsFlowUseCase {
         );
     }
 
+        /**
+         * 执行一次 GPS 流程判定，并返回线路、快照和自动报站事件摘要。
+         */
     public GpsFlowResult evaluate(
             Context context,
             ShellConfig shellConfig,
@@ -55,6 +73,9 @@ public final class LegacyGpsFlowUseCase {
         return GpsFlowResult.of(route, snapshot, angleEnabled, event);
     }
 
+    /**
+     * 根据当前线路切换出对向线路。
+     */
     public LegacyGpsRouteResource resolveSwitchedRoute(Context context, LegacyGpsRouteResource currentRoute) {
         if (context == null || currentRoute == null) {
             return null;
@@ -63,6 +84,9 @@ public final class LegacyGpsFlowUseCase {
         return routeCatalog.load(context, currentRoute.getLineName(), nextDirection);
     }
 
+    /**
+     * 重置某条线路对应的自动报站状态机。
+     */
     public void reset(LegacyGpsRouteResource route) {
         if (route == null) {
             return;
@@ -104,6 +128,9 @@ public final class LegacyGpsFlowUseCase {
         return "上行";
     }
 
+    /**
+     * GPS 流程执行结果。
+     */
     public static final class GpsFlowResult {
         private final LegacyGpsRouteResource route;
         private final GpsFixSnapshot snapshot;

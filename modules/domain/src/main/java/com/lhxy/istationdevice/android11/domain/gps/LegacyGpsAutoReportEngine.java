@@ -7,7 +7,11 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * Stateful port of the legacy GPS auto-report decision flow.
+ * 旧版 GPS 自动报站判定引擎。
+ * <p>
+ * 负责按站点、提醒点、距离、方向和角度规则判断是否命中自动报站事件。
+ * <p>
+ * 查找关键字：自动报站规则、进出站判定、方向切换投票、提醒点判定。
  */
 public final class LegacyGpsAutoReportEngine {
     public static final int OP_STATION = 0;
@@ -28,6 +32,9 @@ public final class LegacyGpsAutoReportEngine {
     private boolean initSite = true;
     private final List<String> directionSwitchVotes = new ArrayList<>();
 
+    /**
+     * 重置某条线路上的自动报站状态机。
+     */
     public synchronized void reset(String routeKey) {
         activeRouteKey = routeKey == null ? "" : routeKey;
         lastStationNo = 0;
@@ -38,6 +45,9 @@ public final class LegacyGpsAutoReportEngine {
         directionSwitchVotes.clear();
     }
 
+    /**
+     * 对当前 GPS 快照执行一次自动报站判定。
+     */
     public synchronized AutoReportEvent evaluate(
             LegacyGpsRouteResource route,
             GpsFixSnapshot snapshot,
@@ -61,6 +71,9 @@ public final class LegacyGpsAutoReportEngine {
         return handleStation(route, match, snapshot, angleEnabled);
     }
 
+    /**
+     * 处理提醒点进入/离开判定。
+     */
     private AutoReportEvent handleReminder(MatchResult match, GpsFixSnapshot snapshot, boolean angleEnabled) {
         LegacyGpsRouteResource.ReminderPoint reminder = match.reminderPoint;
         if (reminder == null) {
@@ -82,6 +95,9 @@ public final class LegacyGpsAutoReportEngine {
         return AutoReportEvent.reminder(reminder, REMINDER_TYPE_ENTER, match.distanceMeters);
     }
 
+    /**
+     * 处理站点进入/离开以及方向切换判定。
+     */
     private AutoReportEvent handleStation(
             LegacyGpsRouteResource route,
             MatchResult match,
@@ -165,6 +181,9 @@ public final class LegacyGpsAutoReportEngine {
         return AutoReportEvent.station(station, stationType, distance);
     }
 
+    /**
+     * 找出当前位置最近的站点或提醒点。
+     */
     private MatchResult findNearest(LegacyGpsRouteResource route, GpsFixSnapshot snapshot) {
         double currentLongitude = parseDouble(snapshot.getLongitudeDecimal(), 0d);
         double currentLatitude = parseDouble(snapshot.getLatitudeDecimal(), 0d);
@@ -225,6 +244,9 @@ public final class LegacyGpsAutoReportEngine {
         return MatchResult.station(nearestStation, minDistance);
     }
 
+    /**
+     * 判断当前航向角是否与站点要求明显不符。
+     */
     private boolean angleMismatch(String expectedAngle, String currentAngle) {
         if (expectedAngle == null || expectedAngle.trim().isEmpty()) {
             return false;
@@ -238,6 +260,9 @@ public final class LegacyGpsAutoReportEngine {
         return diff > 60 && diff < 300;
     }
 
+    /**
+     * 记录一次方向切换投票站点。
+     */
     private void addDirectionVote(int stationNo) {
         String value = String.valueOf(stationNo);
         if (!directionSwitchVotes.contains(value)) {
@@ -273,6 +298,9 @@ public final class LegacyGpsAutoReportEngine {
         return value * 6378.137d * 1000d;
     }
 
+    /**
+     * 自动报站判定结果。
+     */
     public static final class AutoReportEvent {
         private final int operationType;
         private final int stationType;

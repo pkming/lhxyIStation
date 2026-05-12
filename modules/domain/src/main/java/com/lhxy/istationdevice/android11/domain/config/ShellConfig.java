@@ -670,7 +670,7 @@ public final class ShellConfig {
         }
 
         public static DebugReplay defaultReplay() {
-            return new DebugReplay("rs485_1", "gps", "jt808", "al808", "inner_audio", "", "", "av_out");
+            return new DebugReplay("rs485_1", "gps", "jt808", "al808", "inner_audio", "io1", "io2", "av_out");
         }
 
         public String getDisplaySerialKey() {
@@ -969,14 +969,14 @@ public final class ShellConfig {
         }
 
         public SerialSettings(String rs2321Protocol, String rs2322Protocol, String rs485Protocol, String rs4852Protocol) {
-            this.rs2321Protocol = rs2321Protocol == null ? "JT808" : rs2321Protocol;
-            this.rs2322Protocol = rs2322Protocol == null ? "AL808" : rs2322Protocol;
-            this.rs485Protocol = rs485Protocol == null ? "通达" : rs485Protocol;
+            this.rs2321Protocol = rs2321Protocol == null ? "无" : rs2321Protocol;
+            this.rs2322Protocol = rs2322Protocol == null ? "无" : rs2322Protocol;
+            this.rs485Protocol = rs485Protocol == null ? "无" : rs485Protocol;
             this.rs4852Protocol = rs4852Protocol == null ? "无" : rs4852Protocol;
         }
 
         public static SerialSettings defaults() {
-            return new SerialSettings("JT808", "AL808", "通达", "无");
+            return new SerialSettings("无", "无", "无", "无");
         }
 
         public String getRs2321Protocol() { return rs2321Protocol; }

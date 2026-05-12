@@ -13,6 +13,8 @@ import java.util.List;
  * 本地升级包扫描器。
  * <p>
  * 兼容旧项目常用的 TF 卡目录，也兼容 Android11 壳当前可写的 app 专属目录。
+ * <p>
+ * 查找关键字：本地 APK 扫描、升级包搜索目录、优先 APK 名。
  */
 public final class LocalUpgradeApkFinder {
     private static final List<String> PREFERRED_FILE_NAMES = Arrays.asList("M90.apk", "K80.apk");
@@ -20,6 +22,9 @@ public final class LocalUpgradeApkFinder {
     private LocalUpgradeApkFinder() {
     }
 
+    /**
+     * 从预设目录里找出最合适的升级 APK。
+     */
     public static File findBest(Context context) {
         if (context == null) {
             return null;
@@ -38,6 +43,9 @@ public final class LocalUpgradeApkFinder {
         return candidates.get(0);
     }
 
+    /**
+     * 返回需要扫描的升级目录列表。
+     */
     private static List<File> resolveSearchDirectories(Context context) {
         List<File> directories = new ArrayList<>();
         File externalRoot = Environment.getExternalStorageDirectory();
@@ -61,6 +69,9 @@ public final class LocalUpgradeApkFinder {
         return directories;
     }
 
+    /**
+     * 收集目录下所有 APK 候选文件。
+     */
     private static void collectCandidates(File directory, List<File> out) {
         if (directory == null || !directory.exists() || !directory.isDirectory()) {
             return;

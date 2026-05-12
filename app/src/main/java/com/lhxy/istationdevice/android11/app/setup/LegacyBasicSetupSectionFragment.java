@@ -1,7 +1,11 @@
 package com.lhxy.istationdevice.android11.app.setup;
 
+import android.app.AlarmManager;
+import android.app.PendingIntent;
+import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.Process;
 import android.provider.Settings;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -23,6 +27,7 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
 
+import com.lhxy.istationdevice.android11.app.AppLanguageManager;
 import com.lhxy.istationdevice.android11.app.R;
 import com.lhxy.istationdevice.android11.app.station.LegacyStationResourceStateRepository;
 import com.lhxy.istationdevice.android11.core.AppLogCenter;
@@ -168,7 +173,8 @@ public final class LegacyBasicSetupSectionFragment extends Fragment {
         Map<String, ShellConfig.SerialChannel> channels = config == null ? null : config.getSerialChannels();
         List<String> baudOptions = Arrays.asList("9600", "19200", "38400", "51200", "57600", "115200");
         List<String> gpsBaudOptions = Arrays.asList("9600", "115200");
-        List<String> protocolOptions = Arrays.asList("无", "通达", "恒舞", "武汉乐的", "海梁", "LED导程牌", "LHXY", "HW3", "JHY");
+        List<String> protocol232Options = Arrays.asList("无", "DVR", "POS");
+        List<String> protocol485Options = Arrays.asList("无", "通达", "恒舞", "武汉乐的", "海梁", "LED导程牌", "LHXY", "HW3", "JHY");
         List<String> dvrChannelOptions = Arrays.asList("VIN1-AHD", "VIN4-AUTO");
         List<String> portOptions = Arrays.asList("RS232-1", "RS232-2", "RS485");
 
@@ -184,18 +190,15 @@ public final class LegacyBasicSetupSectionFragment extends Fragment {
         bindSpinner(view, R.id.spPortBaud4852, baudOptions, serial4852 == null ? "9600" : String.valueOf(serial4852.getBaudRate()));
         bindSpinner(view, R.id.gpsChannel, gpsBaudOptions, gpsSerial == null ? "115200" : String.valueOf(gpsSerial.getBaudRate()));
         ShellConfig.SerialSettings settings = requireConfig().getBasicSetupConfig().getSerialSettings();
-        bindSpinner(view, R.id.spPortProtocol2321, protocolOptions, settings.getRs2321Protocol());
-        bindSpinner(view, R.id.spPortProtocol2322, protocolOptions, settings.getRs2322Protocol());
-        bindSpinner(view, R.id.spPortProtocol485, protocolOptions, settings.getRs485Protocol());
-        bindSpinner(view, R.id.spPortProtocol4852, protocolOptions, settings.getRs4852Protocol());
+        bindSpinner(view, R.id.spPortProtocol2321, protocol232Options, settings.getRs2321Protocol());
+        bindSpinner(view, R.id.spPortProtocol2322, protocol232Options, settings.getRs2322Protocol());
+        bindSpinner(view, R.id.spPortProtocol485, protocol485Options, settings.getRs485Protocol());
+        bindSpinner(view, R.id.spPortProtocol4852, protocol485Options, settings.getRs4852Protocol());
         bindSpinner(view, R.id.spChannel, dvrChannelOptions, mapDvrCameraKeyToOption(requireConfig().getDebugReplay().getCameraChannelKey()));
-        bindSpinner(view, R.id.spPortProtocol, protocolOptions, "通达");
+        bindSpinner(view, R.id.spPortProtocol, protocol485Options, "无");
         bindSpinner(view, R.id.spPortNumber1, portOptions, "RS485");
         checkRadio(view, R.id.rgDataType, R.id.rbTxtType);
         bindText(view, R.id.etPortData, "TEST-485");
-        showControlRow(view.findViewById(R.id.spPortNumber1));
-        showControlRow(view.findViewById(R.id.rgDataType));
-        showControlRow(view.findViewById(R.id.butSend));
 
         View send = view.findViewById(R.id.butSend);
         if (send != null) {
@@ -271,8 +274,8 @@ public final class LegacyBasicSetupSectionFragment extends Fragment {
         if (spinner == null || getContext() == null) {
             return;
         }
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_spinner_item, values);
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(requireContext(), R.layout.spinner_item, values);
+        adapter.setDropDownViewResource(R.layout.dropdown_stytle);
         spinner.setAdapter(adapter);
         if (selectedValue == null) {
             return;
@@ -534,6 +537,11 @@ public final class LegacyBasicSetupSectionFragment extends Fragment {
         });
     }
 
+    /**
+     * 把设置页新配置同时写入运行期文件和共享运行时。
+     * <p>
+     * 后续排查“设置是否立即生效”时，先看这里，再看请求重启的调用点。
+     */
     private void applyAndPersist(ShellConfig updated) throws Exception {
         ShellConfigRepository.save(requireContext(), updated);
         ShellRuntime.get().applyConfig(requireContext(), updated);
@@ -666,6 +674,7 @@ public final class LegacyBasicSetupSectionFragment extends Fragment {
                 requireConfig().getBasicSetupConfig().getProtocolLinkageSettings()
             ));
             applyAndPersist(updated);
+            AppLanguageManager.apply(updated.getBasicSetupConfig().getLanguageSettings().getLanguageCode());
             AppLogCenter.log(LogCategory.UI, LogLevel.INFO, "LegacyBasicSetupSection", "语言设置已写入运行期文件。", traceId);
             toast("语言设置已写入运行期文件，正在请求重启。", true);
             requestReboot("legacy-basic-language-save", traceId);
@@ -712,12 +721,53 @@ public final class LegacyBasicSetupSectionFragment extends Fragment {
         }
 
         private void requestReboot(String reason, String traceId) {
+        ShellConfig.SystemConfig systemConfig = requireConfig().getSystemConfig();
+        if (!canRequestSystemReboot(systemConfig)) {
+            AppLogCenter.log(LogCategory.UI, LogLevel.WARN, "LegacyBasicSetupSection", "系统重启能力未开启，改为重启应用: " + reason, traceId);
+            relaunchApplication(traceId);
+            return;
+        }
         try {
             ShellRuntime.get().getSystemOps().reboot(reason, traceId);
         } catch (Exception e) {
-            AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, "LegacyBasicSetupSection", "请求重启失败: " + e.getMessage(), traceId);
-            toast("配置已保存，但重启未执行: " + safeMessage(e));
+            AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, "LegacyBasicSetupSection", "请求重启失败，改为重启应用: " + e.getMessage(), traceId);
+            relaunchApplication(traceId);
         }
+        }
+
+        private boolean canRequestSystemReboot(ShellConfig.SystemConfig systemConfig) {
+        return systemConfig != null
+            && systemConfig.isAllowReboot()
+            && systemConfig.getRebootCommand() != null
+            && !systemConfig.getRebootCommand().trim().isEmpty();
+        }
+
+        private void relaunchApplication(String traceId) {
+        if (getContext() == null) {
+            return;
+        }
+        Context appContext = requireContext().getApplicationContext();
+        Intent launchIntent = new Intent(appContext, com.lhxy.istationdevice.android11.app.home.LegacyMainActivity.class);
+        launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        PendingIntent restartIntent = PendingIntent.getActivity(
+            appContext,
+            1001,
+            launchIntent,
+            PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+        AlarmManager alarmManager = (AlarmManager) appContext.getSystemService(Context.ALARM_SERVICE);
+        if (alarmManager != null) {
+            alarmManager.set(AlarmManager.RTC, System.currentTimeMillis() + 300L, restartIntent);
+        } else {
+            appContext.startActivity(launchIntent);
+        }
+        AppLogCenter.log(LogCategory.UI, LogLevel.INFO, "LegacyBasicSetupSection", "已安排应用重启", traceId);
+        toast("配置已保存，正在重启应用。", true);
+        if (getActivity() != null) {
+            getActivity().finishAffinity();
+        }
+        Process.killProcess(Process.myPid());
+        System.exit(0);
         }
 
         private boolean requireStationResourceImported() {

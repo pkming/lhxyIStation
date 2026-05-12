@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="@dimen/d_50"
+    android:background="@color/c_ffffff"
+    android:paddingLeft="@dimen/d_16"
+    android:paddingRight="@dimen/d_16">
+
+    <TextView
+        android:id="@+id/tvMaintenanceIndex"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerVertical="true"
+        android:textColor="@color/c_000000"
+        android:textSize="20sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/tvMaintenanceContent"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerVertical="true"
+        android:layout_marginLeft="@dimen/d_40"
+        android:layout_toRightOf="@id/tvMaintenanceIndex"
+        android:textColor="@color/c_000000"
+        android:textSize="20sp" />
+
+    <CheckBox
+        android:id="@+id/cbMaintenanceSelected"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentRight="true"
+        android:layout_centerVertical="true"
+        android:clickable="false"
+        android:focusable="false" />
+
+</RelativeLayout>

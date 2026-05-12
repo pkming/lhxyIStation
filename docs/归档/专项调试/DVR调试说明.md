@@ -29,7 +29,7 @@
    - 从 `视频 / DVR` 进入
 3. 实际视频页：`LegacyVideoMonitorActivity`
    - 打开页面会开默认摄像头
-   - 点击按键会发 `DVR_KEY_EVENT`
+   - 底部 `开门 / 倒车 / DVR / 监控 / BACK` 控件负责切换通道与返回
    - 点击预览区会发 `DVR_TOUCH_EVENT`
 
 ---
@@ -76,7 +76,7 @@
 不要一上来混着测，按 4 步走：
 
 1. 先看握手是否正常
-2. 再看页面按键 / 触摸是否能发帧
+2. 再看页面通道切换 / 触摸是否正常
 3. 再看 GPS / 报站 / 调度 / 签到这些业务帧是否能发出去
 4. 最后看 DVR 反向回包是否能被解析
 
@@ -141,24 +141,28 @@ adb logcat | findstr "LegacyVideoMonitorActivity DvrSerialDispatch"
 
 ## 6. 怎么测发送链路
 
-### 6.1 键盘帧
+### 6.1 页面按钮 / 通道切换
 
 进入：
 
 - 旧首页 `DVR`
 - 或新首页 `视频 / DVR`
 
-然后点击页面里的：
+然后点击页面底部：
 
-- 数字键 `0-9`
-- `UP / DOWN / LEFT / RIGHT`
-- `M / ENT / ESC / DEL`
+- `开门`
+- `倒车`
+- `DVR`
+- `监控`
+- `BACK`
 
 期望日志：
 
 ```text
-LegacyVideoMonitorActivity ... 已发送 DVR 键码
-DvrSerialDispatch ... DVR_KEY_EVENT via rs232_1 -> ...
+camera preview started: av_out -> 100
+camera preview started: middle_door -> 102
+camera preview started: reverse -> 101
+camera preview started: monitor -> 103
 ```
 
 ### 6.2 触摸帧
@@ -262,7 +266,7 @@ DVR 公告下发 ...
 1. `ttyS3 @ 9600` 能正常打开
 2. `DvrSerialMonitor` 显示已绑定
 3. 能看到握手，且出现 `DVR 在线`
-4. 在视频页按键时能看到 `DVR_KEY_EVENT`
+4. 在视频页切换按钮时能看到对应 `camera preview started`
 5. 在预览区触摸时能看到 `DVR_TOUCH_EVENT`
 6. 做业务动作时能看到对应的业务帧发出
 
@@ -290,14 +294,14 @@ DVR 公告下发 ...
 4. `9600`
 5. DVR 接线
 
-### 9.2 有 `DVR_KEY_EVENT`，但 DVR 无反应
+### 9.2 有 `camera preview started`，但画面不是预期通道
 
 优先查：
 
-1. DVR 是否要求先握手在线
-2. 键码是否和旧项目一致
-3. 串口单向还是双向
-4. DVR 端是否有更严格的状态机
+1. 物理视频线是否接在预期的 `VIN/cameraId`
+2. 当前 `av_out / reverse / middle_door / monitor` 对应关系是否已经核实
+3. GPIO 组合口径是否和线束电平一致
+4. 是否把现场物理含义和软件通道名混用了
 
 ### 9.3 有 `DVR_TOUCH_EVENT`，但触摸位置不对
 
@@ -338,10 +342,12 @@ DVR 公告下发 ...
 2. 开 `adb logcat`
 3. 进入 `视频 / DVR`
 4. 看是否出现 `DVR 在线`
-5. 按一个方向键，看是否出现 `DVR_KEY_EVENT`
+5. 依次点 `开门 / 倒车 / DVR / 监控`，看是否出现对应 `camera preview started`
 6. 点一下预览区，看是否出现 `DVR_TOUCH_EVENT`
 7. 再做一次 GPS / 报站 / 发车 / 签到动作
 8. 对照日志确认每个动作都发了正确类型的帧
+
+当前正式视频页没有页面级 DVR 键盘区，这不是故障项。
 
 这样我们就能很快判断问题到底卡在：
 

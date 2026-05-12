@@ -13,8 +13,8 @@ import com.lhxy.istationdevice.android11.app.common.LegacyBaseActivity;
  * 旧版调度中心页骨架。
  */
 public final class LegacyDispatchCenterActivity extends LegacyBaseActivity {
-    private static final String TAG_ATTENDANCE = "ATTENDANCE";
-    private static final String TAG_DISPATCH = "DISPATCH";
+    private static final String TAG_PAYCARD_TEST = "PAYCARD_TEST";
+    private static final String TAG_LED_PERIPHERAL = "LED_PERIPHERAL";
 
     @Override
     protected int getLayoutId() {
@@ -33,10 +33,14 @@ public final class LegacyDispatchCenterActivity extends LegacyBaseActivity {
         if (attendanceButton != null) {
             attendanceButton.setChecked(true);
         }
-        showContent(TAG_ATTENDANCE);
+        showContent(TAG_PAYCARD_TEST);
         if (radioGroup != null) {
             radioGroup.setOnCheckedChangeListener((group, checkedId) -> {
-                showContent(checkedId == R.id.rb_radio_dispatch ? TAG_DISPATCH : TAG_ATTENDANCE);
+                if (checkedId == R.id.rb_radio_ledPeripheral) {
+                    showContent(TAG_LED_PERIPHERAL);
+                } else {
+                    showContent(TAG_PAYCARD_TEST);
+                }
             });
         }
     }
@@ -44,18 +48,22 @@ public final class LegacyDispatchCenterActivity extends LegacyBaseActivity {
     private void showContent(String tag) {
         androidx.fragment.app.FragmentManager fragmentManager = getSupportFragmentManager();
         androidx.fragment.app.FragmentTransaction transaction = fragmentManager.beginTransaction();
-        Fragment attendanceFragment = fragmentManager.findFragmentByTag(TAG_ATTENDANCE);
-        Fragment dispatchFragment = fragmentManager.findFragmentByTag(TAG_DISPATCH);
-        if (attendanceFragment != null) {
-            transaction.hide(attendanceFragment);
+        Fragment paycardTestFragment = fragmentManager.findFragmentByTag(TAG_PAYCARD_TEST);
+        Fragment ledPeripheralFragment = fragmentManager.findFragmentByTag(TAG_LED_PERIPHERAL);
+        if (paycardTestFragment != null) {
+            transaction.hide(paycardTestFragment);
         }
-        if (dispatchFragment != null) {
-            transaction.hide(dispatchFragment);
+        if (ledPeripheralFragment != null) {
+            transaction.hide(ledPeripheralFragment);
         }
 
         Fragment target = fragmentManager.findFragmentByTag(tag);
         if (target == null) {
-            target = TAG_DISPATCH.equals(tag) ? new LegacyDispatchOperationsFragment() : new LegacyDispatchAttendanceFragment();
+            if (TAG_LED_PERIPHERAL.equals(tag)) {
+                target = new LegacyDispatchLedPeripheralFragment();
+            } else {
+                target = new LegacyDispatchPaycardTestFragment();
+            }
             transaction.add(R.id.flDispatchContext, target, tag);
         } else {
             transaction.show(target);

@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/d_52"
+        android:layout_marginLeft="@dimen/d_16"
+        android:layout_marginTop="@dimen/d_10"
+        android:layout_marginRight="@dimen/d_16">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerVertical="true"
+            android:text="@string/dispatch_center_card_number"
+            android:textColor="@color/c_ffffff"
+            android:textSize="20sp" />
+
+        <TextView
+            android:id="@+id/tvPaycard"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerVertical="true"
+            android:layout_marginLeft="@dimen/d_58"
+            android:textColor="@color/c_ffffff"
+            android:textSize="20sp" />
+    </RelativeLayout>
+
+    <Button
+        android:id="@+id/butBroadcastTest"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="@dimen/d_30"
+        android:layout_marginTop="@dimen/d_40"
+        android:layout_marginRight="@dimen/d_30"
+        android:background="@drawable/btn_login_bg"
+        android:text="@string/broadcast_test"
+        android:textColor="@color/c_000000"
+        android:textSize="24sp"
+        android:textStyle="bold" />
+
+</LinearLayout>

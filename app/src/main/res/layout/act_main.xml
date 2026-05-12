@@ -97,7 +97,7 @@
                 android:layout_marginTop="@dimen/home_m90_button_margin_top"
                 android:background="@drawable/txt_key_red"
                 android:soundEffectsEnabled="false"
-                android:text="@string/menu_line_selection"
+                android:text="@string/video_dvr"
                 android:textColor="@color/c_000000"
                 android:textSize="24sp"
                 android:textStyle="bold" />
@@ -611,8 +611,9 @@
                 android:id="@+id/lyPlannedTime"
                 android:layout_width="match_parent"
                 android:layout_height="@dimen/home_m90_d_50"
+                android:layout_below="@id/rlSpeedLimit"
                 android:layout_marginLeft="@dimen/d_10"
-                android:layout_marginTop="@dimen/home_m90_planned_margin_top"
+                android:layout_marginTop="@dimen/d_8"
                 android:layout_marginRight="@dimen/d_10"
                 android:background="@drawable/txt_main_datatime"
                 android:gravity="center">
@@ -840,6 +841,7 @@
                 android:layout_marginTop="@dimen/d_10"
                 android:layout_marginRight="@dimen/d_2"
                 android:layout_marginBottom="@dimen/d_10"
+                android:orientation="vertical"
                 android:visibility="gone">
 
                 <SurfaceView

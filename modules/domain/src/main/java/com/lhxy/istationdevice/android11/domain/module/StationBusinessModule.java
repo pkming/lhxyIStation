@@ -26,7 +26,11 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Station module with real GPS binding, DVR linkage, and legacy auto-report logic.
+ * 报站模块。
+ * <p>
+ * 这一层把 GPS 监听、自动报站、屏显、语音和 DVR 串口联动收在一起。
+ * <p>
+ * 查找关键字：报站主链、服务音、自动报站、GPS 绑定、方向切换。
  */
 public final class StationBusinessModule extends AbstractTerminalBusinessModule {
     private static final String TAG = "StationBusinessModule";
@@ -90,6 +94,9 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
         return stationState;
     }
 
+    /**
+     * 线路资源变更后清缓存并重新对齐当前线路画像。
+     */
     public void reloadRouteResources() {
         gpsFlowUseCase.clearCache();
         syncRouteProfileIfNeeded();
@@ -160,6 +167,11 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
         return unsupportedAction(actionKey);
     }
 
+    /**
+     * 触发 0-9 服务音。
+     * <p>
+     * 本地音频链和 RS485 服务音帧都从这里一起收口。
+     */
     private ModuleRunResult playServiceTone(String actionKey, String traceId) {
         try {
             int serviceNo = Integer.parseInt(actionKey.substring("service_tone_".length()));
@@ -179,6 +191,9 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
         }
     }
 
+    /**
+     * 重新绑定 GPS 主链，并按需要把线路/屏显一并同步起来。
+     */
     private ModuleRunResult replayAndBindGps(String traceId, boolean replayDisplay) {
         try {
             ShellConfig shellConfig = requireShellConfig();
@@ -203,6 +218,11 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
         }
     }
 
+    /**
+     * 推进一站。
+     * <p>
+     * 这里会同时推进站点状态、更新屏显、播放语音，并把必要信息联动给调度和 DVR 串口链。
+     */
     private ModuleRunResult advanceStation(String traceId) {
         try {
             ShellConfig shellConfig = requireShellConfig();
@@ -233,6 +253,9 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
         }
     }
 
+    /**
+     * 回退一站。
+     */
     private ModuleRunResult retreatStation(String traceId) {
         try {
             ShellConfig shellConfig = requireShellConfig();
@@ -255,6 +278,9 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
         }
     }
 
+    /**
+     * 手动切换上下行方向，并刷新当前线路屏显。
+     */
     private ModuleRunResult switchDirection(String traceId) {
         try {
             Context context = requireContextOrThrow();
@@ -271,6 +297,9 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
         }
     }
 
+    /**
+     * 重复播报当前站。
+     */
     private ModuleRunResult repeatStation(String traceId) {
         try {
             ShellConfig shellConfig = requireShellConfig();
@@ -295,6 +324,9 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
         }
     }
 
+    /**
+     * 停止报站，并关闭周期/自动 GPS 上报任务。
+     */
     private ModuleRunResult stopStation() {
         stationState.stopReport();
         stationAudioUseCase.stop();
@@ -303,6 +335,9 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
         return success("已停止报站", "当前报站状态已切到停止");
     }
 
+    /**
+     * 确保 GPS 串口和 GPS 监听已经准备好。
+     */
     private void ensureGpsReady(ShellConfig.SerialChannel gpsChannel, String traceId) {
         if (!serialPortAdapter.isOpen(gpsChannel.getPortName())) {
             serialPortAdapter.open(gpsChannel.toSerialPortConfig(), traceId + "-gps-open");
@@ -315,6 +350,9 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
         syncRouteProfileIfNeeded();
     }
 
+    /**
+     * 在串口调度模式下，把站点/GPS 变化同步发给 DVR 串口链。
+     */
     private void sendSerialDispatchFramesIfNeeded(String traceId) {
         try {
             ShellConfig shellConfig = requireShellConfig();

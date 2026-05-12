@@ -87,6 +87,7 @@ DVR menu is opening...</string>
     <string name="video_middle_door">开门</string>
     <string name="video_reverse">倒车</string>
     <string name="video_dvr">DVR</string>
+    <string name="video_monitor">监控</string>
     <string name="video_close">关门</string>
     <string name="legacy_video_channel_opened">已切到 %1$s 视频。</string>
     <string name="legacy_video_channel_closed">视频已关闭。</string>

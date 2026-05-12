@@ -8,3 +8,5 @@ build/
 config/terminal-config.local.json
 .DS_Store
 .venv/
+.source/
+source/

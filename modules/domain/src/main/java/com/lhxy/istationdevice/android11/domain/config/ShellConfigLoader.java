@@ -192,8 +192,8 @@ public final class ShellConfigLoader {
                 debugReplayObject == null ? "jt808" : debugReplayObject.optString("jt808SocketKey", "jt808"),
                 debugReplayObject == null ? "al808" : debugReplayObject.optString("al808SocketKey", "al808"),
                 debugReplayObject == null ? "inner_audio" : debugReplayObject.optString("gpioPinKey", "inner_audio"),
-            debugReplayObject == null ? "" : debugReplayObject.optString("monitorPrimaryGpioKey", ""),
-            debugReplayObject == null ? "" : debugReplayObject.optString("monitorSecondaryGpioKey", ""),
+            debugReplayObject == null ? "io1" : debugReplayObject.optString("monitorPrimaryGpioKey", "io1"),
+            debugReplayObject == null ? "io2" : debugReplayObject.optString("monitorSecondaryGpioKey", "io2"),
                 debugReplayObject == null ? "av_out" : debugReplayObject.optString("cameraChannelKey", "av_out")
         );
 
@@ -207,6 +207,13 @@ public final class ShellConfigLoader {
             JSONObject wirelessObject = basicSetupObject == null ? null : basicSetupObject.optJSONObject("wireless");
             JSONObject resourceImportObject = basicSetupObject == null ? null : basicSetupObject.optJSONObject("resourceImport");
             JSONObject protocolLinkageObject = basicSetupObject == null ? null : basicSetupObject.optJSONObject("protocolLinkage");
+
+            ShellConfig.SerialSettings serialSettings = normalizeLegacySerialSettings(new ShellConfig.SerialSettings(
+                    serialSettingsObject == null ? "无" : serialSettingsObject.optString("rs2321Protocol", "无"),
+                    serialSettingsObject == null ? "无" : serialSettingsObject.optString("rs2322Protocol", "无"),
+                    serialSettingsObject == null ? "无" : serialSettingsObject.optString("rs485Protocol", "无"),
+                    serialSettingsObject == null ? "无" : serialSettingsObject.optString("rs4852Protocol", "无")
+            ));
 
             ShellConfig.BasicSetupConfig basicSetupConfig = new ShellConfig.BasicSetupConfig(
                 new ShellConfig.NewspaperSettings(
@@ -230,12 +237,7 @@ public final class ShellConfigLoader {
                     networkSettingsObject == null ? "admin" : networkSettingsObject.optString("adwordsUser", "admin"),
                     networkSettingsObject == null ? 10 : networkSettingsObject.optInt("adwordsInterval", 10)
                 ),
-                new ShellConfig.SerialSettings(
-                    serialSettingsObject == null ? "JT808" : serialSettingsObject.optString("rs2321Protocol", "JT808"),
-                    serialSettingsObject == null ? "AL808" : serialSettingsObject.optString("rs2322Protocol", "AL808"),
-                    serialSettingsObject == null ? "通达" : serialSettingsObject.optString("rs485Protocol", "通达"),
-                    serialSettingsObject == null ? "无" : serialSettingsObject.optString("rs4852Protocol", "无")
-                ),
+                serialSettings,
                 new ShellConfig.TtsSettings(
                     ttsObject == null || ttsObject.optBoolean("enabled", true),
                     ttsObject == null ? 8 : ttsObject.optInt("innerVolume", 8),
@@ -302,15 +304,15 @@ public final class ShellConfigLoader {
         gpioPins.put("inner_audio", new ShellConfig.GpioPin("inner_audio", "GPIO1_B1", "", 0, "内音"));
         gpioPins.put("outer_audio", new ShellConfig.GpioPin("outer_audio", "GPIO1_B2", "", 0, "外音"));
         gpioPins.put("inner_speaker", new ShellConfig.GpioPin("inner_speaker", "GPIO0_D6", "", 0, "内喇叭"));
-        gpioPins.put("io1", new ShellConfig.GpioPin("io1", "GPIO1_D0", "", 1, "IO1"));
-        gpioPins.put("io2", new ShellConfig.GpioPin("io2", "GPIO1_D1", "", 0, "IO2 / 中门开"));
+        gpioPins.put("io1", new ShellConfig.GpioPin("io1", "GPIO1_D0", "", 1, "IO1 / 倒车"));
+        gpioPins.put("io2", new ShellConfig.GpioPin("io2", "GPIO1_D1", "", 1, "IO2 / 中门开"));
         gpioPins.put("io5", new ShellConfig.GpioPin("io5", "GPIO1_D4", "", 0, "IO5"));
 
         Map<String, ShellConfig.CameraChannel> cameraChannels = new LinkedHashMap<>();
-        cameraChannels.put("av_out", new ShellConfig.CameraChannel("av_out", "0", "AV-OUT / DVR"));
-        cameraChannels.put("reverse", new ShellConfig.CameraChannel("reverse", "1", "倒车"));
-        cameraChannels.put("middle_door", new ShellConfig.CameraChannel("middle_door", "2", "中门"));
-        cameraChannels.put("monitor", new ShellConfig.CameraChannel("monitor", "3", "监控"));
+        cameraChannels.put("av_out", new ShellConfig.CameraChannel("av_out", "100", "AV-OUT / DVR"));
+        cameraChannels.put("reverse", new ShellConfig.CameraChannel("reverse", "101", "倒车"));
+        cameraChannels.put("middle_door", new ShellConfig.CameraChannel("middle_door", "102", "中门"));
+        cameraChannels.put("monitor", new ShellConfig.CameraChannel("monitor", "103", "监控"));
 
         return new ShellConfig(
                 "M90-STUB",
@@ -322,9 +324,22 @@ public final class ShellConfigLoader {
                 new ShellConfig.CameraConfig(DeviceMode.STUB, cameraChannels, "M90 预置 Camera 通道"),
                 new ShellConfig.RfidConfig(DeviceMode.STUB, "RFID-DEMO-001", "", "", "RFID 默认走 stub"),
                 new ShellConfig.SystemConfig(DeviceMode.STUB, false, false, false, "", "", "", "系统能力默认走 stub"),
-                new ShellConfig.DebugReplay("rs485_1", "gps", "jt808", "al808", "inner_audio", "", "", "av_out"),
+                new ShellConfig.DebugReplay("rs485_1", "gps", "jt808", "al808", "inner_audio", "io1", "io2", "av_out"),
                 ShellConfig.BasicSetupConfig.defaults()
         );
+    }
+
+    private static ShellConfig.SerialSettings normalizeLegacySerialSettings(ShellConfig.SerialSettings serialSettings) {
+        if (serialSettings == null) {
+            return ShellConfig.SerialSettings.defaults();
+        }
+        if ("JT808".equalsIgnoreCase(serialSettings.getRs2321Protocol())
+                && "AL808".equalsIgnoreCase(serialSettings.getRs2322Protocol())
+                && "通达".equals(serialSettings.getRs485Protocol())
+                && "无".equals(serialSettings.getRs4852Protocol())) {
+            return ShellConfig.SerialSettings.defaults();
+        }
+        return serialSettings;
     }
 
     /**

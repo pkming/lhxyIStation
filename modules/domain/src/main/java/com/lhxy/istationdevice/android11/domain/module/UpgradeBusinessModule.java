@@ -21,6 +21,8 @@ import java.io.File;
  * 升级模块
  * <p>
  * 当前先接升级通知样例和系统能力状态，后面再补安装、回滚和文件分发。
+ * <p>
+ * 查找关键字：升级样例、8B0A 下载命令、本地 APK 安装、系统时间同步。
  */
 public final class UpgradeBusinessModule extends AbstractTerminalBusinessModule {
     private static final String FRAME_LISTENER_KEY = "upgrade-download-agent";
@@ -85,6 +87,9 @@ public final class UpgradeBusinessModule extends AbstractTerminalBusinessModule 
         return replayUpgrade(traceId);
     }
 
+    /**
+     * 升级模块动作总入口。
+     */
     @Override
     public ModuleRunResult runAction(String actionKey, String traceId) {
         if ("sync_system_time".equals(actionKey)) {
@@ -96,6 +101,9 @@ public final class UpgradeBusinessModule extends AbstractTerminalBusinessModule 
         return unsupportedAction(actionKey);
     }
 
+    /**
+     * 回放升级协议样例。
+     */
     private ModuleRunResult replayUpgrade(String traceId) {
         try {
             ShellConfig shellConfig = requireShellConfig();
@@ -111,6 +119,9 @@ public final class UpgradeBusinessModule extends AbstractTerminalBusinessModule 
         }
     }
 
+    /**
+     * 请求同步系统时间。
+     */
     private ModuleRunResult syncSystemTime(String traceId) {
         try {
             long now = System.currentTimeMillis();
@@ -122,6 +133,9 @@ public final class UpgradeBusinessModule extends AbstractTerminalBusinessModule 
         }
     }
 
+    /**
+     * 安装本地找到的最佳升级 APK。
+     */
     private ModuleRunResult installLocalApk(String traceId) {
         try {
             File apkFile = LocalUpgradeApkFinder.findBest(getContext());
@@ -149,6 +163,9 @@ public final class UpgradeBusinessModule extends AbstractTerminalBusinessModule 
         upgradeDownloadAgent.updateContext(getContext());
     }
 
+    /**
+     * 把升级失败状态抛到首页提示区。
+     */
     private void publishUpgradeFailure(String message) {
         if (getContext() == null) {
             return;
@@ -156,6 +173,9 @@ public final class UpgradeBusinessModule extends AbstractTerminalBusinessModule 
         LegacyHomeStatusRepository.setInfoTips(getContext(), message);
     }
 
+    /**
+     * 监听在线 8B0A 下载命令，并交给下载代理处理。
+     */
     private void handleSocketFrame(String channelName, byte[] rawFrame, Jt808Frame frame) {
         if (frame == null || frame.getMessageId() != 0x8B0A || getContext() == null) {
             return;

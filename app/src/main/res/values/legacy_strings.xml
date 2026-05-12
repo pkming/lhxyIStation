@@ -229,6 +229,8 @@
     <string name="file_export_btn">导出</string>
     <string name="file_upgrade_btn">升级</string>
     <string name="file_import_tip">确定导入报站文件?</string>
+    <string name="file_import_choose_package_title">选择导入包</string>
+    <string name="file_import_choose_package_confirm">开始导入</string>
     <string name="file_export_tip">确定导出报站文件?</string>
     <string name="file_upgrade_tip">确定升级APP?</string>
     <string name="file_upgrade_find">Apk文件：%1$s</string>
@@ -236,6 +238,11 @@
     <string name="file_export_load_tip">正在导出报站数据,请务必不要做其他操作&#8230;</string>
     <string name="file_upgrade_load_tip">正在升级APP,请务必不要做其他操作&#8230;</string>
     <string name="file_upgrade_not_found">未找到本地升级包</string>
+    <string name="file_import_diagnostics_title">导入诊断</string>
+    <string name="file_import_diagnostics_summary">%1$s
+OK：%2$d 项  警告：%3$d 项  失败：%4$d 项
+
+下方列表可查看逐文件结果。</string>
     <string name="file_import_complete_suss">成功导入报站文件，请拔出U盘.</string>
     <string name="file_import_complete_fail">导入报站文件失败,请重试！</string>
     <string name="file_import_complete_fail1">没有检查到可导入报站文件！</string>
@@ -319,11 +326,14 @@
 
     <string name="dispatch_center_attendance">司机考勤</string>
     <string name="dispatch_center_dispatch">调度</string>
+    <string name="dispatch_center_paycard_test">刷卡测试</string>
+    <string name="dispatch_center_ledPeripheral_test">外设机务</string>
     <string name="dispatch_center_goto_signin">上班签到</string>
     <string name="dispatch_center_gooff_signin">下班签到</string>
     <string name="dispatch_center_signin">签到</string>
     <string name="dispatch_center_card_number">卡号:</string>
     <string name="dispatch_center_name">姓名:</string>
+    <string name="dispatch_center_paycard_empty">NO cardID......</string>
     <string name="dispatch_center_operation">加入运营</string>
     <string name="dispatch_center_confirm_dispatch">确认调度</string>
     <string name="dispatch_center_ack_notice">确认公告</string>
@@ -341,6 +351,9 @@
     <string name="dispatch_center_request_repair">请求维修</string>
     <string name="dispatch_center_other_requests">其他请求</string>
     <string name="dispatch_center_intercom">请求对讲</string>
+    <string name="dispatch_center_led_peripheral_pick_first">请勾选需要发送的信息</string>
+    <string name="dispatch_center_led_peripheral_sent">已发送: %1$s</string>
+    <string name="broadcast_test">播放</string>
 
     <string name="wireless_setup">点击进入系统页面设置</string>
 

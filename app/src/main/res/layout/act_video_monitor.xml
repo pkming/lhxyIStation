@@ -39,15 +39,64 @@
         android:id="@+id/lyBut"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_marginLeft="@dimen/d_5"
+        android:layout_marginBottom="@dimen/d_5"
         android:orientation="horizontal"
         android:visibility="gone">
+
+        <TextView
+            android:id="@+id/tvMiddleDoor"
+            android:layout_width="@dimen/d_110"
+            android:layout_height="@dimen/d_58"
+            android:background="@drawable/txt_key_bck"
+            android:gravity="center"
+            android:text="@string/video_middle_door"
+            android:textColor="@color/c_000000"
+            android:textSize="@dimen/d_40"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tvReverse"
+            android:layout_width="@dimen/d_110"
+            android:layout_height="@dimen/d_58"
+            android:layout_marginLeft="@dimen/d_5"
+            android:background="@drawable/txt_key_bck"
+            android:gravity="center"
+            android:text="@string/video_reverse"
+            android:textColor="@color/c_000000"
+            android:textSize="@dimen/d_40"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tvDvr"
+            android:layout_width="@dimen/d_110"
+            android:layout_height="@dimen/d_58"
+            android:layout_marginLeft="@dimen/d_5"
+            android:background="@drawable/txt_key_bck"
+            android:gravity="center"
+            android:text="@string/video_dvr"
+            android:textColor="@color/c_000000"
+            android:textSize="@dimen/d_40"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tvMonitor"
+            android:layout_width="@dimen/d_110"
+            android:layout_height="@dimen/d_58"
+            android:layout_marginLeft="@dimen/d_5"
+            android:background="@drawable/txt_key_bck"
+            android:gravity="center"
+            android:text="@string/video_monitor"
+            android:textColor="@color/c_000000"
+            android:textSize="@dimen/d_40"
+            android:textStyle="bold" />
 
         <TextView
             android:id="@+id/tvBack"
             android:layout_width="@dimen/d_110"
             android:layout_height="@dimen/d_58"
             android:layout_marginLeft="@dimen/d_5"
-            android:layout_marginTop="730dp"
             android:background="@drawable/txt_key_bck"
             android:gravity="center"
             android:text="BACK"

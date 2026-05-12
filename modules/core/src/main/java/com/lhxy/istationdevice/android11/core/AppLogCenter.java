@@ -9,6 +9,9 @@ import java.io.FileOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -16,6 +19,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 public final class AppLogCenter {
     private static final int MAX_ENTRIES = 5000;
+    private static final int MAX_SESSION_FILES = 20;
     private static final List<AppLogEntry> ENTRIES = new CopyOnWriteArrayList<>();
     private static final Object FILE_LOCK = new Object();
     private static File sessionLogDir;
@@ -43,6 +47,7 @@ public final class AppLogCenter {
             if (currentSessionFile == null) {
                 rotateSessionLocked();
             }
+            pruneSessionFilesLocked();
         }
     }
 
@@ -103,6 +108,96 @@ public final class AppLogCenter {
         return entries.isEmpty() ? dumpPlainText() : buildPlainText(entries);
     }
 
+    public static String dumpSummary() {
+        List<AppLogEntry> entries = loadSessionEntries();
+        if (entries.isEmpty()) {
+            return "log summary:\n- 当前没有日志条目";
+        }
+
+        Map<String, Integer> levelCounts = new LinkedHashMap<>();
+        Map<String, Integer> categoryCounts = new LinkedHashMap<>();
+        Map<String, Integer> tagCounts = new LinkedHashMap<>();
+        int errorCount = 0;
+        long firstTimestamp = Long.MAX_VALUE;
+        long lastTimestamp = 0L;
+        for (AppLogEntry entry : entries) {
+            increment(levelCounts, entry.getLevel().name());
+            increment(categoryCounts, entry.getCategory().name());
+            increment(tagCounts, entry.getTag());
+            if (entry.getLevel() == LogLevel.ERROR || entry.getCategory() == LogCategory.ERROR) {
+                errorCount++;
+            }
+            firstTimestamp = Math.min(firstTimestamp, entry.getTimestamp());
+            lastTimestamp = Math.max(lastTimestamp, entry.getTimestamp());
+        }
+
+        StringBuilder builder = new StringBuilder();
+        builder.append("log summary:")
+                .append("\n- sessionId=").append(currentSessionId)
+                .append("\n- currentBuffer=").append(ENTRIES.size()).append('/').append(MAX_ENTRIES)
+                .append("\n- sessionEntries=").append(entries.size())
+                .append("\n- errorEntries=").append(errorCount)
+                .append("\n- firstEntry=").append(formatTimestamp(firstTimestamp))
+                .append("\n- lastEntry=").append(formatTimestamp(lastTimestamp))
+                .append("\n- durationMs=").append(Math.max(0L, lastTimestamp - firstTimestamp))
+                .append("\n- levelCounts=").append(describeCounts(levelCounts))
+                .append("\n- categoryCounts=").append(describeCounts(categoryCounts))
+                .append("\n- topTags=").append(describeTopCounts(tagCounts, 8));
+        return builder.toString();
+    }
+
+    public static String dumpRecentErrors(int maxCount) {
+        List<AppLogEntry> entries = loadSessionEntries();
+        List<AppLogEntry> errors = new ArrayList<>();
+        for (int index = entries.size() - 1; index >= 0 && errors.size() < Math.max(1, maxCount); index--) {
+            AppLogEntry entry = entries.get(index);
+            if (entry.getLevel() == LogLevel.ERROR || entry.getCategory() == LogCategory.ERROR) {
+                errors.add(entry);
+            }
+        }
+        Collections.reverse(errors);
+        if (errors.isEmpty()) {
+            return "recent errors:\n- 当前会话没有 ERROR 级别日志";
+        }
+        return buildPlainText(errors);
+    }
+
+    public static String describeRecentSessions(int maxCount) {
+        List<File> sessionFiles = listSessionFiles(maxCount);
+        if (sessionFiles.isEmpty()) {
+            return "recent sessions:\n- 当前没有历史日志文件";
+        }
+        StringBuilder builder = new StringBuilder("recent sessions:");
+        for (File file : sessionFiles) {
+            builder.append("\n- ")
+                    .append(file.getName())
+                    .append(" / size=")
+                    .append(file.length())
+                    .append(" / modified=")
+                    .append(formatTimestamp(file.lastModified()));
+        }
+        return builder.toString();
+    }
+
+    public static List<File> listSessionFiles(int maxCount) {
+        synchronized (FILE_LOCK) {
+            if (sessionLogDir == null || !sessionLogDir.exists()) {
+                return Collections.emptyList();
+            }
+            File[] files = sessionLogDir.listFiles((dir, name) -> name != null && name.endsWith(".log"));
+            if (files == null || files.length == 0) {
+                return Collections.emptyList();
+            }
+            List<File> result = new ArrayList<>();
+            Collections.addAll(result, files);
+            result.sort(Comparator.comparingLong(File::lastModified).reversed());
+            if (maxCount > 0 && result.size() > maxCount) {
+                return new ArrayList<>(result.subList(0, maxCount));
+            }
+            return result;
+        }
+    }
+
     private static String buildPlainText(List<AppLogEntry> entries) {
         StringBuilder builder = new StringBuilder();
         for (AppLogEntry entry : entries) {
@@ -153,6 +248,7 @@ public final class AppLogCenter {
         } catch (Exception e) {
             throw new IllegalStateException("无法初始化日志会话文件: " + currentSessionFile.getAbsolutePath(), e);
         }
+        pruneSessionFilesLocked();
     }
 
     private static String dumpGroupedByKey(List<AppLogEntry> entries, boolean groupByTag) {
@@ -202,5 +298,72 @@ public final class AppLogCenter {
                 return snapshot();
             }
         }
+    }
+
+    private static void pruneSessionFilesLocked() {
+        if (sessionLogDir == null || !sessionLogDir.exists()) {
+            return;
+        }
+        File[] files = sessionLogDir.listFiles((dir, name) -> name != null && name.endsWith(".log"));
+        if (files == null || files.length <= MAX_SESSION_FILES) {
+            return;
+        }
+        List<File> sessionFiles = new ArrayList<>();
+        Collections.addAll(sessionFiles, files);
+        sessionFiles.sort(Comparator.comparingLong(File::lastModified).reversed());
+        for (int index = MAX_SESSION_FILES; index < sessionFiles.size(); index++) {
+            File file = sessionFiles.get(index);
+            if (file.equals(currentSessionFile)) {
+                continue;
+            }
+            if (!file.delete()) {
+                Log.w("AppLogCenter", "delete old session log failed: " + file.getAbsolutePath());
+            }
+        }
+    }
+
+    private static void increment(Map<String, Integer> counts, String key) {
+        String safeKey = TextUtils.isEmpty(key) ? "-" : key;
+        Integer current = counts.get(safeKey);
+        counts.put(safeKey, current == null ? 1 : current + 1);
+    }
+
+    private static String describeCounts(Map<String, Integer> counts) {
+        if (counts.isEmpty()) {
+            return "-";
+        }
+        StringBuilder builder = new StringBuilder();
+        for (Map.Entry<String, Integer> entry : counts.entrySet()) {
+            if (builder.length() > 0) {
+                builder.append(", ");
+            }
+            builder.append(entry.getKey()).append('=').append(entry.getValue());
+        }
+        return builder.toString();
+    }
+
+    private static String describeTopCounts(Map<String, Integer> counts, int limit) {
+        if (counts.isEmpty()) {
+            return "-";
+        }
+        List<Map.Entry<String, Integer>> items = new ArrayList<>(counts.entrySet());
+        items.sort((left, right) -> Integer.compare(right.getValue(), left.getValue()));
+        StringBuilder builder = new StringBuilder();
+        for (int index = 0; index < items.size() && index < limit; index++) {
+            Map.Entry<String, Integer> entry = items.get(index);
+            if (builder.length() > 0) {
+                builder.append(", ");
+            }
+            builder.append(entry.getKey()).append('=').append(entry.getValue());
+        }
+        return builder.toString();
+    }
+
+    private static String formatTimestamp(long timestamp) {
+        if (timestamp <= 0L) {
+            return "-";
+        }
+        return new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", java.util.Locale.getDefault())
+                .format(new Date(timestamp));
     }
 }

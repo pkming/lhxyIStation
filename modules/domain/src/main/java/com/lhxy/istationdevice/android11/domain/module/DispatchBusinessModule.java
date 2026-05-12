@@ -33,6 +33,8 @@ import java.util.function.Supplier;
  * 调度模块
  * <p>
  * 先把 JT808 / AL808 的默认通道、收包监听和调度样例挂起来。
+ * <p>
+ * 查找关键字：调度主链、公告确认、发车、socket/串口归属、职业请求。
  */
 public final class DispatchBusinessModule extends AbstractTerminalBusinessModule {
     private static final String TAG = "DispatchModule";
@@ -84,6 +86,9 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
         return dispatchState;
     }
 
+    /**
+     * 注入签到和报站状态提供者，方便调度发包时带上联动信息。
+     */
     public void attachStateProviders(
             Supplier<SignInState> signInStateSupplier,
             Supplier<StationState> stationStateSupplier
@@ -129,6 +134,11 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
         return replayDispatch(traceId, false);
     }
 
+    /**
+     * 调度模块的动作总入口。
+     * <p>
+     * 页面上的确认公告、确认调度、发车、各类请求最终都会先落到这里。
+     */
     @Override
     public ModuleRunResult runAction(String actionKey, String traceId) {
         if ("replay_all".equals(actionKey)) {
@@ -206,6 +216,9 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
         return unsupportedAction(actionKey);
     }
 
+    /**
+     * 发送职业请求类报文。
+     */
     private ModuleRunResult sendProfessionRequest(int requestType, String summary, String detail, String traceId) {
         try {
             ShellConfig shellConfig = requireShellConfig();
@@ -239,6 +252,11 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
                 : stationStateSupplier.get();
     }
 
+    /**
+     * 回放调度主链样例。
+     * <p>
+     * 当调度归属切到串口时，这里会主动跳过 socket 回放并给出收口提示。
+     */
     private ModuleRunResult replayDispatch(String traceId, boolean fullReplay) {
         try {
             ShellConfig shellConfig = requireShellConfig();
@@ -266,11 +284,17 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
         }
     }
 
+    /**
+     * 处理收到的下发公告，并补发语音提醒。
+     */
     public void onDispatchNoticeReceived(String message, String traceId) {
         pushInfoMessage(message);
         playDispatchNoticeIfPossible(message, traceId + "-notice-audio");
     }
 
+    /**
+     * 处理收到的调度指令，并按旧主链自动确认。
+     */
     public void onDispatchRequestReceived(String traceId) {
         dispatchState.confirmDispatch();
         pushInfoMessage(dispatchState.getDispatchMessage());
@@ -284,6 +308,9 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
         );
     }
 
+    /**
+     * 发送 JT808 路口信息上报。
+     */
     public void sendCrossInfoReport(
             StationState stationState,
             LegacyGpsRouteResource.ReminderPoint reminderPoint,

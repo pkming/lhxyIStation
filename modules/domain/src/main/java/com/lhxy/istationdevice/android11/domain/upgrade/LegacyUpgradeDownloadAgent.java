@@ -47,6 +47,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * 旧 M90 风格升级下载执行器。
+ * <p>
+ * 负责接住 8B0A 下载命令，执行 HTTP/FTP 下载、重试、APK 安装和资源包导入。
+ * <p>
+ * 查找关键字：8B0A 下载、升级重试、HTTP/FTP 下载、资源包导入。
  */
 public final class LegacyUpgradeDownloadAgent {
     private static final String TAG = "UpgradeDownloadAgent";
@@ -75,6 +79,9 @@ public final class LegacyUpgradeDownloadAgent {
         this.systemOps = systemOps;
     }
 
+    /**
+     * 更新上下文，并在首次拿到上下文时恢复持久化任务。
+     */
     public void updateContext(Context context) {
         appContext = context == null ? null : context.getApplicationContext();
         if (appContext == null) {
@@ -87,6 +94,9 @@ public final class LegacyUpgradeDownloadAgent {
         }
     }
 
+    /**
+     * 处理在线升级命令入口。
+     */
     public void handleCommand(String channelName, Jt808UpgradeCommand command, String traceId) {
         Context context = appContext;
         if (context == null || command == null) {
@@ -115,6 +125,9 @@ public final class LegacyUpgradeDownloadAgent {
         enqueueTask(channelName, command, downloadType, scheduledAtMillis, traceId);
     }
 
+    /**
+     * 把下载命令转成受管任务，并处理计划执行/重复任务/覆盖旧任务。
+     */
     private void enqueueTask(
             String channelName,
             Jt808UpgradeCommand command,
@@ -167,6 +180,9 @@ public final class LegacyUpgradeDownloadAgent {
         startTask(task, traceId);
     }
 
+    /**
+     * 启动一个下载任务。
+     */
     private void startTask(ManagedTask task, String traceId) {
         synchronized (taskLock) {
             if (task.cancelled.get()) {
@@ -178,6 +194,11 @@ public final class LegacyUpgradeDownloadAgent {
         }
     }
 
+    /**
+     * 执行下载任务主流程。
+     * <p>
+     * APK 下载完成后走安装，资源包下载完成后直接走导入。
+     */
     private void runTask(ManagedTask task, String traceId) {
         Context context = appContext;
         if (context == null) {
@@ -230,6 +251,9 @@ public final class LegacyUpgradeDownloadAgent {
         }
     }
 
+    /**
+     * 下载彻底失败后的收口处理。
+     */
     private void finishTransferFailure(ManagedTask task, Exception exception, String traceId) {
         if (task.retryCount < MAX_RETRY_COUNT) {
             scheduleRetry(task, traceId, exception);
@@ -261,6 +285,9 @@ public final class LegacyUpgradeDownloadAgent {
         );
     }
 
+    /**
+     * 资源包下载成功但导入失败后的收口处理。
+     */
     private void finishResourceFailure(ManagedTask task, String detail, String traceId) {
         Context context = appContext;
         synchronized (taskLock) {
@@ -282,6 +309,9 @@ public final class LegacyUpgradeDownloadAgent {
         );
     }
 
+    /**
+     * 安排一次失败重试。
+     */
     private void scheduleRetry(ManagedTask task, String traceId, Exception exception) {
         cleanupPartialFile(task.localFile);
         long retryAtMillis = System.currentTimeMillis() + RETRY_DELAY_MILLIS;
@@ -317,6 +347,9 @@ public final class LegacyUpgradeDownloadAgent {
         }
     }
 
+    /**
+     * 根据命令里的地址选择 HTTP 或 FTP 下载。
+     */
     private void downloadToLocalFile(ManagedTask task, String traceId) throws Exception {
         String downloadUrl = buildDownloadUrl(task.command);
         if (downloadUrl.startsWith("http://") || downloadUrl.startsWith("https://")) {

@@ -27,6 +27,8 @@ import java.io.File;
  * <p>
  * 首页、调试页、后面接入的业务页都统一从这里拿设备实例和运行状态，
  * 避免每个页面自己 new 一套适配器，导致串口、Socket、GPS 监听互相看不到。
+ * <p>
+ * 查找关键字：共享运行时、配置生效、底座适配器、模块上下文同步。
  */
 public final class ShellRuntime {
     private static final ShellRuntime INSTANCE = new ShellRuntime();
@@ -135,6 +137,8 @@ public final class ShellRuntime {
 
     /**
      * 返回当前生效配置。
+     * <p>
+     * 页面判断“设置是否已经进内存”时，直接看这里。
      */
     public ShellConfig getActiveConfig() {
         return activeConfig;
@@ -142,6 +146,8 @@ public final class ShellRuntime {
 
     /**
      * 把当前配置同步到所有底座适配器。
+     * <p>
+     * 这是运行时配置真正生效的核心入口：GPIO、Camera、RFID 和模块上下文都会在这里一起刷新。
      */
     public synchronized void applyConfig(Context context, ShellConfig shellConfig) {
         appContext = context == null ? null : context.getApplicationContext();
@@ -175,6 +181,11 @@ public final class ShellRuntime {
         return moduleHub.describeStatus();
     }
 
+    /**
+     * 解析导出目录。
+     * <p>
+     * 文件模块导出调试包时最终会落到这里。
+     */
     private File resolveExportDir() {
         Context currentContext = appContext;
         if (currentContext == null) {

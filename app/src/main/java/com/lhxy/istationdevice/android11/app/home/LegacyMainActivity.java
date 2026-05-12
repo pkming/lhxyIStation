@@ -30,8 +30,8 @@ import androidx.core.view.WindowInsetsControllerCompat;
 
 import com.lhxy.istationdevice.android11.app.R;
 import com.lhxy.istationdevice.android11.app.auth.LegacyLoginActivity;
-import com.lhxy.istationdevice.android11.app.line.LegacyLineChoiceActivity;
 import com.lhxy.istationdevice.android11.app.line.LegacyLineCatalog;
+import com.lhxy.istationdevice.android11.app.media.LegacyVideoMonitorActivity;
 import com.lhxy.istationdevice.android11.core.TraceIds;
 import com.lhxy.istationdevice.android11.deviceapi.DeviceMode;
 import com.lhxy.istationdevice.android11.app.station.LegacyStationResourceStateRepository;
@@ -63,6 +63,8 @@ import java.util.Locale;
  * <p>
  * 这页先恢复旧终端首页的 UI 结构和主导航，
  * 深业务动作后面再逐项接入新模块。
+ * <p>
+ * 查找关键字：旧首页入口、状态刷新、首页监控预览、服务键和快捷入口。
  */
 public final class LegacyMainActivity extends AppCompatActivity {
     private static final int DVR_TOUCH_WIDTH = 1280;
@@ -139,6 +141,9 @@ public final class LegacyMainActivity extends AppCompatActivity {
         super.onDestroy();
     }
 
+    /**
+     * 绑定首页 DVR/中门/倒车三个监控面板和触摸转发。
+     */
     private void bindHomeDvrPanel() {
         homeDvrSurface = findViewById(R.id.surfaceViewDVR2);
         homeMiddleDoorSurface = findViewById(R.id.surfaceViewMittertor);
@@ -153,6 +158,9 @@ public final class LegacyMainActivity extends AppCompatActivity {
         bindHomeMonitorSurface(homeReverseSurface, HomeMonitorMode.REVERSE);
     }
 
+    /**
+     * 订阅首页状态仓库，保证首页能跟着资源和业务状态变化一起刷新。
+     */
     private void registerHomeStatusListener() {
         if (homeStatusListener != null) {
             return;
@@ -165,6 +173,9 @@ public final class LegacyMainActivity extends AppCompatActivity {
         homeStatusListener = null;
     }
 
+    /**
+     * 给某一路监控 Surface 绑定生命周期和触摸入口。
+     */
     private void bindHomeMonitorSurface(@Nullable SurfaceView surfaceView, @NonNull HomeMonitorMode mode) {
         if (surfaceView == null) {
             return;
@@ -212,6 +223,9 @@ public final class LegacyMainActivity extends AppCompatActivity {
         clockTicker.run();
     }
 
+    /**
+     * 首页走沉浸式全屏，避免旧壳布局被系统栏挤压。
+     */
     private void applyImmersiveFullscreen() {
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
         WindowInsetsControllerCompat controller = WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
@@ -226,6 +240,11 @@ public final class LegacyMainActivity extends AppCompatActivity {
         clockHandler.removeCallbacks(clockTicker);
     }
 
+    /**
+     * 首页总刷新入口。
+     * <p>
+     * 这里把配置、监控状态、线路资源、GPS、调度、签到等快照统一拍平成旧首页展示字段。
+     */
     private void refreshHomeState() {
         updateClock();
         ShellConfig config = shellRuntime.getActiveConfig();
@@ -354,11 +373,6 @@ public final class LegacyMainActivity extends AppCompatActivity {
                     Math.max(1, previewSurface.getHeight()),
                     TraceIds.next("legacy-home-monitor-preview-" + cameraKey)
             );
-            shellRuntime.getModuleHub().runAction(
-                    "camera_dvr",
-                    "open_camera_" + cameraKey,
-                    TraceIds.next("legacy-home-monitor-open-" + cameraKey)
-            );
             homeMonitorPreviewOpened = true;
         } catch (Exception e) {
             homeMonitorPreviewOpened = false;
@@ -373,11 +387,6 @@ public final class LegacyMainActivity extends AppCompatActivity {
         if (cameraKey != null && !cameraKey.trim().isEmpty() && wasOpened) {
             try {
                 shellRuntime.getCameraAdapter().close(cameraKey, TraceIds.next("legacy-home-monitor-close-" + cameraKey));
-                shellRuntime.getModuleHub().runAction(
-                        "camera_dvr",
-                        "close_camera_" + cameraKey,
-                        TraceIds.next("legacy-home-monitor-close-action-" + cameraKey)
-                );
             } catch (Exception ignore) {
                 // Keep the home page responsive even if preview teardown fails.
             }
@@ -506,11 +515,15 @@ public final class LegacyMainActivity extends AppCompatActivity {
     }
 
     private HomeMonitorMode resolveHomeMonitorMode(@NonNull ShellConfig config) {
+        String primaryKey = valueOrDefault(config.getDebugReplay().getMonitorPrimaryGpioKey(), "").trim();
+        String secondaryKey = valueOrDefault(config.getDebugReplay().getMonitorSecondaryGpioKey(), "").trim();
+        String defaultCameraKey = valueOrDefault(config.getDebugReplay().getCameraChannelKey(), "av_out").trim();
         if (config.getCameraConfig().getMode() != DeviceMode.REAL) {
             return HomeMonitorMode.DVR;
         }
-        String primaryKey = valueOrDefault(config.getDebugReplay().getMonitorPrimaryGpioKey(), "").trim();
-        String secondaryKey = valueOrDefault(config.getDebugReplay().getMonitorSecondaryGpioKey(), "").trim();
+        if (config.getGpioConfig().getMode() != DeviceMode.REAL) {
+            return resolveConfiguredMonitorMode(defaultCameraKey);
+        }
         if (!primaryKey.isEmpty() && !secondaryKey.isEmpty()) {
             try {
                 int primary = shellRuntime.getGpioAdapter().read(primaryKey, TraceIds.next("legacy-home-monitor-primary"));
@@ -529,7 +542,7 @@ public final class LegacyMainActivity extends AppCompatActivity {
                 // Fall back to the configured default camera mode when monitor GPIOs are absent or unreadable.
             }
         }
-        return resolveConfiguredMonitorMode(valueOrDefault(config.getDebugReplay().getCameraChannelKey(), "av_out"));
+        return resolveConfiguredMonitorMode(defaultCameraKey);
     }
 
     private String monitorModeLabel(@NonNull HomeMonitorMode mode) {
@@ -652,9 +665,9 @@ public final class LegacyMainActivity extends AppCompatActivity {
             btnMenu.setOnClickListener(v -> startActivity(new Intent(this, LegacyLoginActivity.class)));
         }
         if (btnLineChoiceShortcut != null) {
-            btnLineChoiceShortcut.setEnabled(false);
+            btnLineChoiceShortcut.setEnabled(true);
             btnLineChoiceShortcut.setBackgroundResource(R.drawable.txt_key_red);
-            btnLineChoiceShortcut.setOnClickListener(v -> startActivity(new Intent(this, LegacyLineChoiceActivity.class)));
+            btnLineChoiceShortcut.setOnClickListener(v -> startActivity(LegacyVideoMonitorActivity.createIntent(this, "home")));
         }
         if (btnMessage != null) {
             btnMessage.setOnClickListener(v -> {
@@ -718,13 +731,8 @@ public final class LegacyMainActivity extends AppCompatActivity {
         if (button == null) {
             return;
         }
-        boolean enabled = hasLineChoiceShortcutData();
-        button.setEnabled(enabled);
-        button.setBackgroundResource(enabled ? R.drawable.txt_key_bck : R.drawable.txt_key_red);
-    }
-
-    private boolean hasLineChoiceShortcutData() {
-        return !LegacyLineCatalog.all(this).isEmpty();
+        button.setEnabled(true);
+        button.setBackgroundResource(R.drawable.txt_key_red);
     }
 
     @NonNull

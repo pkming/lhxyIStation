@@ -265,8 +265,8 @@ final class LegacySiteCollectionResourceStore {
     }
 
     private static File resolveBusDir(@NonNull Context context) {
-        File managedRoot = new StationResourceArchiveUseCase().resolveManagedResourceRoot(context.getApplicationContext());
-        File busDir = new File(managedRoot, "SourceFile/Bus");
+        File sourceRoot = new StationResourceArchiveUseCase().resolveManagedSourceRoot(context.getApplicationContext());
+        File busDir = new File(sourceRoot, "Bus");
         return busDir.exists() && busDir.isDirectory() ? busDir : null;
     }
 

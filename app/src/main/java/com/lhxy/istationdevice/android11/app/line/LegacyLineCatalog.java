@@ -159,8 +159,8 @@ public final class LegacyLineCatalog {
         if (context == null) {
             return null;
         }
-        File managedRoot = new StationResourceArchiveUseCase().resolveManagedResourceRoot(context.getApplicationContext());
-        File busDir = new File(managedRoot, "SourceFile/Bus");
+        File sourceRoot = new StationResourceArchiveUseCase().resolveManagedSourceRoot(context.getApplicationContext());
+        File busDir = new File(sourceRoot, "Bus");
         return busDir.exists() && busDir.isDirectory() ? busDir : null;
     }
 

@@ -32,6 +32,8 @@ import com.lhxy.istationdevice.android11.runtime.ShellRuntime;
  * 旧项目这里主要是 Camera 预览、返回浮层和触摸协议。
  * 新壳当前已经把旧页壳、等待层、返回控件和触摸协议接回正式入口。
  * 触摸协议按 M90 1280x800 坐标系缩放，并只发送 down/up 两种事件。
+ * <p>
+ * 查找关键字：视频监控页、DVR 触摸、Camera 预览、自动切监控。
  */
 public final class LegacyVideoMonitorActivity extends AppCompatActivity {
     private static final String EXTRA_SOURCE = "source";
@@ -49,6 +51,7 @@ public final class LegacyVideoMonitorActivity extends AppCompatActivity {
     private boolean previewOpened;
     private String currentCameraKey;
     private String lastAutoMonitorCameraKey;
+    private String manualCameraKey;
     private final Handler uiHandler = new Handler(Looper.getMainLooper());
     private final Runnable hideControlsRunnable = new Runnable() {
         @Override
@@ -87,6 +90,9 @@ public final class LegacyVideoMonitorActivity extends AppCompatActivity {
         }
     };
 
+    /**
+     * 创建视频监控页入口，并记录来源页面用于日志定位。
+     */
     public static Intent createIntent(Context context, String source) {
         Intent intent = new Intent(context, LegacyVideoMonitorActivity.class);
         intent.putExtra(EXTRA_SOURCE, source);
@@ -101,6 +107,7 @@ public final class LegacyVideoMonitorActivity extends AppCompatActivity {
         openingOverlay = findViewById(R.id.lyDvrCameraOpen);
         contentContainer = findViewById(R.id.lyDvrSurfaceView);
         bindBackButton();
+        bindChannelButtons();
         bindCameraPreview();
         applyOpeningState();
         AppLogCenter.log(
@@ -156,6 +163,9 @@ public final class LegacyVideoMonitorActivity extends AppCompatActivity {
         return super.onTouchEvent(event);
     }
 
+    /**
+     * 恢复打开中遮罩，等预设延时结束后再显示视频区和控制条。
+     */
     private void applyOpeningState() {
         openingCompleted = false;
         if (openingOverlay != null) {
@@ -169,6 +179,9 @@ public final class LegacyVideoMonitorActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * 绑定返回按钮，直接退出旧视频页。
+     */
     private void bindBackButton() {
         View view = findViewById(R.id.tvBack);
         if (view == null) {
@@ -179,6 +192,35 @@ public final class LegacyVideoMonitorActivity extends AppCompatActivity {
         });
     }
 
+    /**
+     * 绑定顶部四个视频通道按钮。
+     */
+    private void bindChannelButtons() {
+        bindChannelButton(R.id.tvMiddleDoor, "middle_door");
+        bindChannelButton(R.id.tvReverse, "reverse");
+        bindChannelButton(R.id.tvDvr, "av_out");
+        bindChannelButton(R.id.tvMonitor, "monitor");
+    }
+
+    /**
+     * 手动切换指定摄像头通道，并暂时压过自动监控切换。
+     */
+    private void bindChannelButton(int viewId, String cameraKey) {
+        View view = findViewById(viewId);
+        if (view == null) {
+            return;
+        }
+        view.setOnClickListener(v -> {
+            manualCameraKey = cameraKey;
+            lastAutoMonitorCameraKey = cameraKey;
+            openCameraChannel(cameraKey, true);
+            scheduleControlsHide();
+        });
+    }
+
+    /**
+     * 绑定预览 Surface 生命周期，Surface 就绪后再真正打开预览。
+     */
     private void bindCameraPreview() {
         previewSurface = findViewById(R.id.core_surface);
         if (previewSurface == null) {
@@ -223,6 +265,9 @@ public final class LegacyVideoMonitorActivity extends AppCompatActivity {
         uiHandler.removeCallbacks(autoMonitorRunnable);
     }
 
+    /**
+     * 在页面、遮罩、Surface 都准备好后尝试打开摄像头预览。
+     */
     private void openPreviewIfReady(boolean showToastOnSuccess) {
         if (!pageResumed || !openingCompleted || previewSurface == null || previewOpened) {
             return;
@@ -252,6 +297,9 @@ public final class LegacyVideoMonitorActivity extends AppCompatActivity {
     }
 
     private String resolveDefaultCameraKey(ShellConfig shellConfig) {
+        if (manualCameraKey != null && !manualCameraKey.trim().isEmpty()) {
+            return manualCameraKey;
+        }
         if (currentCameraKey != null && !currentCameraKey.trim().isEmpty()) {
             return currentCameraKey;
         }
@@ -271,6 +319,9 @@ public final class LegacyVideoMonitorActivity extends AppCompatActivity {
     }
 
     private void syncAutoMonitorChannel() {
+        if (manualCameraKey != null && !manualCameraKey.trim().isEmpty()) {
+            return;
+        }
         String desiredCameraKey = resolveAutoMonitorCameraKey();
         if (desiredCameraKey == null || desiredCameraKey.trim().isEmpty()) {
             return;
@@ -326,11 +377,6 @@ public final class LegacyVideoMonitorActivity extends AppCompatActivity {
                     TraceIds.next("legacy-video-preview-" + currentCameraKey)
             );
             previewOpened = true;
-            ShellRuntime.get().getModuleHub().runAction(
-                    "camera_dvr",
-                    "open_camera_" + currentCameraKey,
-                    TraceIds.next("legacy-video-open-" + currentCameraKey)
-            );
             if (showToastOnSuccess) {
                 Toast.makeText(
                         this,
@@ -362,11 +408,6 @@ public final class LegacyVideoMonitorActivity extends AppCompatActivity {
         }
         try {
             ShellRuntime.get().getCameraAdapter().close(cameraKey, TraceIds.next("legacy-video-close-" + cameraKey));
-            ShellRuntime.get().getModuleHub().runAction(
-                    "camera_dvr",
-                    "close_camera_" + cameraKey,
-                    TraceIds.next("legacy-video-close-action-" + cameraKey)
-            );
         } catch (Exception e) {
             AppLogCenter.log(
                     LogCategory.ERROR,

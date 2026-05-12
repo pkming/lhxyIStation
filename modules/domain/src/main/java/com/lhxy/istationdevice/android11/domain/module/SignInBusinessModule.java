@@ -11,6 +11,8 @@ import com.lhxy.istationdevice.android11.domain.module.state.SignInState;
  * 签到模块
  * <p>
  * 先把 RFID 读取和司机考勤样例绑在一起，后面再补真正的签到签退状态机。
+ * <p>
+ * 查找关键字：RFID 刷卡、签到签退、司机考勤、DVR 考勤帧。
  */
 public final class SignInBusinessModule extends AbstractTerminalBusinessModule {
     private final ProtocolReplayUseCase protocolReplayUseCase;
@@ -79,6 +81,9 @@ public final class SignInBusinessModule extends AbstractTerminalBusinessModule {
         return handleReadAndReplay(traceId, true);
     }
 
+    /**
+     * 签到模块动作总入口。
+     */
     @Override
     public ModuleRunResult runAction(String actionKey, String traceId) {
         if ("read_card".equals(actionKey)) {
@@ -91,6 +96,9 @@ public final class SignInBusinessModule extends AbstractTerminalBusinessModule {
         return unsupportedAction(actionKey);
     }
 
+    /**
+     * 读取卡号，并按当前链路决定是回放考勤样例还是发 DVR 考勤帧。
+     */
     private ModuleRunResult handleReadAndReplay(String traceId, boolean replayAttendance) {
         try {
             ShellConfig shellConfig = requireShellConfig();
@@ -131,6 +139,9 @@ public final class SignInBusinessModule extends AbstractTerminalBusinessModule {
         }
     }
 
+    /**
+     * 在司机状态变化后补发一次考勤信息。
+     */
     private ModuleRunResult sendAttendanceAfterStateChange(String traceId, String successSummary, String successDetail) {
         try {
             ShellConfig shellConfig = requireShellConfig();

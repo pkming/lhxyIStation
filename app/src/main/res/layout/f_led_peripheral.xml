@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <RelativeLayout
+        android:id="@+id/rlSendLedPeripheral"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:paddingBottom="@dimen/d_10">
+
+        <Button
+            android:id="@+id/butSendLedPeripheral"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="@dimen/d_30"
+            android:layout_marginTop="@dimen/d_10"
+            android:layout_marginRight="@dimen/d_30"
+            android:layout_marginBottom="@dimen/d_16"
+            android:background="@drawable/btn_login_bg"
+            android:text="@string/port_send"
+            android:textColor="@color/c_000000"
+            android:textSize="24sp"
+            android:textStyle="bold" />
+    </RelativeLayout>
+
+    <ListView
+        android:id="@+id/lvInfoLedPeripheral"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_above="@id/rlSendLedPeripheral"
+        android:divider="@color/c_000000"
+        android:dividerHeight="@dimen/d_1px"
+        android:listSelector="@android:color/transparent" />
+
+</RelativeLayout>

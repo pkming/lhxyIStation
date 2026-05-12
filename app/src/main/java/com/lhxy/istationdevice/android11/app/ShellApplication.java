@@ -10,6 +10,7 @@ import com.lhxy.istationdevice.android11.domain.config.ShellConfig;
 import com.lhxy.istationdevice.android11.domain.config.ShellConfigRepository;
 import com.lhxy.istationdevice.android11.domain.config.ShellConfigLoader;
 import com.lhxy.istationdevice.android11.domain.config.ShellConfigValidator;
+import com.lhxy.istationdevice.android11.domain.file.StationResourceArchiveUseCase;
 import com.lhxy.istationdevice.android11.runtime.ShellRuntime;
 
 import java.io.File;
@@ -32,7 +33,9 @@ public class ShellApplication extends Application {
         } catch (Exception e) {
             AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, "ShellApplication", "初始化运行配置文件失败: " + e.getMessage(), traceId);
         }
+        ensureBundledStationResources(traceId);
         ShellConfig shellConfig = ShellConfigRepository.get(this);
+        AppLanguageManager.apply(shellConfig.getBasicSetupConfig().getLanguageSettings().getLanguageCode());
         ShellRuntime shellRuntime = ShellRuntime.get();
         shellRuntime.applyConfig(this, shellConfig);
         AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, "ShellApplication", "Android 11 新壳启动", traceId);
@@ -46,5 +49,42 @@ public class ShellApplication extends Application {
             }
         }
         shellRuntime.getJt808SocketMonitor().syncDefaultChannels(shellRuntime.getSocketClientAdapter(), shellConfig, traceId + "-socket-monitor");
+    }
+
+    private void ensureBundledStationResources(String traceId) {
+        StationResourceArchiveUseCase stationResourceArchiveUseCase = new StationResourceArchiveUseCase();
+        File sourceRoot = stationResourceArchiveUseCase.resolveManagedSourceRoot(this);
+        File lineInfoFile = new File(sourceRoot, "Bus/lineInfo.csv");
+        if (lineInfoFile.exists() && lineInfoFile.isFile()) {
+            return;
+        }
+        try {
+            StationResourceArchiveUseCase.OperationResult result = stationResourceArchiveUseCase.importStationResources(this);
+            if (result.isSuccess()) {
+                AppLogCenter.log(
+                        LogCategory.BIZ,
+                        LogLevel.INFO,
+                        "ShellApplication",
+                        "已自动初始化报站资源: " + result.getSummary(),
+                        traceId + "-station-resource-bootstrap"
+                );
+            } else {
+                AppLogCenter.log(
+                        LogCategory.ERROR,
+                        LogLevel.WARN,
+                        "ShellApplication",
+                        "自动初始化报站资源失败: " + result.getSummary() + " / " + result.getDetail(),
+                        traceId + "-station-resource-bootstrap"
+                );
+            }
+        } catch (Exception e) {
+            AppLogCenter.log(
+                    LogCategory.ERROR,
+                    LogLevel.WARN,
+                    "ShellApplication",
+                    "自动初始化报站资源异常: " + e.getMessage(),
+                    traceId + "-station-resource-bootstrap"
+            );
+        }
     }
 }

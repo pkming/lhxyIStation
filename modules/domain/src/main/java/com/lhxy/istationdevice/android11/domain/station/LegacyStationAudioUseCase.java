@@ -18,7 +18,11 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * Replays the legacy station/reminder audio chain for manual and auto station reporting.
+ * 旧版报站音频用例。
+ * <p>
+ * 负责手动报站、自动报站、提醒音、服务音、整点报时和调度语音的统一播放。
+ * <p>
+ * 查找关键字：报站音频、服务音、TTS、内外音、调度语音。
  */
 public final class LegacyStationAudioUseCase {
     private static final int BROADCAST_TYPE_START = 0;
@@ -47,6 +51,9 @@ public final class LegacyStationAudioUseCase {
         this.gpioAdapter = gpioAdapter;
     }
 
+    /**
+     * 手动报站播放入口。
+     */
     public void playManualStation(
             Context context,
             ShellConfig shellConfig,
@@ -65,6 +72,9 @@ public final class LegacyStationAudioUseCase {
         play(context, shellConfig, plan, shellConfig.getBasicSetupConfig().getTtsSettings().isEnabled());
     }
 
+    /**
+     * 自动报站播放入口。
+     */
     public void playAutoStation(
             Context context,
             ShellConfig shellConfig,
@@ -88,6 +98,9 @@ public final class LegacyStationAudioUseCase {
         play(context, shellConfig, plan, shellConfig.getBasicSetupConfig().getTtsSettings().isEnabled());
     }
 
+    /**
+     * 播放提醒点语音。
+     */
     public void playReminder(
             Context context,
             ShellConfig shellConfig,
@@ -101,6 +114,9 @@ public final class LegacyStationAudioUseCase {
         play(context, shellConfig, plan, false);
     }
 
+    /**
+     * 播放调度公告语音。
+     */
     public void playDispatchNotice(Context context, ShellConfig shellConfig, String message) {
         if (context == null || shellConfig == null || message == null || message.trim().isEmpty() || "-".equals(message.trim())) {
             return;
@@ -118,6 +134,9 @@ public final class LegacyStationAudioUseCase {
         }
     }
 
+    /**
+     * 播放超速提示音。
+     */
     public void playSpeedWarning(Context context, ShellConfig shellConfig) {
         if (context == null || shellConfig == null) {
             return;
@@ -129,6 +148,9 @@ public final class LegacyStationAudioUseCase {
         play(context, shellConfig, plan, false);
     }
 
+    /**
+     * 播放整点报时。
+     */
     public void playNowTime(Context context, ShellConfig shellConfig, int hour) {
         if (context == null || shellConfig == null || hour < 0 || hour > 23) {
             return;
@@ -140,6 +162,11 @@ public final class LegacyStationAudioUseCase {
         play(context, shellConfig, plan, false);
     }
 
+    /**
+     * 播放 0-9 服务音。
+     * <p>
+     * 0/9 走外音，其余走内音，行为按旧 M90 收口。
+     */
     public boolean playServiceTone(Context context, ShellConfig shellConfig, int serviceNo) {
         if (context == null || shellConfig == null || serviceNo < 0 || serviceNo > 9) {
             return false;
@@ -175,6 +202,9 @@ public final class LegacyStationAudioUseCase {
         }
     }
 
+    /**
+     * 统一决定本次播放是走内音、外音还是 TTS。
+     */
     private void play(Context context, ShellConfig shellConfig, PlaybackPlan plan, boolean preferTts) {
         Context appContext = context.getApplicationContext();
         synchronized (GLOBAL_LOCK) {
@@ -204,6 +234,9 @@ public final class LegacyStationAudioUseCase {
         }
     }
 
+    /**
+     * 构造站点播报播放计划。
+     */
     private PlaybackPlan createStationPlan(
             Context context,
             ShellConfig shellConfig,
@@ -213,9 +246,9 @@ public final class LegacyStationAudioUseCase {
     ) {
         PlaybackPlan plan = new PlaybackPlan();
         plan.volumeMode = VOLUME_MODE_NEWSPAPER;
-        File managedRoot = new StationResourceArchiveUseCase().resolveManagedResourceRoot(context.getApplicationContext());
-        File commonSoundsRoot = new File(managedRoot, "SourceFile/CommonSounds");
-        File lineVoiceRoot = new File(new File(managedRoot, "SourceFile/Bus"), route.getLineName());
+        File sourceRoot = new StationResourceArchiveUseCase().resolveManagedSourceRoot(context.getApplicationContext());
+        File commonSoundsRoot = new File(sourceRoot, "CommonSounds");
+        File lineVoiceRoot = new File(new File(sourceRoot, "Bus"), route.getLineName());
         LegacyGpsRouteResource.StationPoint firstStation = route.getStations().isEmpty() ? null : route.getStations().get(0);
         LegacyGpsRouteResource.StationPoint terminalStation = route.lastStation();
 
@@ -284,8 +317,8 @@ public final class LegacyStationAudioUseCase {
     ) {
         PlaybackPlan plan = new PlaybackPlan();
         plan.volumeMode = VOLUME_MODE_NEWSPAPER;
-        File managedRoot = new StationResourceArchiveUseCase().resolveManagedResourceRoot(context.getApplicationContext());
-        File commonSoundsRoot = new File(managedRoot, "SourceFile/CommonSounds");
+        File sourceRoot = new StationResourceArchiveUseCase().resolveManagedSourceRoot(context.getApplicationContext());
+        File commonSoundsRoot = new File(sourceRoot, "CommonSounds");
         for (String languageFolder : resolveLanguageFolders(shellConfig)) {
             addNamedVoiceIfExists(plan.innerPlaylist, commonSoundsRoot, "Common", languageFolder, reminder.getReminderName());
         }
@@ -298,8 +331,8 @@ public final class LegacyStationAudioUseCase {
         plan.volumeMode = VOLUME_MODE_NEWSPAPER;
         File alertTone = new File("/system/media/audio/notifications/Altair.ogg");
         addIfExists(plan.innerPlaylist, alertTone);
-        File managedRoot = new StationResourceArchiveUseCase().resolveManagedResourceRoot(context.getApplicationContext());
-        File commonSoundsRoot = new File(managedRoot, "SourceFile/CommonSounds");
+        File sourceRoot = new StationResourceArchiveUseCase().resolveManagedSourceRoot(context.getApplicationContext());
+        File commonSoundsRoot = new File(sourceRoot, "CommonSounds");
         addIfExists(plan.innerPlaylist, new File(commonSoundsRoot, "Common/" + LANGUAGE_MANDARIN + "/超速语音.mp3"));
         plan.ttsText = "请注意控制车速";
         return plan;
@@ -308,8 +341,8 @@ public final class LegacyStationAudioUseCase {
     private PlaybackPlan createNowTimePlan(Context context, ShellConfig shellConfig, int hour) {
         PlaybackPlan plan = new PlaybackPlan();
         plan.volumeMode = VOLUME_MODE_NEWSPAPER;
-        File managedRoot = new StationResourceArchiveUseCase().resolveManagedResourceRoot(context.getApplicationContext());
-        File commonSoundsRoot = new File(managedRoot, "SourceFile/CommonSounds");
+        File sourceRoot = new StationResourceArchiveUseCase().resolveManagedSourceRoot(context.getApplicationContext());
+        File commonSoundsRoot = new File(sourceRoot, "CommonSounds");
         for (String languageFolder : resolveLanguageFolders(shellConfig)) {
             addIfExists(plan.innerPlaylist, new File(commonSoundsRoot, "Clock/" + languageFolder + "/" + hour + ".mp3"));
         }
@@ -317,11 +350,14 @@ public final class LegacyStationAudioUseCase {
         return plan;
     }
 
+    /**
+     * 构造服务音播放计划。
+     */
     private PlaybackPlan createServiceTonePlan(Context context, ShellConfig shellConfig, int serviceNo) {
         PlaybackPlan plan = new PlaybackPlan();
         plan.volumeMode = VOLUME_MODE_NEWSPAPER;
-        File managedRoot = new StationResourceArchiveUseCase().resolveManagedResourceRoot(context.getApplicationContext());
-        File commonSoundsRoot = new File(managedRoot, "SourceFile/CommonSounds");
+        File sourceRoot = new StationResourceArchiveUseCase().resolveManagedSourceRoot(context.getApplicationContext());
+        File commonSoundsRoot = new File(sourceRoot, "CommonSounds");
         List<File> targetPlaylist = (serviceNo == 0 || serviceNo == 9) ? plan.outerPlaylist : plan.innerPlaylist;
         for (String languageFolder : resolveLanguageFolders(shellConfig)) {
             if (LANGUAGE_ENGLISH.equals(languageFolder)) {

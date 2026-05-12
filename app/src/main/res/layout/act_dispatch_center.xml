@@ -42,7 +42,7 @@
             android:textStyle="bold" />
 
         <RadioButton
-            android:id="@+id/rb_radio_dispatch"
+            android:id="@+id/rb_radio_ledPeripheral"
             android:layout_width="match_parent"
             android:layout_height="@dimen/d_58"
             android:layout_marginTop="@dimen/d_6"
@@ -50,7 +50,7 @@
             android:button="@null"
             android:drawablePadding="@dimen/d_5"
             android:gravity="center"
-            android:text="@string/dispatch_center_dispatch"
+            android:text="@string/dispatch_center_ledPeripheral_test"
             android:textColor="@drawable/radio_button_selector"
             android:textSize="20sp"
             android:textStyle="bold" />

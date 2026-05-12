@@ -31,6 +31,8 @@ import com.lhxy.istationdevice.android11.runtime.ShellRuntime;
  * <p>
  * 首页只做总览和跳转，具体业务操作统一进入这里，
  * 避免后面所有动作都堆在首页和 debug 页里。
+ * <p>
+ * 查找关键字：模块详情页、模块动作分发、运行时同步、视频入口。
  */
 public final class ModuleCenterActivity extends AppCompatActivity {
     private static final String EXTRA_MODULE_KEY = "module_key";
@@ -45,6 +47,9 @@ public final class ModuleCenterActivity extends AppCompatActivity {
     private String latestActionText = "等待业务动作。";
     private ModuleScreenSpec screenSpec;
 
+    /**
+     * 根据模块 key 打开对应的模块详情页。
+     */
     public static Intent createIntent(Context context, String moduleKey) {
         Intent intent = new Intent(context, ModuleCenterActivity.class);
         intent.putExtra(EXTRA_MODULE_KEY, moduleKey);
@@ -78,6 +83,9 @@ public final class ModuleCenterActivity extends AppCompatActivity {
         refreshRuntime();
     }
 
+    /**
+     * 绑定详情页头部和动作按钮。
+     */
     private void bindActions() {
         binding.btnBack.setOnClickListener(v -> finish());
         binding.btnOpenDebug.setOnClickListener(v -> startActivity(DebugIntentFactory.create(this)));
@@ -91,6 +99,9 @@ public final class ModuleCenterActivity extends AppCompatActivity {
         binding.btnOpenDebug.setVisibility(isDebugEntryEnabled() ? View.VISIBLE : View.GONE);
     }
 
+    /**
+     * 拉取当前配置并同步到共享运行时，再刷新 Socket 监听状态。
+     */
     private void refreshRuntime() {
         shellConfig = ShellConfigRepository.get(this);
         shellRuntime.applyConfig(this, shellConfig);
@@ -98,6 +109,9 @@ public final class ModuleCenterActivity extends AppCompatActivity {
         renderStatus();
     }
 
+    /**
+     * 按 screenSpec 把标题、提示语和按钮文案渲染到页面。
+     */
     private void renderSpec() {
         binding.tvTitle.setText(screenSpec.title);
         binding.tvHint.setText(screenSpec.hint);
@@ -116,6 +130,9 @@ public final class ModuleCenterActivity extends AppCompatActivity {
         button.setText(spec.label);
     }
 
+    /**
+     * 刷新当前模块状态摘要和最近动作结果。
+     */
     private void renderStatus() {
         TerminalBusinessModule module = moduleHub.findModule(screenSpec.moduleKey);
         String status = module == null ? "当前没有找到模块。" : module.describeStatus();
@@ -123,6 +140,11 @@ public final class ModuleCenterActivity extends AppCompatActivity {
         binding.tvLatestAction.setText(latestActionText);
     }
 
+    /**
+     * 执行当前模块的默认主动作。
+     * <p>
+     * 视频模块的主动作不是直接跑 moduleHub，而是跳到旧版视频监控页继续联调。
+     */
     private void runPrimaryAction() {
         if ("camera_dvr".equals(screenSpec.moduleKey)) {
             startActivity(LegacyVideoMonitorActivity.createIntent(this, "module_center"));
@@ -135,6 +157,11 @@ public final class ModuleCenterActivity extends AppCompatActivity {
         applyResult(result, traceId);
     }
 
+    /**
+     * 执行页面上配置好的次级动作。
+     * <p>
+     * 文件模块重置运行时配置后，会立刻重载配置并重新同步监视器。
+     */
     private void runConfiguredAction(@Nullable ActionSpec actionSpec) {
         if (actionSpec == null) {
             return;
@@ -149,6 +176,9 @@ public final class ModuleCenterActivity extends AppCompatActivity {
         applyResult(result, traceId);
     }
 
+    /**
+     * 统一接收模块执行结果，更新页面文案并落日志。
+     */
     private void applyResult(ModuleRunResult result, String traceId) {
         latestActionText = result.describeBlock();
         AppLogCenter.log(
@@ -204,6 +234,11 @@ public final class ModuleCenterActivity extends AppCompatActivity {
             this.actionThree = actionThree;
         }
 
+        /**
+         * 根据模块 key 生成页面展示和动作配置。
+         * <p>
+         * 这里集中维护“模块 key -> 文案/按钮/动作”的映射，后面排查入口错配时先看这里。
+         */
         private static ModuleScreenSpec from(@Nullable String moduleKey) {
             if ("dispatch".equals(moduleKey)) {
                 return new ModuleScreenSpec(
@@ -278,7 +313,7 @@ public final class ModuleCenterActivity extends AppCompatActivity {
                     "执行文件主链",
                     new ActionSpec("导出调试包", "export_bundle", "module-file-export"),
                     new ActionSpec("重置运行配置", "reset_runtime_config", "module-file-reset"),
-                    null
+                    new ActionSpec("导出日志包", "export_logs", "module-file-logs")
             );
         }
     }

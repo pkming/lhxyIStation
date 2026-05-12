@@ -14,6 +14,8 @@ import com.lhxy.istationdevice.android11.domain.dvr.DvrSerialMonitor;
  * <p>
  * 这一层承接默认 Camera、GPIO、DVR 键位和触摸协议发送。
  * 触摸动作统一通过 dvr_touch_{phase}_{x}_{y} 进入，避免页面直接拼串口帧。
+ * <p>
+ * 查找关键字：默认 Camera、DVR 键位、DVR 触摸、自动监控通道。
  */
 public final class CameraDvrBusinessModule extends AbstractTerminalBusinessModule {
     private final DeviceFoundationUseCase deviceFoundationUseCase;
@@ -98,6 +100,9 @@ public final class CameraDvrBusinessModule extends AbstractTerminalBusinessModul
         return runDefaultCameraChain(traceId);
     }
 
+    /**
+     * 摄像头/DVR 动作总入口。
+     */
     @Override
     public ModuleRunResult runAction(String actionKey, String traceId) {
         if ("open_default_camera".equals(actionKey)) {
@@ -128,6 +133,9 @@ public final class CameraDvrBusinessModule extends AbstractTerminalBusinessModul
         return resolveMonitorCameraKey(requireShellConfig(), traceId);
     }
 
+    /**
+     * 验证默认 GPIO 读取和默认 Camera 开关链路。
+     */
     private ModuleRunResult runDefaultCameraChain(String traceId) {
         try {
             ShellConfig shellConfig = requireShellConfig();
@@ -146,6 +154,9 @@ public final class CameraDvrBusinessModule extends AbstractTerminalBusinessModul
         }
     }
 
+    /**
+     * 打开或关闭默认 Camera。
+     */
     private ModuleRunResult openOrCloseDefaultCamera(String traceId, boolean open) {
         try {
             ShellConfig shellConfig = requireShellConfig();
@@ -166,6 +177,9 @@ public final class CameraDvrBusinessModule extends AbstractTerminalBusinessModul
         }
     }
 
+    /**
+     * 打开或关闭指定摄像头通道。
+     */
     private ModuleRunResult openOrCloseCameraChannel(String cameraKey, String traceId, boolean open) {
         try {
             ShellConfig shellConfig = requireShellConfig();
@@ -198,6 +212,9 @@ public final class CameraDvrBusinessModule extends AbstractTerminalBusinessModul
         return openOrCloseCameraChannel(cameraKey, traceId, false);
     }
 
+    /**
+     * 发送 DVR 键位报文。
+     */
     private ModuleRunResult sendDvrKey(String actionKey, String traceId) {
         try {
             ShellConfig shellConfig = requireShellConfig();
@@ -219,6 +236,11 @@ public final class CameraDvrBusinessModule extends AbstractTerminalBusinessModul
         return (byte) (Integer.parseInt(hex, 16) & 0xFF);
     }
 
+    /**
+     * 发送 DVR 触摸事件。
+     * <p>
+     * 页面层只需要给 phase/x/y，这里统一校验模式、解析参数并发帧。
+     */
     private ModuleRunResult sendDvrTouch(String actionKey, String traceId) {
         try {
             ShellConfig shellConfig = requireShellConfig();
@@ -241,8 +263,12 @@ public final class CameraDvrBusinessModule extends AbstractTerminalBusinessModul
         }
     }
 
+    /**
+     * 根据 GPIO 联动状态解析当前应该展示的监控通道。
+     */
     String resolveMonitorCameraKey(ShellConfig shellConfig, String traceId) {
         String fallbackCameraKey = resolveFallbackCameraKey(shellConfig);
+        String dvrCameraKey = resolveDvrCameraKey(shellConfig);
         if (shellConfig == null || shellConfig.getCameraConfig().getMode() != DeviceMode.REAL) {
             lastAutoCameraKey = fallbackCameraKey;
             return fallbackCameraKey;
@@ -266,6 +292,10 @@ public final class CameraDvrBusinessModule extends AbstractTerminalBusinessModul
                 lastAutoCameraKey = "middle_door";
                 return lastAutoCameraKey;
             }
+            if (primary == 1 && secondary == 1) {
+                lastAutoCameraKey = dvrCameraKey;
+                return lastAutoCameraKey;
+            }
             if (primary == 0 && secondary == 0) {
                 lastAutoCameraKey = "reverse";
                 return lastAutoCameraKey;
@@ -283,6 +313,13 @@ public final class CameraDvrBusinessModule extends AbstractTerminalBusinessModul
         }
         String cameraKey = valueOrEmpty(shellConfig.getDebugReplay().getCameraChannelKey()).trim();
         return cameraKey.isEmpty() ? "av_out" : cameraKey;
+    }
+
+    private String resolveDvrCameraKey(ShellConfig shellConfig) {
+        if (shellConfig == null) {
+            return "av_out";
+        }
+        return shellConfig.getCameraConfig().getChannels().containsKey("av_out") ? "av_out" : resolveFallbackCameraKey(shellConfig);
     }
 
     private String valueOrEmpty(String value) {

@@ -48,9 +48,14 @@ tasks.register("prepareShellRuntimeConfig", Copy) {
 tasks.register("prepareBundledStationResources") {
     doLast {
         File targetDir = new File(generatedConfigAssetsDir, "station-resources")
+        File bundledImportsDir = new File(targetDir, "bundled-imports")
         if (!targetDir.exists()) {
             targetDir.mkdirs()
         }
+        if (bundledImportsDir.exists()) {
+            bundledImportsDir.deleteDir()
+        }
+        bundledImportsDir.mkdirs()
         File targetZip = new File(targetDir, "SourceFile.zip")
         if (targetZip.exists()) {
             targetZip.delete()
@@ -63,11 +68,26 @@ tasks.register("prepareBundledStationResources") {
                 generatedStationArchiveFile.delete()
             }
             ant.zip(destfile: generatedStationArchiveFile) {
-                fileset(dir: sourceStationResourceDir.parentFile, includes: "SourceFile/**")
+                fileset(dir: sourceStationResourceDir.parentFile) {
+                    include(name: "SourceFile/**")
+                    exclude(name: "SourceFile/*.zip")
+                    exclude(name: "SourceFile/*.rar")
+                }
             }
             copy {
                 from(generatedStationArchiveFile)
                 into(targetDir)
+            }
+            File[] importCandidates = sourceStationResourceDir.listFiles()
+            if (importCandidates != null) {
+                importCandidates.findAll { file ->
+                    file.isFile() && (file.name.toLowerCase().endsWith(".zip") || file.name.toLowerCase().endsWith(".rar"))
+                }.each { file ->
+                    copy {
+                        from(file)
+                        into(bundledImportsDir)
+                    }
+                }
             }
             return
         }
