@@ -10,3 +10,5 @@ config/terminal-config.local.json
 .venv/
 .source/
 source/
+config/signing/
+config/signing.local.properties

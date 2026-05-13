@@ -83,6 +83,10 @@ public final class StationResourceArchiveUseCase {
     private static final String BUNDLED_RESOURCE_ASSET_PATH = "station-resources/SourceFile.zip";
     private static final String BUNDLED_IMPORT_ASSET_DIR = "station-resources/bundled-imports";
     private static final String[] SUPPORTED_TABLE_EXTENSIONS = {".csv", ".xls", ".xlx", ".xlsx", ".xml"};
+    private static final String SOURCE_LABEL_LEGACY_IMPORT = "U盘导入目录";
+    private static final String SOURCE_LABEL_ROOT_COMPAT = "U盘根目录兼容包";
+    private static final String SOURCE_LABEL_APP_IMPORT = "app 导入目录";
+    private static final String SOURCE_LABEL_BUNDLED = "内置测试包";
 
     /**
      * 导入报站资源包。
@@ -299,21 +303,36 @@ public final class StationResourceArchiveUseCase {
      * 扫描旧项目和 app 专用导入目录里的候选资源包。
      */
     private CandidateScan scanCandidates(Context context) {
+        return scanCandidates(uniqueBaseDirs(context), copyBundledAssetsIfPresent(context));
+    }
+
+    List<ImportCandidate> scanImportCandidatesForTest(List<File> baseDirs) {
+        return scanCandidates(baseDirs, Collections.emptyList()).getImportCandidates();
+    }
+
+    private CandidateScan scanCandidates(List<File> baseDirs, List<File> bundledFiles) {
         List<String> allCandidatePaths = new ArrayList<>();
         List<ImportCandidate> importCandidates = new ArrayList<>();
         LinkedHashSet<String> seenCandidatePaths = new LinkedHashSet<>();
-        for (File baseDir : uniqueBaseDirs(context)) {
-            File appImportDir = new File(baseDir, APP_IMPORT_RELATIVE_DIR);
-            collectArchiveCandidates(appImportDir, "app 导入目录", false, importCandidates, allCandidatePaths, seenCandidatePaths);
-
+        if (baseDirs == null) {
+            baseDirs = Collections.emptyList();
+        }
+        for (File baseDir : baseDirs) {
             File sharedRoot = resolveStorageRoot(baseDir);
             if (sharedRoot != null) {
                 File legacyImportDir = new File(sharedRoot, LEGACY_IMPORT_RELATIVE_DIR);
-                collectArchiveCandidates(legacyImportDir, "U盘导入目录", false, importCandidates, allCandidatePaths, seenCandidatePaths);
+                collectArchiveCandidates(legacyImportDir, SOURCE_LABEL_LEGACY_IMPORT, false, importCandidates, allCandidatePaths, seenCandidatePaths);
+                collectNamedArchiveCandidates(sharedRoot, SOURCE_LABEL_ROOT_COMPAT, false, importCandidates, allCandidatePaths, seenCandidatePaths, ARCHIVE_ZIP_NAME, ARCHIVE_RAR_NAME);
             }
+
+            File appImportDir = new File(baseDir, APP_IMPORT_RELATIVE_DIR);
+            collectArchiveCandidates(appImportDir, SOURCE_LABEL_APP_IMPORT, false, importCandidates, allCandidatePaths, seenCandidatePaths);
         }
-        for (File bundledFile : copyBundledAssetsIfPresent(context)) {
-            addImportCandidate(importCandidates, bundledFile, "内置测试包", true, allCandidatePaths, seenCandidatePaths);
+        if (bundledFiles == null) {
+            bundledFiles = Collections.emptyList();
+        }
+        for (File bundledFile : bundledFiles) {
+            addImportCandidate(importCandidates, bundledFile, SOURCE_LABEL_BUNDLED, true, allCandidatePaths, seenCandidatePaths);
         }
         sortImportCandidates(importCandidates);
         ImportCandidate zipCandidate = null;
@@ -345,7 +364,31 @@ public final class StationResourceArchiveUseCase {
             }
             return null;
         }
-        return scan.zipCandidate;
+        return scan.importCandidates.isEmpty() ? null : scan.importCandidates.get(0);
+    }
+
+    private void collectNamedArchiveCandidates(
+            File dir,
+            String sourceLabel,
+            boolean bundledAsset,
+            List<ImportCandidate> importCandidates,
+            List<String> allCandidatePaths,
+            Set<String> seenCandidatePaths,
+            String... fileNames
+    ) {
+        if (dir == null || fileNames == null || fileNames.length == 0) {
+            return;
+        }
+        for (String fileName : fileNames) {
+            if (fileName == null || fileName.trim().isEmpty()) {
+                continue;
+            }
+            File candidate = new File(dir, fileName);
+            allCandidatePaths.add(candidate.getAbsolutePath());
+            if (isArchiveCandidate(candidate)) {
+                addImportCandidate(importCandidates, candidate, sourceLabel, bundledAsset, allCandidatePaths, seenCandidatePaths);
+            }
+        }
     }
 
     private void collectArchiveCandidates(
@@ -468,16 +511,19 @@ public final class StationResourceArchiveUseCase {
         if (candidate == null) {
             return Integer.MAX_VALUE;
         }
-        if (candidate.isBundledAsset()) {
-            return 2;
-        }
-        if (candidate.getAbsolutePath().contains(LEGACY_IMPORT_RELATIVE_DIR)) {
+        if (SOURCE_LABEL_LEGACY_IMPORT.equals(candidate.getSourceLabel())) {
             return 0;
         }
-        if (candidate.getAbsolutePath().contains(APP_IMPORT_RELATIVE_DIR)) {
+        if (SOURCE_LABEL_ROOT_COMPAT.equals(candidate.getSourceLabel())) {
             return 1;
         }
-        return 3;
+        if (SOURCE_LABEL_APP_IMPORT.equals(candidate.getSourceLabel())) {
+            return 2;
+        }
+        if (candidate.isBundledAsset() || SOURCE_LABEL_BUNDLED.equals(candidate.getSourceLabel())) {
+            return 3;
+        }
+        return 4;
     }
 
     private boolean isArchiveCandidate(File file) {

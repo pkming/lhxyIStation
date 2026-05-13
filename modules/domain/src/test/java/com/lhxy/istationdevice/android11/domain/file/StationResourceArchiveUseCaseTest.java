@@ -148,6 +148,49 @@ public class StationResourceArchiveUseCaseTest {
     }
 
     @Test
+    public void scanImportCandidates_prioritizesLegacyThenRootCompatThenAppImport() throws Exception {
+        File workspaceDir = Files.createTempDirectory("station-candidate-scan").toFile();
+        File baseDir = new File(workspaceDir, "storage/udisk/Android/data/demo/files");
+        if (!baseDir.mkdirs() && !baseDir.isDirectory()) {
+            throw new IllegalStateException("无法创建测试目录");
+        }
+        File sharedRoot = new File(workspaceDir, "storage/udisk");
+        File legacyImportDir = new File(sharedRoot, "BusRes/BusImport");
+        if (!legacyImportDir.mkdirs() && !legacyImportDir.isDirectory()) {
+            throw new IllegalStateException("无法创建测试目录");
+        }
+        File appImportDir = new File(baseDir, "imports/BusRes/BusImport");
+        if (!appImportDir.mkdirs() && !appImportDir.isDirectory()) {
+            throw new IllegalStateException("无法创建测试目录");
+        }
+
+        Files.write(new File(legacyImportDir, "SourceFile.rar").toPath(), new byte[]{0x52, 0x61, 0x72, 0x21, 0x1A, 0x07, 0x00});
+        Files.write(new File(sharedRoot, "SourceFile.zip").toPath(), new byte[]{0x50, 0x4B, 0x03, 0x04});
+        Files.write(new File(sharedRoot, "RandomTest.zip").toPath(), new byte[]{0x50, 0x4B, 0x03, 0x04});
+        Files.write(new File(appImportDir, "SourceFile.zip").toPath(), new byte[]{0x50, 0x4B, 0x03, 0x04});
+
+        StationResourceArchiveUseCase useCase = new StationResourceArchiveUseCase();
+        List<StationResourceArchiveUseCase.ImportCandidate> candidates = useCase.scanImportCandidatesForTest(java.util.Collections.singletonList(baseDir));
+
+        assertTrue(candidates.size() >= 3);
+        assertTrue("U盘导入目录".equals(candidates.get(0).getSourceLabel()));
+        assertTrue(candidates.get(0).getFileName().equals("SourceFile.rar"));
+        assertTrue("U盘根目录兼容包".equals(candidates.get(1).getSourceLabel()));
+        assertTrue(candidates.get(1).getFileName().equals("SourceFile.zip"));
+        assertTrue("app 导入目录".equals(candidates.get(2).getSourceLabel()));
+        assertTrue(candidates.get(2).getFileName().equals("SourceFile.zip"));
+
+        boolean hasRandomRootPackage = false;
+        for (StationResourceArchiveUseCase.ImportCandidate candidate : candidates) {
+            if ("RandomTest.zip".equals(candidate.getFileName())) {
+                hasRandomRootPackage = true;
+                break;
+            }
+        }
+        assertFalse(hasRandomRootPackage);
+    }
+
+    @Test
     public void buildImportDiagnostics_reportsDetailedStationRowIssues() throws Exception {
         File extractedDir = Files.createTempDirectory("station-archive-row-issues").toFile();
         File lineDir = new File(extractedDir, "SourceFile/Bus/A1");

@@ -3,6 +3,7 @@ plugins {
 }
 
 def runtimeConfigDir = new File(rootProject.projectDir, "config")
+def signingPropertiesFile = new File(runtimeConfigDir, "signing.local.properties")
 def generatedConfigAssetsDir = new File(buildDir, "generated/shell-config-assets")
 def templateConfigFile = new File(runtimeConfigDir, "terminal-config.template.json")
 def localConfigFile = new File(runtimeConfigDir, "terminal-config.local.json")
@@ -10,6 +11,15 @@ def bundledStationResourceFile = new File(rootProject.projectDir, "docs/SourceFi
 def sourceStationResourceDir = new File(rootProject.projectDir, "source/SourceFile")
 def generatedStationArchiveDir = new File(buildDir, "generated/station-resource-archive")
 def generatedStationArchiveFile = new File(generatedStationArchiveDir, "SourceFile.zip")
+def signingProperties = new Properties()
+if (signingPropertiesFile.exists()) {
+    signingPropertiesFile.withInputStream { stream ->
+        signingProperties.load(stream)
+    }
+}
+def releaseStoreFilePath = signingProperties.getProperty("storeFile", "")
+def releaseStoreFile = releaseStoreFilePath.isEmpty() ? null : new File(rootProject.projectDir, releaseStoreFilePath)
+def hasReleaseSigning = signingPropertiesFile.exists() && releaseStoreFile != null && releaseStoreFile.exists()
 
 android {
     namespace 'com.lhxy.istationdevice.android11.app'
@@ -25,6 +35,25 @@ android {
 
     buildFeatures {
         viewBinding true
+    }
+
+    signingConfigs {
+        if (hasReleaseSigning) {
+            release {
+                storeFile releaseStoreFile
+                storePassword signingProperties.getProperty("storePassword")
+                keyAlias signingProperties.getProperty("keyAlias")
+                keyPassword signingProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            if (hasReleaseSigning) {
+                signingConfig signingConfigs.release
+            }
+        }
     }
 
     sourceSets {
@@ -49,9 +78,10 @@ tasks.register("prepareBundledStationResources") {
     doLast {
         File targetDir = new File(generatedConfigAssetsDir, "station-resources")
         File bundledImportsDir = new File(targetDir, "bundled-imports")
-        if (!targetDir.exists()) {
-            targetDir.mkdirs()
+        if (targetDir.exists()) {
+            targetDir.deleteDir()
         }
+        targetDir.mkdirs()
         if (bundledImportsDir.exists()) {
             bundledImportsDir.deleteDir()
         }
