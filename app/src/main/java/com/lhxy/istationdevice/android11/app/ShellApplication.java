@@ -1,6 +1,10 @@
 package com.lhxy.istationdevice.android11.app;
 
+import android.annotation.TargetApi;
 import android.app.Application;
+import android.content.Context;
+import android.content.Intent;
+import android.os.Build;
 
 import com.lhxy.istationdevice.android11.core.AppLogCenter;
 import com.lhxy.istationdevice.android11.core.LogCategory;
@@ -12,6 +16,8 @@ import com.lhxy.istationdevice.android11.domain.config.ShellConfigLoader;
 import com.lhxy.istationdevice.android11.domain.config.ShellConfigValidator;
 import com.lhxy.istationdevice.android11.domain.file.StationResourceArchiveUseCase;
 import com.lhxy.istationdevice.android11.runtime.ShellRuntime;
+import com.tencent.tinker.entry.DefaultApplicationLike;
+import com.tencent.tinker.lib.tinker.TinkerInstaller;
 
 import java.io.File;
 import java.util.List;
@@ -19,25 +25,44 @@ import java.util.List;
 /**
  * 应用入口
  */
-public class ShellApplication extends Application {
+public class ShellApplication extends DefaultApplicationLike {
     public static boolean isUserPassword = false;
+
+    public ShellApplication(
+            Application application,
+            int tinkerFlags,
+            boolean tinkerLoadVerifyFlag,
+            long applicationStartElapsedTime,
+            long applicationStartMillisTime,
+            Intent tinkerResultIntent
+    ) {
+        super(application, tinkerFlags, tinkerLoadVerifyFlag, applicationStartElapsedTime, applicationStartMillisTime, tinkerResultIntent);
+    }
+
+    @Override
+    @TargetApi(Build.VERSION_CODES.ICE_CREAM_SANDWICH)
+    public void onBaseContextAttached(Context base) {
+        super.onBaseContextAttached(base);
+        TinkerInstaller.install(this);
+    }
 
     @Override
     public void onCreate() {
         super.onCreate();
-        AppLogCenter.init(this);
+        Application application = getApplication();
+        AppLogCenter.init(application);
         String traceId = TraceIds.next("app");
         try {
-            File runtimeConfigFile = ShellConfigLoader.bootstrapRuntimeConfig(this);
+            File runtimeConfigFile = ShellConfigLoader.bootstrapRuntimeConfig(application);
             AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, "ShellApplication", "运行配置文件: " + runtimeConfigFile.getAbsolutePath(), traceId);
         } catch (Exception e) {
             AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, "ShellApplication", "初始化运行配置文件失败: " + e.getMessage(), traceId);
         }
-        ensureBundledStationResources(traceId);
-        ShellConfig shellConfig = ShellConfigRepository.get(this);
+        ensureBundledStationResources(application, traceId);
+        ShellConfig shellConfig = ShellConfigRepository.get(application);
         AppLanguageManager.apply(shellConfig.getBasicSetupConfig().getLanguageSettings().getLanguageCode());
         ShellRuntime shellRuntime = ShellRuntime.get();
-        shellRuntime.applyConfig(this, shellConfig);
+        shellRuntime.applyConfig(application, shellConfig);
         AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, "ShellApplication", "Android 11 新壳启动", traceId);
         AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, "ShellApplication", "加载运行配置: " + shellConfig.getDeviceProfile() + " / " + shellConfig.getConfigVersion(), traceId);
         List<String> issues = ShellConfigValidator.validate(shellConfig);
@@ -51,15 +76,15 @@ public class ShellApplication extends Application {
         shellRuntime.getJt808SocketMonitor().syncDefaultChannels(shellRuntime.getSocketClientAdapter(), shellConfig, traceId + "-socket-monitor");
     }
 
-    private void ensureBundledStationResources(String traceId) {
+    private void ensureBundledStationResources(Context context, String traceId) {
         StationResourceArchiveUseCase stationResourceArchiveUseCase = new StationResourceArchiveUseCase();
-        File sourceRoot = stationResourceArchiveUseCase.resolveManagedSourceRoot(this);
+        File sourceRoot = stationResourceArchiveUseCase.resolveManagedSourceRoot(context);
         File lineInfoFile = new File(sourceRoot, "Bus/lineInfo.csv");
         if (lineInfoFile.exists() && lineInfoFile.isFile()) {
             return;
         }
         try {
-            StationResourceArchiveUseCase.OperationResult result = stationResourceArchiveUseCase.importStationResources(this);
+            StationResourceArchiveUseCase.OperationResult result = stationResourceArchiveUseCase.importStationResources(context);
             if (result.isSuccess()) {
                 AppLogCenter.log(
                         LogCategory.BIZ,

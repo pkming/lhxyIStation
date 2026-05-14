@@ -8,9 +8,10 @@
 
 1. [docs/长期说明/真机联调必要项.md](./docs/长期说明/真机联调必要项.md)
 2. [config/README.md](./config/README.md)
-3. [docs/长期说明/配置管理.md](./docs/长期说明/配置管理.md)
-4. [docs/长期说明/调试与工作流.md](./docs/长期说明/调试与工作流.md)
-5. [docs/README.md](./docs/README.md)
+3. [docs/长期说明/Tinker热更新说明.md](./docs/长期说明/Tinker热更新说明.md)
+4. [docs/长期说明/配置管理.md](./docs/长期说明/配置管理.md)
+5. [docs/长期说明/调试与工作流.md](./docs/长期说明/调试与工作流.md)
+6. [docs/README.md](./docs/README.md)
 
 ## 构建
 

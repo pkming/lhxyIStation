@@ -20,6 +20,7 @@ dependencies {
     implementation project(':modules:core')
     implementation project(':modules:protocol')
     implementation project(':modules:device-api')
+    implementation 'com.tencent.tinker:tinker-android-lib:1.9.15.2'
     implementation 'com.sorrowblue.sevenzipjbinding:7-Zip-JBinding-4Android:16.02-2.03'
     implementation 'commons-net:commons-net:3.11.1'
     implementation 'org.apache.poi:poi:3.17'

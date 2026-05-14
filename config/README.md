@@ -104,6 +104,43 @@
 - `13` -> `Download SourceFile,process：xx%`
 - `14` -> `UPLOAD LOG procerr：xx%`
 
+## OSS 热更新配置
+
+文件管理页现在增加了“检查更新”按钮，位置在“导出日志”下面。
+
+当前为了真机测试提速，代码里已经优先写死热更新配置：
+
+1. 固定从 OSS 读取 `hotfix/android11/manifest.json`
+2. 固定走当前测试桶
+3. 当前构建不会优先依赖 `oss-config.properties` 里的热更新字段
+
+也就是说，现阶段只要把 manifest 和 patch 上传到固定路径，设备端点“检查更新”就会直接走。
+
+运行时配置继续复用 `oss-config.properties`，新增字段如下：
+
+- `hotUpdateEnabled`：是否启用热更新检查。
+- `hotUpdateManifestUrl`：直接写热更新 manifest 的完整 URL。
+- `hotUpdateManifestObjectKey`：如果 manifest 放在 OSS 私有桶里，可以只写 object key，应用会用当前 bucket/accessKey 走签名 GET。
+- `hotUpdateTimeoutMillis`：检查 manifest 和下载补丁的超时时间。
+
+启用热更新时，至少要满足下面二选一：
+
+1. 配 `hotUpdateManifestUrl`
+2. 配 `hotUpdateManifestObjectKey`，并同时补齐 `bucket / endpoint(or region) / accessKeyId / accessKeySecret`
+
+热更新 manifest 当前约定字段：
+
+- `enabled`
+- `patchVersion`，用于判断是否已是当前补丁
+- `targetVersionCode` 或 `baseVersionCode`，必须和设备当前安装包版本一致
+- `targetVersionName` 或 `baseVersionName`，可选
+- `patchUrl` 或 `patchObjectKey`
+- `patchMd5`，可选但建议带上
+- `patchSizeBytes`，可选但建议带上
+- `releaseNotes`，可选
+
+补丁检查通过后，会把 patch APK 下载到应用私有目录并交给 Tinker，下次冷启动生效。
+
 当前升级模块已经直接接通：
 
 1. `upgrade` 模块样例会回放升级协议，并同时启动 `12 -> 4` 的 APK 下载/升级提示链。

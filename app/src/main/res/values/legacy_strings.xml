@@ -225,9 +225,11 @@
     <string name="file_export">导出文件</string>
     <string name="file_udisk_upgrade">U盘升级</string>
     <string name="file_export_log">导出日志</string>
+    <string name="file_check_hot_update">检查更新</string>
     <string name="file_import_btn">导入</string>
     <string name="file_export_btn">导出</string>
     <string name="file_upgrade_btn">升级</string>
+    <string name="file_check_hot_update_btn">检查</string>
     <string name="file_import_tip">确定导入报站文件?</string>
     <string name="file_import_choose_package_title">选择导入包</string>
     <string name="file_import_choose_package_confirm">开始导入</string>
@@ -237,6 +239,8 @@
     <string name="file_import_load_tip">导入报站数据,请务必不要做其他操作&#8230;</string>
     <string name="file_export_load_tip">正在导出报站数据,请务必不要做其他操作&#8230;</string>
     <string name="file_upgrade_load_tip">正在升级APP,请务必不要做其他操作&#8230;</string>
+    <string name="file_check_hot_update_tip">确定检查热更新?</string>
+    <string name="file_check_hot_update_load_tip">正在检查热更新,请务必不要做其他操作&#8230;</string>
     <string name="file_upgrade_not_found">未找到本地升级包</string>
     <string name="file_import_diagnostics_title">导入诊断</string>
     <string name="file_import_diagnostics_summary">%1$s
@@ -265,6 +269,8 @@ OK：%2$d 项  警告：%3$d 项  失败：%4$d 项
     <string name="home_info_tip_export_failed">更新资源导出失败，请检查资源文件</string>
     <string name="home_info_tip_upgrade_loading">APK is upgrading...</string>
     <string name="home_info_tip_upgrade_failed">APK upgrade failed</string>
+    <string name="home_info_tip_hot_update_loading">正在检查热更新...</string>
+    <string name="home_info_tip_hot_update_failed">热更新检查失败</string>
     <string name="home_info_tip_log_upload_loading">UPLOAD LOG procerr：0%</string>
     <string name="home_info_tip_log_upload_complete">UPLOAD LOG procerr：100%</string>
     <string name="home_info_tip_log_upload_failed">UPLOAD LOG failed</string>

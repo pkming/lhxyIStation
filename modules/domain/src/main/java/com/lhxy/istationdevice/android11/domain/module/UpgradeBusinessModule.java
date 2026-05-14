@@ -11,6 +11,7 @@ import com.lhxy.istationdevice.android11.domain.config.ShellConfig;
 import com.lhxy.istationdevice.android11.domain.socket.Jt808SocketMonitor;
 import com.lhxy.istationdevice.android11.domain.upgrade.LegacyUpgradeDownloadAgent;
 import com.lhxy.istationdevice.android11.domain.upgrade.LocalUpgradeApkFinder;
+import com.lhxy.istationdevice.android11.domain.upgrade.TinkerHotUpdateManager;
 import com.lhxy.istationdevice.android11.protocol.jt808.Jt808Frame;
 import com.lhxy.istationdevice.android11.protocol.jt808.Jt808UpgradeCommand;
 import com.lhxy.istationdevice.android11.protocol.jt808.Jt808UpgradeCommandParser;
@@ -31,9 +32,11 @@ public final class UpgradeBusinessModule extends AbstractTerminalBusinessModule 
     private final SocketClientAdapter socketClientAdapter;
     private final SystemOps systemOps;
     private final LegacyUpgradeDownloadAgent upgradeDownloadAgent;
+    private final TinkerHotUpdateManager hotUpdateManager;
     private int lastUpgradeReplayCount;
     private long lastSyncTimeMillis;
     private String lastInstallApkPath = "-";
+    private String lastHotUpdateSummary = "-";
 
     public UpgradeBusinessModule(
             ProtocolReplayUseCase protocolReplayUseCase,
@@ -45,6 +48,7 @@ public final class UpgradeBusinessModule extends AbstractTerminalBusinessModule 
         this.socketClientAdapter = socketClientAdapter;
         this.systemOps = systemOps;
         this.upgradeDownloadAgent = new LegacyUpgradeDownloadAgent(socketClientAdapter, systemOps);
+        this.hotUpdateManager = new TinkerHotUpdateManager();
         jt808SocketMonitor.registerFrameListener(FRAME_LISTENER_KEY, this::handleSocketFrame);
     }
 
@@ -76,6 +80,7 @@ public final class UpgradeBusinessModule extends AbstractTerminalBusinessModule 
                     + "\n- localApk=" + resolveLocalApkName()
                     + "\n- lastUpgradeReplayCount=" + lastUpgradeReplayCount + " / lastSyncTime=" + (lastSyncTimeMillis <= 0 ? "-" : String.valueOf(lastSyncTimeMillis))
                     + " / lastInstallApk=" + lastInstallApkPath
+                    + " / lastHotUpdate=" + lastHotUpdateSummary
                     + "\n- " + describeActionMemory();
         } catch (Exception e) {
             return "当前还没拿到完整升级配置: " + emptyAsDash(e.getMessage());
@@ -97,6 +102,9 @@ public final class UpgradeBusinessModule extends AbstractTerminalBusinessModule 
         }
         if ("install_local_apk".equals(actionKey)) {
             return installLocalApk(traceId);
+        }
+        if ("check_hot_update".equals(actionKey)) {
+            return checkHotUpdate(traceId);
         }
         return unsupportedAction(actionKey);
     }
@@ -153,6 +161,16 @@ public final class UpgradeBusinessModule extends AbstractTerminalBusinessModule 
         }
     }
 
+    private ModuleRunResult checkHotUpdate(String traceId) {
+        TinkerHotUpdateManager.Result result = hotUpdateManager.checkForUpdate(traceId);
+        lastHotUpdateSummary = result.getSummary();
+        if (result.isSuccess()) {
+            return success(result.getSummary(), result.getDetail());
+        }
+        publishUpgradeFailure(result.getSummary());
+        return failureText(result.getSummary(), result.getDetail());
+    }
+
     private String resolveLocalApkName() {
         File apkFile = LocalUpgradeApkFinder.findBest(getContext());
         return apkFile == null ? "-" : apkFile.getName();
@@ -161,6 +179,7 @@ public final class UpgradeBusinessModule extends AbstractTerminalBusinessModule 
     @Override
     protected void onContextUpdated() {
         upgradeDownloadAgent.updateContext(getContext());
+        hotUpdateManager.updateContext(getContext());
     }
 
     /**

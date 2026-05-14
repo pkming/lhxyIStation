@@ -57,6 +57,7 @@ public final class LegacyFileManageActivity extends LegacyBaseActivity {
         bindExportAction();
         bindUpgradeAction();
         bindExportLogAction();
+        bindCheckUpdateAction();
         bindDeleteLogAction();
         renderResourceStatus(null);
         registerStorageReceiver();
@@ -229,6 +230,19 @@ public final class LegacyFileManageActivity extends LegacyBaseActivity {
         button.setOnClickListener(v -> new AlertDialog.Builder(this)
                 .setMessage(R.string.file_delete_log_tip)
                 .setPositiveButton(R.string.confirm, (dialog, which) -> deleteLocalLog())
+                .setNegativeButton(android.R.string.cancel, null)
+                .show());
+    }
+
+    private void bindCheckUpdateAction() {
+        Button button = findViewById(R.id.butCheckUpdate);
+        if (button == null) {
+            return;
+        }
+        applyButtonState(button, true);
+        button.setOnClickListener(v -> new AlertDialog.Builder(this)
+                .setMessage(R.string.file_check_hot_update_tip)
+                .setPositiveButton(R.string.confirm, (dialog, which) -> runCheckHotUpdateAsync())
                 .setNegativeButton(android.R.string.cancel, null)
                 .show());
     }
@@ -493,6 +507,25 @@ public final class LegacyFileManageActivity extends LegacyBaseActivity {
         }, "legacy-file-manage-upgrade").start();
     }
 
+    private void runCheckHotUpdateAsync() {
+        TextView tips = findViewById(R.id.tvFileTips);
+        if (tips != null) {
+            tips.setVisibility(View.VISIBLE);
+            tips.setText(R.string.file_check_hot_update_load_tip);
+        }
+        publishHomeLoadingState("check_hot_update");
+        new Thread(() -> {
+            ModuleRunResult result = ShellRuntime.get()
+                    .getModuleHub()
+                    .runAction("upgrade", "check_hot_update", TraceIds.next("legacy-file-manage-hot-update"));
+            runOnUiThread(() -> {
+                publishHomeResultState("check_hot_update", result);
+                renderResourceStatus(result == null ? "" : result.describeBlock());
+                refreshFileActionState();
+            });
+        }, "legacy-file-manage-hot-update").start();
+    }
+
     private String compactResultText(ModuleRunResult result) {
         if (result == null) {
             return "";
@@ -601,6 +634,9 @@ public final class LegacyFileManageActivity extends LegacyBaseActivity {
         if ("export_bundle".equals(actionKey)) {
             return getString(R.string.home_info_tip_log_upload_loading);
         }
+        if ("check_hot_update".equals(actionKey)) {
+            return getString(R.string.home_info_tip_hot_update_loading);
+        }
         return "";
     }
 
@@ -648,6 +684,11 @@ public final class LegacyFileManageActivity extends LegacyBaseActivity {
                 return getString(R.string.file_upgrade_not_found);
             }
             return getString(R.string.home_info_tip_upgrade_failed);
+        }
+        if ("check_hot_update".equals(actionKey)) {
+            return result != null && result.isSuccess()
+                    ? compactResultText(result)
+                    : getString(R.string.home_info_tip_hot_update_failed);
         }
         return compactResultText(result);
     }
