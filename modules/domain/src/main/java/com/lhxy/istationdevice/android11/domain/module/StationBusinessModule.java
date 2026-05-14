@@ -143,6 +143,7 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
 
     @Override
     public ModuleRunResult runAction(String actionKey, String traceId) {
+        AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, TAG, "报站动作入口 action=" + emptyAsDash(actionKey), traceId);
         if ("bind_gps".equals(actionKey)) {
             return replayAndBindGps(traceId, false);
         }
@@ -182,6 +183,13 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
             ShellConfig shellConfig = requireShellConfig();
             boolean audioTriggered = stationAudioUseCase.playServiceTone(context, shellConfig, serviceNo);
             boolean protocolSent = stationDisplayUseCase.sendServiceTone(shellConfig, serviceNo, traceId);
+                AppLogCenter.log(
+                    LogCategory.BIZ,
+                    LogLevel.INFO,
+                    TAG,
+                    "服务音完成 no=" + serviceNo + " / audio=" + yesNo(audioTriggered) + " / rs485=" + yesNo(protocolSent),
+                    traceId
+                );
             return success(
                     "已触发服务音 " + serviceNo,
                     "本地播报=" + yesNo(audioTriggered) + " / 485 服务音=" + yesNo(protocolSent)
@@ -209,6 +217,15 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
             sendSerialDispatchFramesIfNeeded(traceId + "-bind-gps");
             startPeriodicGpsReportIfNeeded(traceId + "-periodic-gps");
             startAutoGpsReportIfNeeded(traceId + "-auto-gps");
+                AppLogCenter.log(
+                    LogCategory.BIZ,
+                    LogLevel.INFO,
+                    TAG,
+                    "GPS 主链已绑定 port=" + gpsChannel.getPortName()
+                        + " / line=" + stationState.getLineName()
+                        + " / direction=" + stationState.getDirectionText(),
+                    traceId
+                );
             return success(
                     replayDisplay ? "已准备报站主链" : "已重新绑定 GPS 监听",
                     "GPS 已绑定到 " + gpsChannel.getKey() + "，屏显链路已同步"
@@ -245,8 +262,10 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
                 LegacyGpsRouteResource switchedRoute = resolveRequiredRoute();
                 stationDisplayUseCase.syncRoute(shellConfig, switchedRoute, stationState, traceId + "-display-switch-route");
                 stationDisplayUseCase.sendCurrentStation(shellConfig, switchedRoute, stationState, traceId + "-display-switch-current");
+                logStationSnapshot("手动推进到终点并切方向", traceId);
                 return success("已到终点并自动切换方向", "当前方向 " + stationState.getDirectionText() + " / 本站 " + stationState.getCurrentStation());
             }
+            logStationSnapshot("手动推进一站", traceId);
             return success("已推进一站", "当前站点已更新到 " + stationState.getCurrentStation());
         } catch (Exception e) {
             return failure("推进站点失败", e);
@@ -272,6 +291,7 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
             sendSerialDispatchFramesIfNeeded(traceId + "-backward-station");
             startPeriodicGpsReportIfNeeded(traceId + "-periodic-gps");
             startAutoGpsReportIfNeeded(traceId + "-auto-gps");
+            logStationSnapshot("手动回退一站", traceId);
             return success("已回退一站", "当前站点已更新到 " + stationState.getCurrentStation());
         } catch (Exception e) {
             return failure("回退站点失败", e);
@@ -291,6 +311,7 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
             stationDisplayUseCase.syncRoute(shellConfig, switchedRoute, stationState, traceId + "-display-route");
             stationDisplayUseCase.sendCurrentStation(shellConfig, switchedRoute, stationState, traceId + "-display-current");
             sendSerialDispatchFramesIfNeeded(traceId + "-switch-direction");
+            logStationSnapshot("手动切换方向", traceId);
             return success("已切换方向", stationState.getLineName() + " / " + stationState.getDirectionText());
         } catch (Exception e) {
             return failure("切换方向失败", e);
@@ -318,6 +339,7 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
             sendSerialDispatchFramesIfNeeded(traceId + "-repeat-station");
             startPeriodicGpsReportIfNeeded(traceId + "-periodic-gps");
             startAutoGpsReportIfNeeded(traceId + "-auto-gps");
+            logStationSnapshot("手动重复报站", traceId);
             return success("已重复播报当前站", "当前站点 " + stationState.getCurrentStation());
         } catch (Exception e) {
             return failure("重复报站失败", e);
@@ -332,7 +354,25 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
         stationAudioUseCase.stop();
         stopPeriodicGpsReport("station-stop-periodic-gps");
         stopAutoGpsReport("station-stop-auto-gps");
+        logStationSnapshot("手动停止报站", "station-stop");
         return success("已停止报站", "当前报站状态已切到停止");
+    }
+
+    private void logStationSnapshot(String event, String traceId) {
+        AppLogCenter.log(
+                LogCategory.BIZ,
+                LogLevel.INFO,
+                TAG,
+                event
+                        + " / line=" + stationState.getLineName()
+                        + " / direction=" + stationState.getDirectionText()
+                        + " / stationNo=" + stationState.getCurrentStationNo()
+                        + " / station=" + stationState.getCurrentStation()
+                        + " / type=" + stationState.getCurrentStationType()
+                        + " / preview=" + yesNo(stationState.isPreviewingNext())
+                        + " / gps=" + stationState.getLongitude() + "," + stationState.getLatitude(),
+                traceId
+        );
     }
 
     /**
@@ -367,7 +407,7 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
                     traceId + "-site"
             );
         } catch (Exception ignore) {
-            // Keep station state moving even when serial dispatch frames fail.
+            AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, TAG, "DVR 串口调度补发失败: " + ignore.getMessage(), traceId);
         }
     }
 

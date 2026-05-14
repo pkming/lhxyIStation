@@ -152,6 +152,54 @@ public final class TongDaDisplayProtocol implements DisplayProtocolGenerator {
         return new byte[0];
     }
 
+    public byte[] createLedAdvInfo(List<String> messages) {
+        if (messages == null || messages.isEmpty()) {
+            return new byte[0];
+        }
+        try {
+            byte[] body = new byte[2048];
+            int bodyLength = 0;
+            for (String message : messages) {
+                String normalized = message == null ? "" : message.trim();
+                if (normalized.isEmpty()) {
+                    continue;
+                }
+                byte[] bytes = LegacyProtocolSupport.gb2312(normalized);
+                if (bytes.length == 0 || bodyLength + bytes.length + 2 > body.length) {
+                    continue;
+                }
+                body[bodyLength] = (byte) bytes.length;
+                int contentStart = bodyLength + 1;
+                System.arraycopy(bytes, 0, body, contentStart, bytes.length);
+                bodyLength = contentStart + bytes.length;
+                body[bodyLength] = (byte) 0x00;
+                bodyLength += 1;
+            }
+            if (bodyLength == 0) {
+                return new byte[0];
+            }
+
+            int countLength = bodyLength + 6;
+            byte[] buffer = new byte[bodyLength + 8];
+            buffer[0] = (byte) 0xBB;
+            buffer[1] = (byte) 0x10;
+            byte[] countBytes = LegacyProtocolSupport.intToBytesBig(countLength);
+            buffer[2] = countBytes[2];
+            buffer[3] = countBytes[3];
+            buffer[4] = (byte) 0x04;
+            System.arraycopy(body, 0, buffer, 5, bodyLength);
+
+            int checksum = LegacyProtocolSupport.sumCheckInt(buffer, 1, bodyLength + 4);
+            byte[] checksumBytes = LegacyProtocolSupport.longToBytesLittle(checksum);
+            buffer[bodyLength + 5] = checksumBytes[0];
+            buffer[bodyLength + 6] = checksumBytes[1];
+            buffer[bodyLength + 7] = (byte) 0x55;
+            return buffer;
+        } catch (Exception ignore) {
+            return new byte[0];
+        }
+    }
+
     private String buildStationText(BusLineSnapshot snapshot, DisplayLanguage language) {
         if (snapshot.getStationType() == 0) {
             return language == DisplayLanguage.ENGLISH

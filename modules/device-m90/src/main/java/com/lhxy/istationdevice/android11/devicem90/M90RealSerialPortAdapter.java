@@ -27,8 +27,6 @@ import java.util.concurrent.TimeUnit;
  */
 public final class M90RealSerialPortAdapter implements SerialPortAdapter {
     private static final String TAG = "M90RealSerial";
-    private static final long RX_LOG_INTERVAL_MS = 10_000L;
-    private static final int INITIAL_RX_LOG_LIMIT = 3;
 
     private final Map<String, SerialSession> sessions = new ConcurrentHashMap<>();
     private final Map<String, SerialReceiveListener> listeners = new ConcurrentHashMap<>();
@@ -198,7 +196,6 @@ public final class M90RealSerialPortAdapter implements SerialPortAdapter {
         private volatile int baudRate;
         private volatile Thread readerThread;
         private long receiveCount;
-        private long lastReceiveLogTimeMs;
 
         private boolean isOpen() {
             return randomAccessFile != null;
@@ -230,19 +227,18 @@ public final class M90RealSerialPortAdapter implements SerialPortAdapter {
 
                         byte[] payload = new byte[length];
                         System.arraycopy(buffer, 0, payload, 0, length);
-                        if (shouldLogReceive()) {
-                            AppLogCenter.log(
-                                    LogCategory.PROTOCOL_RX,
-                                    LogLevel.DEBUG,
-                                    TAG,
-                                    "real recv sample on " + currentPortPath
-                                            + " @" + baudRate
-                                            + " packet=" + receiveCount
-                                            + " bytes=" + payload.length
-                                            + ": " + Hexs.toHex(payload),
-                                    readTraceId
-                            );
-                        }
+                        receiveCount++;
+                        AppLogCenter.log(
+                            LogCategory.PROTOCOL_RX,
+                            LogLevel.DEBUG,
+                            TAG,
+                            "real recv on " + currentPortPath
+                                + " @" + baudRate
+                                + " packet=" + receiveCount
+                                + " bytes=" + payload.length
+                                + ": " + Hexs.toHex(payload),
+                            readTraceId
+                        );
                         SerialReceiveListener listener = listeners.get(currentPortPath);
                         if (listener != null) {
                             listener.onReceive(currentPortPath, payload.clone());
@@ -261,16 +257,6 @@ public final class M90RealSerialPortAdapter implements SerialPortAdapter {
             thread.setDaemon(true);
             readerThread = thread;
             thread.start();
-        }
-
-        private boolean shouldLogReceive() {
-            receiveCount++;
-            long now = System.currentTimeMillis();
-            if (receiveCount <= INITIAL_RX_LOG_LIMIT || now - lastReceiveLogTimeMs >= RX_LOG_INTERVAL_MS) {
-                lastReceiveLogTimeMs = now;
-                return true;
-            }
-            return false;
         }
 
         private void closeQuietly() {
@@ -297,7 +283,6 @@ public final class M90RealSerialPortAdapter implements SerialPortAdapter {
             }
             readerThread = null;
             receiveCount = 0;
-            lastReceiveLogTimeMs = 0;
             randomAccessFile = null;
             inputStream = null;
             outputStream = null;

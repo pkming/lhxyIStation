@@ -3,6 +3,7 @@ package com.lhxy.istationdevice.android11.domain.debug;
 import android.Manifest;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.location.LocationManager;
 
 import com.lhxy.istationdevice.android11.domain.config.ShellConfig;
 import com.lhxy.istationdevice.android11.domain.config.ShellConfigLoader;
@@ -124,6 +125,58 @@ public final class TerminalSelfCheckUseCase {
             builder.append(inputFile.exists() ? " [存在]" : " [不存在]");
         }
         builder.append("\n- readCommand -> ").append(emptyAsDash(shellConfig.getRfidConfig().getReadCommand()));
+        builder.append("\n- readCommand -> ").append(emptyAsDash(shellConfig.getRfidConfig().getReadCommand()));
+        builder.append("\n- i2cDevicePath -> ").append(emptyAsDash(shellConfig.getRfidConfig().getI2cDevicePath()));
+        if (!shellConfig.getRfidConfig().getI2cDevicePath().trim().isEmpty()) {
+            File i2cFile = new File(shellConfig.getRfidConfig().getI2cDevicePath().trim());
+            builder.append(i2cFile.exists() ? " [存在]" : " [不存在]");
+        }
+        builder.append("\n- i2cAddress -> ").append(emptyAsDash(shellConfig.getRfidConfig().getI2cAddress()));
+
+        builder.append("\n\nLocationManager 检查:");
+        builder.append("\n- mode -> ").append(shellConfig.getLocationConfig().getMode().toConfigValue());
+        builder.append("\n- enabled -> ").append(shellConfig.getLocationConfig().isEnabled());
+        builder.append("\n- provider -> ").append(shellConfig.getLocationConfig().getProvider());
+        builder.append("\n- ACCESS_FINE_LOCATION 权限 -> ")
+                .append(context == null ? "无法检查" : (context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ? "已授权" : "未授权"));
+        LocationManager locationManager = context == null ? null : (LocationManager) context.getSystemService(Context.LOCATION_SERVICE);
+        if (locationManager == null) {
+            builder.append("\n- provider 可用性 -> 无法检查");
+        } else {
+            try {
+                builder.append("\n- provider 可用性 -> ").append(locationManager.isProviderEnabled(shellConfig.getLocationConfig().getProvider()) ? "已开启" : "未开启");
+            } catch (Exception e) {
+                builder.append("\n- provider 可用性 -> 检查失败: ").append(e.getMessage());
+            }
+        }
+
+        builder.append("\n\nCAN 检查:");
+        builder.append("\n- CAN mode -> ").append(shellConfig.getCanConfig().getMode().toConfigValue());
+        for (Map.Entry<String, ShellConfig.CanChannel> entry : shellConfig.getCanConfig().getChannels().entrySet()) {
+            ShellConfig.CanChannel channel = entry.getValue();
+            builder.append("\n- ").append(entry.getKey())
+                    .append(" -> ").append(channel.getInterfaceName())
+                    .append(" / devicePath=").append(emptyAsDash(channel.getDevicePath()))
+                    .append(" / readCommand=").append(emptyAsDash(channel.getReadCommand()))
+                    .append(" / writeCommand=").append(emptyAsDash(channel.getWriteCommand()));
+            if (!channel.getDevicePath().trim().isEmpty()) {
+                File canFile = new File(channel.getDevicePath().trim());
+                builder.append(canFile.exists() ? " [节点存在]" : " [节点不存在]");
+            }
+        }
+
+        builder.append("\n\n键盘串口检查:");
+        builder.append("\n- Keyboard mode -> ").append(shellConfig.getKeyboardConfig().getMode().toConfigValue());
+        builder.append("\n- serialKey -> ").append(emptyAsDash(shellConfig.getKeyboardConfig().getSerialKey()));
+        ShellConfig.SerialChannel keyboardSerial = shellConfig.getSerialChannels().get(shellConfig.getKeyboardConfig().getSerialKey());
+        if (keyboardSerial == null) {
+            builder.append(" [未配置]");
+        } else {
+            builder.append(" / ").append(normalizePortPath(keyboardSerial.getPortName()))
+                    .append(" @").append(keyboardSerial.getBaudRate())
+                    .append(" [").append(keyboardSerial.getMode().toConfigValue()).append("]");
+        }
+        builder.append("\n- protocol -> ").append(emptyAsDash(shellConfig.getKeyboardConfig().getProtocol()));
 
         builder.append("\n\nSystemOps 检查:");
         builder.append("\n- mode -> ").append(shellConfig.getSystemConfig().getMode().toConfigValue());

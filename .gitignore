@@ -6,6 +6,7 @@ captures/
 build/
 */build/
 config/terminal-config.local.json
+config/oss-config.local.properties
 .DS_Store
 .venv/
 .source/

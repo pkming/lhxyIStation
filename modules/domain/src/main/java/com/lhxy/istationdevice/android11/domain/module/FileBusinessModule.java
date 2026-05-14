@@ -171,7 +171,7 @@ public final class FileBusinessModule extends AbstractTerminalBusinessModule {
         }
         try {
             ShellConfig shellConfig = requireShellConfig();
-            File exportFile = DebugBundleExporter.export(
+                DebugBundleExporter.ExportResult exportResult = DebugBundleExporter.exportDetailed(
                     context,
                     shellConfig,
                     gpsSerialMonitor,
@@ -179,9 +179,12 @@ public final class FileBusinessModule extends AbstractTerminalBusinessModule {
                     foundationStatusSupplier.get(),
                     moduleStatusSupplier.get()
             );
+                    File exportFile = exportResult.getFile();
             lastExportFilePath = exportFile.getAbsolutePath();
-            return success("已导出调试包", exportFile.getAbsolutePath());
+                    AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, "FileBusinessModule", "已导出调试包: " + exportResult.describeForUser(), traceId);
+                    return success("已导出调试包", exportResult.describeForUser());
         } catch (Exception e) {
+            AppLogCenter.log(LogCategory.ERROR, LogLevel.ERROR, "FileBusinessModule", "导出调试包失败: " + emptyAsDash(e.getMessage()), traceId);
             return failure("导出调试包失败", e);
         }
     }
@@ -192,10 +195,11 @@ public final class FileBusinessModule extends AbstractTerminalBusinessModule {
             return failureText("导出日志包失败", "当前没有可用上下文");
         }
         try {
-            File exportFile = DebugBundleExporter.exportLogs(context);
+            DebugBundleExporter.ExportResult exportResult = DebugBundleExporter.exportLogsDetailed(context);
+            File exportFile = exportResult.getFile();
             lastLogExportPath = exportFile.getAbsolutePath();
-            AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, "FileBusinessModule", "已导出日志包: " + lastLogExportPath, traceId);
-            return success("已导出日志包", lastLogExportPath);
+            AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, "FileBusinessModule", "已导出日志包: " + exportResult.describeForUser(), traceId);
+            return success("已导出日志包", exportResult.describeForUser());
         } catch (Exception e) {
             AppLogCenter.log(LogCategory.ERROR, LogLevel.ERROR, "FileBusinessModule", "导出日志包失败: " + emptyAsDash(e.getMessage()), traceId);
             return failure("导出日志包失败", e);

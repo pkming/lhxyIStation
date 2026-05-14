@@ -16,4 +16,14 @@ public interface RfidAdapter {
      * 读取一次卡号。
      */
     String readCard(String traceId);
+
+    /**
+     * 等待卡片离开感应区。
+     * <p>
+     * 默认实现直接返回，方便 stub/只读一次卡号的桥接先复用；
+     * 真机适配器可以按设备能力覆写成真实等待。
+     */
+    default boolean waitCardRemoved(String traceId, long timeoutMs, long pollIntervalMs) {
+        return true;
+    }
 }

@@ -84,6 +84,7 @@ public final class TerminalModuleHub {
         register(stationModule);
         register(signInModule);
         register(cameraModule);
+        register(new DeviceExpansionBusinessModule());
         register(new UpgradeBusinessModule(protocolReplayUseCase, socketClientAdapter, systemOps, jt808SocketMonitor));
         register(new FileBusinessModule(
                 exportDirSupplier,

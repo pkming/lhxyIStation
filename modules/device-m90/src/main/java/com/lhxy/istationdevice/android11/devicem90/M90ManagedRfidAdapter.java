@@ -33,6 +33,11 @@ public final class M90ManagedRfidAdapter implements RfidAdapter {
         return delegate().readCard(traceId);
     }
 
+    @Override
+    public boolean waitCardRemoved(String traceId, long timeoutMs, long pollIntervalMs) {
+        return delegate().waitCardRemoved(traceId, timeoutMs, pollIntervalMs);
+    }
+
     /**
      * 输出 RFID 当前状态摘要。
      */
@@ -40,7 +45,12 @@ public final class M90ManagedRfidAdapter implements RfidAdapter {
         String lastCardNo = rfidConfig.getMode() == DeviceMode.REAL ? realAdapter.getLastCardNo() : stubAdapter.getLastCardNo();
         return "RFID -> mode=" + rfidConfig.getMode().toConfigValue()
                 + " / available=" + delegate().isAvailable()
+                + " / i2c=" + emptyAsDash(rfidConfig.getI2cDevicePath()) + "@" + emptyAsDash(rfidConfig.getI2cAddress())
                 + " / lastCard=" + (lastCardNo == null || lastCardNo.trim().isEmpty() ? "-" : lastCardNo.trim());
+    }
+
+    private String emptyAsDash(String value) {
+        return value == null || value.trim().isEmpty() ? "-" : value.trim();
     }
 
     private RfidAdapter delegate() {

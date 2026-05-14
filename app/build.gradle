@@ -7,10 +7,13 @@ def signingPropertiesFile = new File(runtimeConfigDir, "signing.local.properties
 def generatedConfigAssetsDir = new File(buildDir, "generated/shell-config-assets")
 def templateConfigFile = new File(runtimeConfigDir, "terminal-config.template.json")
 def localConfigFile = new File(runtimeConfigDir, "terminal-config.local.json")
+def ossTemplateConfigFile = new File(runtimeConfigDir, "oss-config.template.properties")
+def ossLocalConfigFile = new File(runtimeConfigDir, "oss-config.local.properties")
 def bundledStationResourceFile = new File(rootProject.projectDir, "docs/SourceFile.zip")
 def sourceStationResourceDir = new File(rootProject.projectDir, "source/SourceFile")
 def generatedStationArchiveDir = new File(buildDir, "generated/station-resource-archive")
 def generatedStationArchiveFile = new File(generatedStationArchiveDir, "SourceFile.zip")
+def releaseTimestamp = new Date().format("yyyyMMddHHmmss")
 def signingProperties = new Properties()
 if (signingPropertiesFile.exists()) {
     signingPropertiesFile.withInputStream { stream ->
@@ -66,12 +69,27 @@ android {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
+
+    applicationVariants.configureEach { variant ->
+        if (variant.buildType.name == "release") {
+            variant.outputs.configureEach { output ->
+                output.outputFileName = "APP${releaseTimestamp}.apk"
+            }
+        }
+    }
 }
 
 tasks.register("prepareShellRuntimeConfig", Copy) {
     from(localConfigFile.exists() ? localConfigFile : templateConfigFile)
     into(generatedConfigAssetsDir)
     rename { "terminal-config.json" }
+}
+
+tasks.register("prepareOssRuntimeConfig", Copy) {
+    onlyIf { ossLocalConfigFile.exists() || ossTemplateConfigFile.exists() }
+    from(ossLocalConfigFile.exists() ? ossLocalConfigFile : ossTemplateConfigFile)
+    into(generatedConfigAssetsDir)
+    rename { "oss-config.properties" }
 }
 
 tasks.register("prepareBundledStationResources") {
@@ -132,6 +150,7 @@ tasks.register("prepareBundledStationResources") {
 
 tasks.named("preBuild").configure {
     dependsOn("prepareShellRuntimeConfig")
+    dependsOn("prepareOssRuntimeConfig")
     dependsOn("prepareBundledStationResources")
 }
 

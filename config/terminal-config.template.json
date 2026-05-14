@@ -2,6 +2,18 @@
   "deviceProfile": "M90-STUB",
   "configVersion": "2026.04.13",
   "serial": {
+    "keyboard": {
+      "portName": "ttyS0",
+      "baudRate": 9600,
+      "mode": "stub",
+      "note": "Keyboard / ttyS0"
+    },
+    "debug": {
+      "portName": "ttyS2",
+      "baudRate": 115200,
+      "mode": "stub",
+      "note": "debug / ttyS2"
+    },
     "rs232_1": {
       "portName": "ttyS3",
       "baudRate": 9600,
@@ -51,43 +63,79 @@
   },
   "gpio": {
     "mode": "stub",
-    "note": "GPIO 先走配置驱动，切真机时补 valuePath",
+    "note": "GPIO 按 M90 /proc/rp_gpio 节点配置；切真机时把 mode 改为 real",
     "pins": {
       "inner_audio": {
         "pinId": "GPIO1_B1",
-        "valuePath": "",
+        "valuePath": "/proc/rp_gpio/gpio1b1",
         "defaultValue": 0,
         "note": "内音"
       },
       "outer_audio": {
         "pinId": "GPIO1_B2",
-        "valuePath": "",
+        "valuePath": "/proc/rp_gpio/gpio1b2",
         "defaultValue": 0,
         "note": "外音"
       },
       "inner_speaker": {
         "pinId": "GPIO0_D6",
-        "valuePath": "",
+        "valuePath": "/proc/rp_gpio/gpio0d6",
         "defaultValue": 0,
         "note": "内喇叭"
       },
       "io1": {
         "pinId": "GPIO1_D0",
-        "valuePath": "",
+        "valuePath": "/proc/rp_gpio/gpio1d0",
         "defaultValue": 1,
         "note": "IO1 / 倒车"
       },
       "io2": {
         "pinId": "GPIO1_D1",
-        "valuePath": "",
+        "valuePath": "/proc/rp_gpio/gpio1d1",
         "defaultValue": 1,
         "note": "IO2 / 中门开"
       },
+      "io3": {
+        "pinId": "GPIO1_D2",
+        "valuePath": "/proc/rp_gpio/gpio1d2",
+        "defaultValue": 1,
+        "note": "IO3"
+      },
+      "io4": {
+        "pinId": "GPIO1_D3",
+        "valuePath": "/proc/rp_gpio/gpio1d3",
+        "defaultValue": 1,
+        "note": "IO4 / 默认高"
+      },
       "io5": {
         "pinId": "GPIO1_D4",
-        "valuePath": "",
+        "valuePath": "/proc/rp_gpio/gpio1d4",
         "defaultValue": 0,
         "note": "IO5"
+      },
+      "shouting_inner": {
+        "pinId": "GPIO3_A3",
+        "valuePath": "/proc/rp_gpio/gpio3a3",
+        "defaultValue": 0,
+        "note": "喊话器内"
+      },
+      "shouting_outer": {
+        "pinId": "GPIO3_A4",
+        "valuePath": "/proc/rp_gpio/gpio3a4",
+        "defaultValue": 0,
+        "note": "喊话器外"
+      },
+      "headphone_detect_power": {
+        "pinId": "GPIO3_A6",
+        "valuePath": "/proc/rp_gpio/gpio3a6",
+        "defaultValue": 1,
+        "note": "耳机检测控制 / 默认高"
+      },
+      "headphone_detect": {
+        "pinId": "GPIO1_B0",
+        "valuePath": "/proc/rp_gpio/gpio1b0",
+        "defaultValue": 0,
+        "note": "耳机检测 IO"
       }
     }
   },
@@ -118,7 +166,43 @@
     "mockCardNo": "RFID-DEMO-001",
     "inputFilePath": "",
     "readCommand": "",
-    "note": "真机模式下可以配文件或命令"
+    "i2cDevicePath": "/dev/i2c-3",
+    "i2cAddress": "0x00",
+    "note": "真机模式下可以配文件、命令或 I2C-3；I2C 地址待厂商确认"
+  },
+  "location": {
+    "mode": "stub",
+    "enabled": false,
+    "provider": "gps",
+    "minTimeMs": 1000,
+    "minDistanceMeters": 0,
+    "note": "Android LocationManager 接入面；当前 GPS 主链仍走 ttyS5 NMEA"
+  },
+  "can": {
+    "mode": "stub",
+    "note": "CAN 接入面；真机可按 JNI、SocketCAN 或命令桥接填充",
+    "channels": {
+      "can0": {
+        "interfaceName": "can0",
+        "devicePath": "",
+        "readCommand": "",
+        "writeCommand": "",
+        "note": "CAN0"
+      },
+      "can1": {
+        "interfaceName": "can1",
+        "devicePath": "",
+        "readCommand": "",
+        "writeCommand": "",
+        "note": "CAN1"
+      }
+    }
+  },
+  "keyboard": {
+    "mode": "stub",
+    "serialKey": "keyboard",
+    "protocol": "serial",
+    "note": "ttyS0 按键串口接入面；协议帧待真机确认"
   },
   "systemOps": {
     "mode": "stub",
@@ -170,8 +254,8 @@
       "shoutingVolume": 50,
       "dispatchVolume": 7,
       "vehicleNumber": "",
-      "shoutingPrimaryGpioKey": "",
-      "shoutingSecondaryGpioKey": ""
+      "shoutingPrimaryGpioKey": "shouting_outer",
+      "shoutingSecondaryGpioKey": "shouting_inner"
     },
     "wireless": {
       "systemEntryEnabled": true

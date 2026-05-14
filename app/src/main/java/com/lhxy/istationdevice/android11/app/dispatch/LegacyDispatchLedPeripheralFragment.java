@@ -17,12 +17,17 @@ import androidx.fragment.app.Fragment;
 
 import com.lhxy.istationdevice.android11.app.R;
 import com.lhxy.istationdevice.android11.core.LegacyInfoMessageRepository;
+import com.lhxy.istationdevice.android11.domain.config.ShellConfig;
+import com.lhxy.istationdevice.android11.domain.station.LegacyStationDisplayUseCase;
+import com.lhxy.istationdevice.android11.runtime.ShellRuntime;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public final class LegacyDispatchLedPeripheralFragment extends Fragment {
     private final List<MaintenanceItem> items = new ArrayList<>();
+    private final LegacyStationDisplayUseCase stationDisplayUseCase = new LegacyStationDisplayUseCase(ShellRuntime.get().getSerialPortAdapter());
     private int selectedIndex = -1;
     private MaintenanceAdapter adapter;
 
@@ -76,8 +81,18 @@ public final class LegacyDispatchLedPeripheralFragment extends Fragment {
             return;
         }
         MaintenanceItem selected = items.get(selectedIndex);
+        ShellConfig shellConfig = ShellRuntime.get().getActiveConfig();
+        boolean sent = shellConfig != null && stationDisplayUseCase.sendLedAdvertisement(
+                shellConfig,
+                Collections.singletonList(selected.content),
+                "dispatch-led-peripheral-" + System.currentTimeMillis()
+        );
         if (getContext() != null) {
             LegacyInfoMessageRepository.append(requireContext(), selected.content);
+        }
+        if (!sent) {
+            toast(getString(R.string.dispatch_center_led_peripheral_send_failed));
+            return;
         }
         toast(getString(R.string.dispatch_center_led_peripheral_sent, selected.content));
     }

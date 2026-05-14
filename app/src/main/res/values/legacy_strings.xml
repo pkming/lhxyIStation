@@ -353,6 +353,7 @@ OK：%2$d 项  警告：%3$d 项  失败：%4$d 项
     <string name="dispatch_center_intercom">请求对讲</string>
     <string name="dispatch_center_led_peripheral_pick_first">请勾选需要发送的信息</string>
     <string name="dispatch_center_led_peripheral_sent">已发送: %1$s</string>
+    <string name="dispatch_center_led_peripheral_send_failed">当前 RS485 未配置通达/TD 广告发送链</string>
     <string name="broadcast_test">播放</string>
 
     <string name="wireless_setup">点击进入系统页面设置</string>
@@ -455,6 +456,7 @@ OK：%2$d 项  警告：%3$d 项  失败：%4$d 项
     <string-array name="arrayprotocoltype">
         <item>无</item>
         <item>通达</item>
+        <item>TD</item>
         <item>恒舞</item>
         <item>武汉乐的</item>
         <item>海梁</item>

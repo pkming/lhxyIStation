@@ -88,8 +88,48 @@ public final class ShellConfigValidator {
         if (rfidConfig.getMode() == com.lhxy.istationdevice.android11.deviceapi.DeviceMode.REAL
                 && isEmpty(rfidConfig.getInputFilePath())
                 && isEmpty(rfidConfig.getReadCommand())
+                && isEmpty(rfidConfig.getI2cDevicePath())
                 && isEmpty(rfidConfig.getMockCardNo())) {
-            issues.add("RFID 在 real 模式下没有可用的文件、命令或兜底卡号");
+            issues.add("RFID 在 real 模式下没有可用的文件、命令、I2C 节点或兜底卡号");
+        }
+
+        ShellConfig.LocationConfig locationConfig = shellConfig.getLocationConfig();
+        if (locationConfig.getMode() == com.lhxy.istationdevice.android11.deviceapi.DeviceMode.REAL && locationConfig.isEnabled()) {
+            if (isEmpty(locationConfig.getProvider())) {
+                issues.add("LocationManager 已开启但 provider 为空");
+            }
+            if (locationConfig.getMinTimeMs() < 0) {
+                issues.add("LocationManager minTimeMs 非法");
+            }
+            if (locationConfig.getMinDistanceMeters() < 0) {
+                issues.add("LocationManager minDistanceMeters 非法");
+            }
+        }
+
+        ShellConfig.CanConfig canConfig = shellConfig.getCanConfig();
+        if (canConfig.getMode() == com.lhxy.istationdevice.android11.deviceapi.DeviceMode.REAL && canConfig.getChannels().isEmpty()) {
+            issues.add("CAN 在 real 模式下没有配置通道");
+        }
+        for (Map.Entry<String, ShellConfig.CanChannel> entry : canConfig.getChannels().entrySet()) {
+            ShellConfig.CanChannel channel = entry.getValue();
+            if (isEmpty(channel.getInterfaceName())) {
+                issues.add("CAN " + entry.getKey() + " 没有配置 interfaceName");
+            }
+            if (canConfig.getMode() == com.lhxy.istationdevice.android11.deviceapi.DeviceMode.REAL
+                    && isEmpty(channel.getDevicePath())
+                    && isEmpty(channel.getReadCommand())
+                    && isEmpty(channel.getWriteCommand())) {
+                issues.add("CAN " + entry.getKey() + " 在 real 模式下没有设备节点或命令桥接");
+            }
+        }
+
+        ShellConfig.KeyboardConfig keyboardConfig = shellConfig.getKeyboardConfig();
+        if (keyboardConfig.getMode() == com.lhxy.istationdevice.android11.deviceapi.DeviceMode.REAL) {
+            if (isEmpty(keyboardConfig.getSerialKey())) {
+                issues.add("Keyboard 在 real 模式下没有配置 serialKey");
+            } else if (!shellConfig.getSerialChannels().containsKey(keyboardConfig.getSerialKey())) {
+                issues.add("Keyboard serialKey 对不上当前串口配置");
+            }
         }
 
         ShellConfig.SystemConfig systemConfig = shellConfig.getSystemConfig();

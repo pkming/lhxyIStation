@@ -9,6 +9,10 @@
 - GPIO 路径
 - Camera 通道映射
 - RFID 文件 / 命令桥接
+- RFID I2C-3 桥接参数
+- LocationManager 开关与 provider
+- CAN can0/can1 桥接参数
+- ttyS0 Keyboard 串口入口
 - system ops 命令模板
 - 调试页默认走哪条链路
 
@@ -33,8 +37,22 @@
 - 本地覆盖文件只放本机，不进仓库。
 - 运行期覆盖文件由应用启动时自动生成，后面联调优先改它。
 - socket 需要走真连接时，把对应配置的 `mode` 改成 `real`。
-- GPIO / Camera / RFID / SystemOps 也都按同样规则切 `mode=real`。
+- GPIO / Camera / RFID / SystemOps 也都按同样规则切 `mode=real`。GPIO 默认路径已按 M90 旧实现落到 `/proc/rp_gpio/gpio...`，真机测试时重点确认节点是否存在和读写权限。
+- LocationManager / CAN / Keyboard 也进入配置模型；它们默认是 `stub`，真机参数确认后再切 `real`。
 - 需要改口位、host、port，先改这里，再改文档，不要直接改页面代码。
+
+## 扩展硬件接入口
+
+本轮已把 AL-M90 开发指南中还没落到配置层的能力补进模板和自检：
+
+- `serial.keyboard` -> `ttyS0`，承接按键串口协议入口。
+- `serial.debug` -> `ttyS2`，承接 debug 口位说明。
+- `gpio.io3/io4/io5`、`gpio.shouting_inner/shouting_outer`、`gpio.headphone_detect_power/headphone_detect`，承接 IO3/IO4/IO5、喊话器和耳机检测 GPIO；路径按 M90 的 `/proc/rp_gpio/gpio1d2/gpio1d3/gpio1d4/gpio3a3/gpio3a4/gpio3a6/gpio1b0` 预置。
+- `rfid.i2cDevicePath` / `rfid.i2cAddress`，承接 I2C-3 RFID 参数。真实读卡当前仍建议先配 `readCommand` 或文件桥接，厂商 SDK 到位后再替 `M90RealRfidAdapter`。
+- `location`，承接 Android `LocationManager` 标准定位入口；当前 GPS 业务主链仍走 `serial.gps=ttyS5`。
+- `can.channels.can0/can1`，承接 CAN 通道参数；真实收发可后续按 JNI、SocketCAN 或命令桥接填充。
+
+这些能力会出现在终端自检和 `device_expansion` 模块状态里。默认模板保持 `stub`，避免没有真机节点时启动报错。
 
 ## 首页视频模式配置
 
@@ -60,7 +78,7 @@
 首页右侧司机/提示区当前还依赖下面这些配置和共享状态：
 
 - `basicSetup.other.vehicleNumber`：首页车号 `tvCarNumber`
-- `basicSetup.other.shoutingPrimaryGpioKey` + `basicSetup.other.shoutingSecondaryGpioKey`：首页喊话状态 GPIO 输入
+- `basicSetup.other.shoutingPrimaryGpioKey` + `basicSetup.other.shoutingSecondaryGpioKey`：首页喊话状态 GPIO 输入；默认按 M90 旧实现使用 `shouting_outer` + `shouting_inner`，也就是 GPIO3_A4 + GPIO3_A3。
 
 首页喊话状态映射约定如下：
 
@@ -69,10 +87,7 @@
 - 主 GPIO=0，副 GPIO=0：SPK_IN_OUT...
 - 主 GPIO=1，副 GPIO=1：空白
 
-如果首页喊话 GPIO 还没确认：
-
-1. 先保持 `shoutingPrimaryGpioKey` / `shoutingSecondaryGpioKey` 为空。
-2. 首页会回退显示语音通话页连接态写入的 `IP PHONE...` 状态。
+首页只有在 `gpio.mode=real` 时才读取喊话 GPIO；stub 模式会回退显示语音通话页连接态写入的 `IP PHONE...` 状态，避免默认值误显示喊话状态。
 
 首页提示区 `tvInfoTips` 当前走共享页面状态：
 

@@ -26,6 +26,9 @@ public final class ShellConfig {
     private final CameraConfig cameraConfig;
     private final RfidConfig rfidConfig;
     private final SystemConfig systemConfig;
+    private final LocationConfig locationConfig;
+    private final CanConfig canConfig;
+    private final KeyboardConfig keyboardConfig;
     private final DebugReplay debugReplay;
     private final BasicSetupConfig basicSetupConfig;
 
@@ -51,6 +54,9 @@ public final class ShellConfig {
                 cameraConfig,
                 rfidConfig,
                 systemConfig,
+                LocationConfig.stub(),
+                CanConfig.empty(),
+                KeyboardConfig.stub(),
                 debugReplay,
                 BasicSetupConfig.defaults()
             );
@@ -69,6 +75,40 @@ public final class ShellConfig {
                 DebugReplay debugReplay,
                 BasicSetupConfig basicSetupConfig
             ) {
+            this(
+                deviceProfile,
+                configVersion,
+                configSource,
+                serialChannels,
+                socketChannels,
+                gpioConfig,
+                cameraConfig,
+                rfidConfig,
+                systemConfig,
+                LocationConfig.stub(),
+                CanConfig.empty(),
+                KeyboardConfig.stub(),
+                debugReplay,
+                basicSetupConfig
+            );
+            }
+
+            public ShellConfig(
+                String deviceProfile,
+                String configVersion,
+                String configSource,
+                Map<String, SerialChannel> serialChannels,
+                Map<String, SocketChannel> socketChannels,
+                GpioConfig gpioConfig,
+                CameraConfig cameraConfig,
+                RfidConfig rfidConfig,
+                SystemConfig systemConfig,
+                LocationConfig locationConfig,
+                CanConfig canConfig,
+                KeyboardConfig keyboardConfig,
+                DebugReplay debugReplay,
+                BasicSetupConfig basicSetupConfig
+            ) {
         this.deviceProfile = deviceProfile;
         this.configVersion = configVersion;
         this.configSource = configSource;
@@ -78,6 +118,9 @@ public final class ShellConfig {
         this.cameraConfig = cameraConfig == null ? CameraConfig.empty() : cameraConfig;
         this.rfidConfig = rfidConfig == null ? RfidConfig.stub() : rfidConfig;
         this.systemConfig = systemConfig == null ? SystemConfig.stub() : systemConfig;
+        this.locationConfig = locationConfig == null ? LocationConfig.stub() : locationConfig;
+        this.canConfig = canConfig == null ? CanConfig.empty() : canConfig;
+        this.keyboardConfig = keyboardConfig == null ? KeyboardConfig.stub() : keyboardConfig;
         this.debugReplay = debugReplay == null ? DebugReplay.defaultReplay() : debugReplay;
         this.basicSetupConfig = basicSetupConfig == null ? BasicSetupConfig.defaults() : basicSetupConfig;
     }
@@ -143,6 +186,27 @@ public final class ShellConfig {
      */
     public SystemConfig getSystemConfig() {
         return systemConfig;
+    }
+
+    /**
+     * 返回 Android 标准定位配置。
+     */
+    public LocationConfig getLocationConfig() {
+        return locationConfig;
+    }
+
+    /**
+     * 返回 CAN 配置。
+     */
+    public CanConfig getCanConfig() {
+        return canConfig;
+    }
+
+    /**
+     * 返回键盘串口配置。
+     */
+    public KeyboardConfig getKeyboardConfig() {
+        return keyboardConfig;
     }
 
     /**
@@ -225,12 +289,29 @@ public final class ShellConfig {
 
         builder.append("\nRFID: [").append(rfidConfig.getMode().toConfigValue()).append("]")
                 .append(" / 命令=").append(emptyAsDash(rfidConfig.getReadCommand()))
-                .append(" / 文件=").append(emptyAsDash(rfidConfig.getInputFilePath()));
+            .append(" / 文件=").append(emptyAsDash(rfidConfig.getInputFilePath()))
+            .append(" / I2C=").append(emptyAsDash(rfidConfig.getI2cDevicePath()))
+            .append("@").append(emptyAsDash(rfidConfig.getI2cAddress()));
 
         builder.append("\nSystemOps: [").append(systemConfig.getMode().toConfigValue()).append("]")
                 .append(" / 静默安装=").append(systemConfig.isSupportSilentInstall())
                 .append(" / 重启=").append(systemConfig.isAllowReboot())
                 .append(" / 校时=").append(systemConfig.isAllowSetTime());
+
+        builder.append("\nLocation: [").append(locationConfig.getMode().toConfigValue()).append("]")
+            .append(" / enabled=").append(locationConfig.isEnabled())
+            .append(" / provider=").append(locationConfig.getProvider());
+
+        builder.append("\nCAN: [").append(canConfig.getMode().toConfigValue()).append("]");
+        for (Map.Entry<String, CanChannel> entry : canConfig.getChannels().entrySet()) {
+            builder.append("\n- ").append(entry.getKey())
+                .append(" -> ").append(entry.getValue().getInterfaceName())
+                .append(entry.getValue().getDevicePath().isEmpty() ? "" : " / " + entry.getValue().getDevicePath());
+        }
+
+        builder.append("\nKeyboard: [").append(keyboardConfig.getMode().toConfigValue()).append("]")
+            .append(" / serial=").append(emptyAsDash(keyboardConfig.getSerialKey()))
+            .append(" / protocol=").append(emptyAsDash(keyboardConfig.getProtocol()));
 
         builder.append("\n回放入口:")
                 .append("\n- 屏显走 ").append(debugReplay.getDisplaySerialKey())
@@ -520,13 +601,29 @@ public final class ShellConfig {
         private final String mockCardNo;
         private final String inputFilePath;
         private final String readCommand;
+        private final String i2cDevicePath;
+        private final String i2cAddress;
         private final String note;
 
         public RfidConfig(DeviceMode mode, String mockCardNo, String inputFilePath, String readCommand, String note) {
+            this(mode, mockCardNo, inputFilePath, readCommand, "", "0x00", note);
+        }
+
+        public RfidConfig(
+                DeviceMode mode,
+                String mockCardNo,
+                String inputFilePath,
+                String readCommand,
+                String i2cDevicePath,
+                String i2cAddress,
+                String note
+        ) {
             this.mode = mode == null ? DeviceMode.STUB : mode;
             this.mockCardNo = mockCardNo == null ? "" : mockCardNo;
             this.inputFilePath = inputFilePath == null ? "" : inputFilePath;
             this.readCommand = readCommand == null ? "" : readCommand;
+            this.i2cDevicePath = i2cDevicePath == null ? "" : i2cDevicePath;
+            this.i2cAddress = i2cAddress == null || i2cAddress.trim().isEmpty() ? "0x00" : i2cAddress.trim();
             this.note = note == null ? "" : note;
         }
 
@@ -550,9 +647,126 @@ public final class ShellConfig {
             return readCommand;
         }
 
+        public String getI2cDevicePath() {
+            return i2cDevicePath;
+        }
+
+        public String getI2cAddress() {
+            return i2cAddress;
+        }
+
         public String getNote() {
             return note;
         }
+    }
+
+    /**
+     * Android 标准定位配置。
+     */
+    public static final class LocationConfig {
+        private final DeviceMode mode;
+        private final boolean enabled;
+        private final String provider;
+        private final long minTimeMs;
+        private final float minDistanceMeters;
+        private final String note;
+
+        public LocationConfig(DeviceMode mode, boolean enabled, String provider, long minTimeMs, float minDistanceMeters, String note) {
+            this.mode = mode == null ? DeviceMode.STUB : mode;
+            this.enabled = enabled;
+            this.provider = provider == null || provider.trim().isEmpty() ? "gps" : provider.trim();
+            this.minTimeMs = Math.max(0L, minTimeMs);
+            this.minDistanceMeters = Math.max(0F, minDistanceMeters);
+            this.note = note == null ? "" : note;
+        }
+
+        public static LocationConfig stub() {
+            return new LocationConfig(DeviceMode.STUB, false, "gps", 1000L, 0F, "Android LocationManager 默认关闭");
+        }
+
+        public DeviceMode getMode() { return mode; }
+        public boolean isEnabled() { return enabled; }
+        public String getProvider() { return provider; }
+        public long getMinTimeMs() { return minTimeMs; }
+        public float getMinDistanceMeters() { return minDistanceMeters; }
+        public String getNote() { return note; }
+    }
+
+    /**
+     * CAN 总配置。
+     */
+    public static final class CanConfig {
+        private final DeviceMode mode;
+        private final Map<String, CanChannel> channels;
+        private final String note;
+
+        public CanConfig(DeviceMode mode, Map<String, CanChannel> channels, String note) {
+            this.mode = mode == null ? DeviceMode.STUB : mode;
+            this.channels = Collections.unmodifiableMap(new LinkedHashMap<>(channels));
+            this.note = note == null ? "" : note;
+        }
+
+        public static CanConfig empty() {
+            return new CanConfig(DeviceMode.STUB, new LinkedHashMap<>(), "CAN 默认走 stub");
+        }
+
+        public DeviceMode getMode() { return mode; }
+        public Map<String, CanChannel> getChannels() { return channels; }
+        public String getNote() { return note; }
+    }
+
+    /**
+     * 单个 CAN 通道。
+     */
+    public static final class CanChannel {
+        private final String key;
+        private final String interfaceName;
+        private final String devicePath;
+        private final String readCommand;
+        private final String writeCommand;
+        private final String note;
+
+        public CanChannel(String key, String interfaceName, String devicePath, String readCommand, String writeCommand, String note) {
+            this.key = key;
+            this.interfaceName = interfaceName == null ? "" : interfaceName;
+            this.devicePath = devicePath == null ? "" : devicePath;
+            this.readCommand = readCommand == null ? "" : readCommand;
+            this.writeCommand = writeCommand == null ? "" : writeCommand;
+            this.note = note == null ? "" : note;
+        }
+
+        public String getKey() { return key; }
+        public String getInterfaceName() { return interfaceName; }
+        public String getDevicePath() { return devicePath; }
+        public String getReadCommand() { return readCommand; }
+        public String getWriteCommand() { return writeCommand; }
+        public String getNote() { return note; }
+    }
+
+    /**
+     * ttyS0 键盘协议配置。
+     */
+    public static final class KeyboardConfig {
+        private final DeviceMode mode;
+        private final String serialKey;
+        private final String protocol;
+        private final String note;
+
+        public KeyboardConfig(DeviceMode mode, String serialKey, String protocol, String note) {
+            this.mode = mode == null ? DeviceMode.STUB : mode;
+            this.serialKey = serialKey == null ? "" : serialKey.trim();
+            this.protocol = protocol == null || protocol.trim().isEmpty() ? "serial" : protocol.trim();
+            this.note = note == null ? "" : note;
+        }
+
+        public static KeyboardConfig stub() {
+            return new KeyboardConfig(DeviceMode.STUB, "keyboard", "serial", "ttyS0 Keyboard 默认关闭");
+        }
+
+        public DeviceMode getMode() { return mode; }
+        public String getSerialKey() { return serialKey; }
+        public String getProtocol() { return protocol; }
+        public String getNote() { return note; }
     }
 
     /**
@@ -1045,7 +1259,7 @@ public final class ShellConfig {
         }
 
         public static OtherSettings defaults() {
-            return new OtherSettings(50, 7, "", "", "");
+            return new OtherSettings(50, 7, "", "shouting_outer", "shouting_inner");
         }
 
         public int getShoutingVolume() { return shoutingVolume; }

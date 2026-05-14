@@ -19,7 +19,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 public final class AppLogCenter {
     private static final int MAX_ENTRIES = 5000;
-    private static final int MAX_SESSION_FILES = 20;
+    private static final int MAX_SESSION_FILES = 50;
     private static final List<AppLogEntry> ENTRIES = new CopyOnWriteArrayList<>();
     private static final Object FILE_LOCK = new Object();
     private static File sessionLogDir;

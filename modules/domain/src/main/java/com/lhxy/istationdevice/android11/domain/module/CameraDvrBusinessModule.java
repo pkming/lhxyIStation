@@ -285,11 +285,11 @@ public final class CameraDvrBusinessModule extends AbstractTerminalBusinessModul
             lastGpioKey = primaryKey + "/" + secondaryKey;
             lastGpioValue = primary * 10 + secondary;
             if (primary == 1 && secondary == 0) {
-                lastAutoCameraKey = "reverse";
+                lastAutoCameraKey = "middle_door";
                 return lastAutoCameraKey;
             }
             if (primary == 0 && secondary == 1) {
-                lastAutoCameraKey = "middle_door";
+                lastAutoCameraKey = "reverse";
                 return lastAutoCameraKey;
             }
             if (primary == 1 && secondary == 1) {

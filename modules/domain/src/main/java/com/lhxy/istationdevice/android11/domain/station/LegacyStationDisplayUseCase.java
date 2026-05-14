@@ -17,6 +17,7 @@ import com.lhxy.istationdevice.android11.protocol.legacy.LhxyDisplayProtocol;
 import com.lhxy.istationdevice.android11.protocol.legacy.ProtocolBatchResult;
 import com.lhxy.istationdevice.android11.protocol.legacy.TongDaDisplayProtocol;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -45,20 +46,28 @@ public final class LegacyStationDisplayUseCase {
         if (shellConfig == null || route == null) {
             return;
         }
-        DisplayProtocolGenerator generator = selectGenerator(shellConfig, traceId);
-        if (generator == null) {
+        List<DisplayTarget> targets = resolveDisplayTargets(shellConfig, traceId);
+        if (targets.isEmpty()) {
             return;
         }
-        ShellConfig.SerialChannel displayChannel = ensureReady(shellConfig, traceId + "-display-open");
         DisplayLanguage language = resolveLanguage(shellConfig);
         BusLineSnapshot currentSnapshot = snapshotFactory.createCurrentSnapshot(route, stationState);
-        send(displayChannel, generator.createLineName(currentSnapshot, language), protocolName(shellConfig) + "_LINE_NAME", traceId + "-line");
-
         List<BusLineSnapshot> routeSnapshots = snapshotFactory.createRouteSnapshots(route, stationState);
-        if (!routeSnapshots.isEmpty()) {
+
+        for (DisplayTarget target : targets) {
+            DisplayProtocolGenerator generator = selectGenerator(target.protocolName, traceId);
+            if (generator == null) {
+                continue;
+            }
+            ShellConfig.SerialChannel displayChannel = ensureReady(shellConfig, target.serialKey, traceId + "-display-open-" + target.serialKey);
+            send(displayChannel, generator.createLineState(currentSnapshot), target.protocolName + "_LINE_STATE", traceId + "-line-state-" + target.serialKey);
+            send(displayChannel, generator.createLineName(currentSnapshot, language), target.protocolName + "_LINE_NAME", traceId + "-line-" + target.serialKey);
+            if (routeSnapshots.isEmpty()) {
+                continue;
+            }
             ProtocolBatchResult batchResult = generator.createSiteInfo(routeSnapshots);
             if (batchResult != null) {
-                send(displayChannel, batchResult.getPayload(), protocolName(shellConfig) + "_SITE_INFO", traceId + "-site-info");
+                send(displayChannel, batchResult.getPayload(), target.protocolName + "_SITE_INFO", traceId + "-site-info-" + target.serialKey);
             }
         }
     }
@@ -70,18 +79,21 @@ public final class LegacyStationDisplayUseCase {
         if (shellConfig == null || route == null || stationState == null) {
             return;
         }
-        DisplayProtocolGenerator generator = selectGenerator(shellConfig, traceId);
-        if (generator == null) {
+        List<DisplayTarget> targets = resolveDisplayTargets(shellConfig, traceId);
+        if (targets.isEmpty()) {
             return;
         }
         BusLineSnapshot snapshot = snapshotFactory.createCurrentSnapshot(route, stationState);
-        if (!shouldSendStation(protocolName(shellConfig), snapshot)) {
-            return;
-        }
-        ShellConfig.SerialChannel displayChannel = ensureReady(shellConfig, traceId + "-display-open");
         DisplayLanguage language = resolveLanguage(shellConfig);
-        send(displayChannel, generator.createNewspaperStation(snapshot, language), protocolName(shellConfig) + "_STATION", traceId + "-station");
-        send(displayChannel, generator.createInternalScreen(snapshot, language), protocolName(shellConfig) + "_INTERNAL", traceId + "-internal");
+        for (DisplayTarget target : targets) {
+            DisplayProtocolGenerator generator = selectGenerator(target.protocolName, traceId);
+            if (generator == null || !shouldSendStation(target.protocolName, snapshot)) {
+                continue;
+            }
+            ShellConfig.SerialChannel displayChannel = ensureReady(shellConfig, target.serialKey, traceId + "-display-open-" + target.serialKey);
+            send(displayChannel, generator.createNewspaperStation(snapshot, language), target.protocolName + "_STATION", traceId + "-station-" + target.serialKey);
+            send(displayChannel, generator.createInternalScreen(snapshot, language), target.protocolName + "_INTERNAL", traceId + "-internal-" + target.serialKey);
+        }
     }
 
     /**
@@ -93,25 +105,53 @@ public final class LegacyStationDisplayUseCase {
         if (shellConfig == null || serviceNo < 0 || serviceNo > 9) {
             return false;
         }
-        DisplayProtocolGenerator generator = selectGenerator(shellConfig, traceId);
-        if (generator == null) {
+        boolean sent = false;
+        for (DisplayTarget target : resolveDisplayTargets(shellConfig, traceId)) {
+            DisplayProtocolGenerator generator = selectGenerator(target.protocolName, traceId);
+            if (generator == null) {
+                continue;
+            }
+            byte[] payload = generator.createServiceTone((byte) (0x10 + serviceNo));
+            if (payload == null || payload.length == 0) {
+                continue;
+            }
+            ShellConfig.SerialChannel displayChannel = ensureReady(shellConfig, target.serialKey, traceId + "-display-open-" + target.serialKey);
+            send(displayChannel, payload, target.protocolName + "_SERVICE_TONE", traceId + "-service-tone-" + target.serialKey);
+            sent = true;
+        }
+        return sent;
+    }
+
+    /**
+     * 发送调度中心外设机务广告帧。
+     * <p>
+     * 当前仅对齐 M90 已有的通达/TD 系列协议；其它协议直接跳过。
+     */
+    public boolean sendLedAdvertisement(ShellConfig shellConfig, List<String> messages, String traceId) {
+        if (shellConfig == null || messages == null || messages.isEmpty()) {
             return false;
         }
-        byte[] payload = generator.createServiceTone((byte) (0x10 + serviceNo));
-        if (payload == null || payload.length == 0) {
-            return false;
+        boolean sent = false;
+        for (DisplayTarget target : resolveDisplayTargets(shellConfig, traceId)) {
+            if (!supportsLedAdvertisement(target.protocolName)) {
+                continue;
+            }
+            byte[] payload = tongDaProtocol.createLedAdvInfo(messages);
+            if (payload == null || payload.length == 0) {
+                continue;
+            }
+            ShellConfig.SerialChannel displayChannel = ensureReady(shellConfig, target.serialKey, traceId + "-display-open-" + target.serialKey);
+            send(displayChannel, payload, target.protocolName + "_LED_ADV", traceId + "-led-adv-" + target.serialKey);
+            sent = true;
         }
-        ShellConfig.SerialChannel displayChannel = ensureReady(shellConfig, traceId + "-display-open");
-        send(displayChannel, payload, protocolName(shellConfig) + "_SERVICE_TONE", traceId + "-service-tone");
-        return true;
+        return sent;
     }
 
     /**
      * 选择当前 RS485 屏显协议生成器。
      */
-    private DisplayProtocolGenerator selectGenerator(ShellConfig shellConfig, String traceId) {
-        String protocolName = protocolName(shellConfig);
-        if ("通达".equals(protocolName) || "TD".equals(protocolName)) {
+    private DisplayProtocolGenerator selectGenerator(String protocolName, String traceId) {
+        if ("通达".equals(protocolName) || "TD".equalsIgnoreCase(protocolName) || "LHXY-TD-LED2".equalsIgnoreCase(protocolName)) {
             return tongDaProtocol;
         }
         if ("LHXY".equals(protocolName)) {
@@ -143,21 +183,54 @@ public final class LegacyStationDisplayUseCase {
         return true;
     }
 
+    private boolean supportsLedAdvertisement(String protocolName) {
+        return "通达".equals(protocolName)
+                || "TD".equalsIgnoreCase(protocolName)
+                || "LHXY-TD-LED2".equalsIgnoreCase(protocolName);
+    }
+
     private DisplayLanguage resolveLanguage(ShellConfig shellConfig) {
         return shellConfig.getBasicSetupConfig().getNewspaperSettings().isEnglishEnabled()
                 ? DisplayLanguage.ENGLISH
                 : DisplayLanguage.SIMPLIFIED_CHINESE;
     }
 
-    private String protocolName(ShellConfig shellConfig) {
-        return shellConfig.getBasicSetupConfig().getSerialSettings().getRs485Protocol();
+    private List<DisplayTarget> resolveDisplayTargets(ShellConfig shellConfig, String traceId) {
+        List<DisplayTarget> targets = new ArrayList<>();
+        if (shellConfig == null || shellConfig.getBasicSetupConfig() == null || shellConfig.getBasicSetupConfig().getSerialSettings() == null) {
+            return targets;
+        }
+        ShellConfig.SerialSettings settings = shellConfig.getBasicSetupConfig().getSerialSettings();
+        String primarySerialKey = shellConfig.getDebugReplay() == null ? "rs485_1" : shellConfig.getDebugReplay().getDisplaySerialKey();
+        addDisplayTarget(targets, shellConfig, primarySerialKey, settings.getRs485Protocol(), traceId);
+        addDisplayTarget(targets, shellConfig, "rs485_2", settings.getRs4852Protocol(), traceId);
+        return targets;
+    }
+
+    private void addDisplayTarget(List<DisplayTarget> targets, ShellConfig shellConfig, String serialKey, String protocolName, String traceId) {
+        if (isEmptyProtocol(protocolName) || serialKey == null || serialKey.trim().isEmpty()) {
+            return;
+        }
+        if ("JHY".equalsIgnoreCase(protocolName.trim())) {
+            return;
+        }
+        try {
+            shellConfig.requireSerialChannel(serialKey);
+            targets.add(new DisplayTarget(serialKey, protocolName.trim()));
+        } catch (IllegalArgumentException e) {
+            AppLogCenter.log(LogCategory.BIZ, LogLevel.WARN, "LegacyStationDisplay", "屏显串口未配置: " + serialKey + " / " + e.getMessage(), traceId);
+        }
+    }
+
+    private boolean isEmptyProtocol(String protocolName) {
+        return protocolName == null || protocolName.trim().isEmpty() || "无".equals(protocolName.trim());
     }
 
     /**
      * 确保默认显示串口已经打开。
      */
-    private ShellConfig.SerialChannel ensureReady(ShellConfig shellConfig, String traceId) {
-        ShellConfig.SerialChannel displayChannel = shellConfig.requireSerialChannel(shellConfig.getDebugReplay().getDisplaySerialKey());
+    private ShellConfig.SerialChannel ensureReady(ShellConfig shellConfig, String serialKey, String traceId) {
+        ShellConfig.SerialChannel displayChannel = shellConfig.requireSerialChannel(serialKey);
         if (!serialPortAdapter.isOpen(displayChannel.getPortName())) {
             serialPortAdapter.open(displayChannel.toSerialPortConfig(), traceId);
         }
@@ -173,5 +246,15 @@ public final class LegacyStationDisplayUseCase {
         }
         AppLogCenter.log(LogCategory.PROTOCOL_TX, LogLevel.DEBUG, "LegacyStationDisplay", label + " via " + channel.getKey() + " -> " + Hexs.toHex(payload), traceId);
         serialPortAdapter.send(channel.getPortName(), payload, traceId);
+    }
+
+    private static final class DisplayTarget {
+        private final String serialKey;
+        private final String protocolName;
+
+        private DisplayTarget(String serialKey, String protocolName) {
+            this.serialKey = serialKey;
+            this.protocolName = protocolName;
+        }
     }
 }

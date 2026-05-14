@@ -12,6 +12,10 @@ public final class M90IoMap {
     public static final String INNER_SPEAKER = "GPIO0_D6";
     public static final String INNER_AUDIO = "GPIO1_B1";
     public static final String OUTER_AUDIO = "GPIO1_B2";
+    public static final String SHOUTING_INNER = "GPIO3_A3";
+    public static final String SHOUTING_OUTER = "GPIO3_A4";
+    public static final String HEADPHONE_DETECT_POWER = "GPIO3_A6";
+    public static final String HEADPHONE_DETECT = "GPIO1_B0";
 
     private M90IoMap() {
     }
@@ -23,6 +27,9 @@ public final class M90IoMap {
         return "M90 关键 IO：IO1~IO5=" + IO1 + "~" + IO5
                 + "，内喇叭=" + INNER_SPEAKER
                 + "，内音=" + INNER_AUDIO
-                + "，外音=" + OUTER_AUDIO;
+            + "，外音=" + OUTER_AUDIO
+            + "，喊话内=" + SHOUTING_INNER
+            + "，喊话外=" + SHOUTING_OUTER
+            + "，耳机检测=" + HEADPHONE_DETECT_POWER + "/" + HEADPHONE_DETECT;
     }
 }

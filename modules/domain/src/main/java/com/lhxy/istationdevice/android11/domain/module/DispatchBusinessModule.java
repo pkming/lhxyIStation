@@ -141,6 +141,7 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
      */
     @Override
     public ModuleRunResult runAction(String actionKey, String traceId) {
+        AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, TAG, "调度动作入口 action=" + emptyAsDash(actionKey), traceId);
         if ("replay_all".equals(actionKey)) {
             return replayDispatch(traceId, true);
         }
@@ -234,6 +235,15 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
                 socketClientAdapter.connect(socketChannel.toSocketEndpointConfig(), traceId + "-connect");
             }
             socketClientAdapter.send(socketChannel.getChannelName(), payload, traceId + "-send");
+            AppLogCenter.log(
+                    LogCategory.BIZ,
+                    LogLevel.INFO,
+                    TAG,
+                    "职业请求已发送 type=" + requestType
+                            + " / channel=" + socketChannel.getKey()
+                            + " / state=" + dispatchState.describe(),
+                    traceId
+            );
             return success(summary, detail + " / 通道=" + socketChannel.getKey());
         } catch (Exception e) {
             return failure(summary + "失败", e);
@@ -474,7 +484,7 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
             }
             dvrSerialDispatchUseCase.sendDispatchReply(shellConfig, dispatchState, 1, 1, traceId + "-serial-dispatch-reply");
         } catch (Exception ignore) {
-            // 串口调度补发失败不阻断当前页面动作，现场通过日志继续看。
+            AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, TAG, "串口调度确认回复发送失败: " + ignore.getMessage(), traceId);
         }
     }
 
@@ -486,7 +496,7 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
             }
             dvrSerialDispatchUseCase.sendStartBusReport(shellConfig, dispatchState, shellConfig.getBasicSetupConfig().getResourceImportSettings().getLineName(), 1, traceId + "-serial-start-bus");
         } catch (Exception ignore) {
-            // 同上，不阻断当前业务态推进。
+            AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, TAG, "串口发车上报发送失败: " + ignore.getMessage(), traceId);
         }
     }
 
@@ -498,7 +508,7 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
             }
             stationAudioUseCase.playDispatchNotice(context, requireShellConfig(), message);
         } catch (Exception ignore) {
-            // 公告语音不阻断调度主链。
+            AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, TAG, "调度公告语音播放失败: " + ignore.getMessage(), traceId);
         }
     }
 

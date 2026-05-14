@@ -18,6 +18,7 @@ import com.lhxy.istationdevice.android11.domain.config.ShellConfig;
 import com.lhxy.istationdevice.android11.domain.dvr.DvrSerialMonitor;
 import com.lhxy.istationdevice.android11.domain.gps.GpsSerialMonitor;
 import com.lhxy.istationdevice.android11.domain.module.TerminalModuleHub;
+import com.lhxy.istationdevice.android11.domain.passenger.JhyPassengerCounterMonitor;
 import com.lhxy.istationdevice.android11.domain.socket.Jt808SocketMonitor;
 
 import java.io.File;
@@ -41,6 +42,7 @@ public final class ShellRuntime {
     private final M90ManagedSystemOps systemOps = new M90ManagedSystemOps();
     private final GpsSerialMonitor gpsSerialMonitor = new GpsSerialMonitor();
     private final Jt808SocketMonitor jt808SocketMonitor = new Jt808SocketMonitor();
+    private final JhyPassengerCounterMonitor passengerCounterMonitor = new JhyPassengerCounterMonitor(serialPortAdapter);
     private final TerminalModuleHub moduleHub;
     private volatile ShellConfig activeConfig;
     private volatile Context appContext;
@@ -114,6 +116,10 @@ public final class ShellRuntime {
         return moduleHub.getDvrSerialMonitor();
     }
 
+    public JhyPassengerCounterMonitor getPassengerCounterMonitor() {
+        return passengerCounterMonitor;
+    }
+
     /**
      * 返回共享 Socket 协议监视器。
      */
@@ -160,6 +166,7 @@ public final class ShellRuntime {
         rfidAdapter.updateConfig(shellConfig.getRfidConfig());
         systemOps.updateConfig(shellConfig.getSystemConfig());
         moduleHub.updateContext(appContext, shellConfig);
+        passengerCounterMonitor.updateConfig(shellConfig);
     }
 
     /**

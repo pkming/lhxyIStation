@@ -13,6 +13,7 @@ import com.lhxy.istationdevice.android11.core.LegacyHomeStatusRepository;
 import com.lhxy.istationdevice.android11.core.LogCategory;
 import com.lhxy.istationdevice.android11.core.LogLevel;
 import com.lhxy.istationdevice.android11.core.TraceIds;
+import com.lhxy.istationdevice.android11.deviceapi.DeviceMode;
 import com.lhxy.istationdevice.android11.deviceapi.SocketEndpointConfig;
 import com.lhxy.istationdevice.android11.deviceapi.SocketMode;
 import com.lhxy.istationdevice.android11.domain.config.ShellConfig;
@@ -30,12 +31,21 @@ import java.nio.charset.StandardCharsets;
  */
 public final class LegacyVoiceCallActivity extends LegacyBaseActivity {
     private static final String VOICE_CHANNEL = "VOICE_CALL";
+    private static final String IP_PHONE_STATE = "IP PHONE...";
+    private static final long SHOUTING_POLL_INTERVAL_MS = 100L;
+    private static final int SHOUTING_ROUTE_OUTER = 1;
+    private static final int SHOUTING_ROUTE_INNER = 2;
+    private static final int SHOUTING_ROUTE_BOTH = 3;
+    private static final int SHOUTING_ROUTE_IDLE = 4;
 
     private final ShellRuntime shellRuntime = ShellRuntime.get();
     private final IntercomPacketFactory packetFactory = new IntercomPacketFactory();
     private boolean connected;
     private String activeHost = "-";
     private int activePort;
+    private volatile boolean shoutingMonitorRunning;
+    private volatile int lastShoutingRoute = Integer.MIN_VALUE;
+    private Thread shoutingMonitorThread;
 
     @Override
     protected int getLayoutId() {
@@ -74,6 +84,8 @@ public final class LegacyVoiceCallActivity extends LegacyBaseActivity {
         if (connected) {
             shellRuntime.getSocketClientAdapter().disconnect(VOICE_CHANNEL, TraceIds.next("legacy-voice-destroy"));
         }
+        stopShoutingMonitor();
+        applyShoutingMicState(false);
         LegacyHomeStatusRepository.clearShouting(this);
         super.onDestroy();
     }
@@ -127,7 +139,8 @@ public final class LegacyVoiceCallActivity extends LegacyBaseActivity {
             connected = true;
             activeHost = host;
             activePort = port;
-            LegacyHomeStatusRepository.setShouting(this, "IP PHONE...");
+            applyShoutingMicState(true);
+            LegacyHomeStatusRepository.setShouting(this, IP_PHONE_STATE);
             if (stateView != null) {
                 stateView.setText(getString(
                         R.string.legacy_voice_connected_state,
@@ -169,6 +182,7 @@ public final class LegacyVoiceCallActivity extends LegacyBaseActivity {
         connected = false;
         activeHost = "-";
         activePort = 0;
+        applyShoutingMicState(false);
         LegacyHomeStatusRepository.clearShouting(this);
         if (stateView != null) {
             stateView.setText(R.string.legacy_voice_idle_state);
@@ -231,5 +245,133 @@ public final class LegacyVoiceCallActivity extends LegacyBaseActivity {
     private String safeMessage(Exception e) {
         String message = e == null ? null : e.getMessage();
         return message == null || message.trim().isEmpty() ? "未知错误" : message.trim();
+    }
+
+    private void applyShoutingMicState(boolean enabled) {
+        ShellConfig shellConfig = shellRuntime.getActiveConfig();
+        if (shellConfig == null) {
+            return;
+        }
+        if (!enabled) {
+            stopShoutingMonitor();
+            applyHornRoute(shellConfig, SHOUTING_ROUTE_IDLE);
+            return;
+        }
+        startShoutingMonitor();
+    }
+
+    private void startShoutingMonitor() {
+        ShellConfig shellConfig = shellRuntime.getActiveConfig();
+        if (shellConfig == null
+                || shellConfig.getGpioConfig().getMode() != DeviceMode.REAL
+                || !hasPin(shellConfig, resolveShoutingOuterKey(shellConfig))
+                || !hasPin(shellConfig, resolveShoutingInnerKey(shellConfig))) {
+            applyHornRoute(shellConfig, SHOUTING_ROUTE_IDLE);
+            return;
+        }
+        stopShoutingMonitor();
+        shoutingMonitorRunning = true;
+        lastShoutingRoute = Integer.MIN_VALUE;
+        Thread monitorThread = new Thread(() -> {
+            while (shoutingMonitorRunning) {
+                try {
+                    pollShoutingRoute();
+                } catch (Exception ignore) {
+                    // GPIO 不可读时保留当前通话，等待下一轮轮询恢复。
+                }
+                try {
+                    Thread.sleep(SHOUTING_POLL_INTERVAL_MS);
+                } catch (InterruptedException ignore) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+        }, "legacy-shouting-monitor");
+        monitorThread.setDaemon(true);
+        shoutingMonitorThread = monitorThread;
+        monitorThread.start();
+    }
+
+    private void stopShoutingMonitor() {
+        shoutingMonitorRunning = false;
+        Thread monitorThread = shoutingMonitorThread;
+        shoutingMonitorThread = null;
+        if (monitorThread != null) {
+            monitorThread.interrupt();
+        }
+        lastShoutingRoute = Integer.MIN_VALUE;
+    }
+
+    private void pollShoutingRoute() {
+        ShellConfig shellConfig = shellRuntime.getActiveConfig();
+        if (shellConfig == null) {
+            return;
+        }
+        int shoutingRoute = resolveShoutingRoute(shellConfig);
+        if (shoutingRoute == lastShoutingRoute) {
+            return;
+        }
+        lastShoutingRoute = shoutingRoute;
+        applyHornRoute(shellConfig, shoutingRoute);
+    }
+
+    private int resolveShoutingRoute(ShellConfig shellConfig) {
+        String outerKey = resolveShoutingOuterKey(shellConfig);
+        String innerKey = resolveShoutingInnerKey(shellConfig);
+        int outer = shellRuntime.getGpioAdapter().read(outerKey, TraceIds.next("legacy-voice-shouting-outer"));
+        int inner = shellRuntime.getGpioAdapter().read(innerKey, TraceIds.next("legacy-voice-shouting-inner"));
+        if (outer == 1 && inner == 0) {
+            return SHOUTING_ROUTE_OUTER;
+        }
+        if (outer == 0 && inner == 1) {
+            return SHOUTING_ROUTE_INNER;
+        }
+        if (outer == 0 && inner == 0) {
+            return SHOUTING_ROUTE_BOTH;
+        }
+        return SHOUTING_ROUTE_IDLE;
+    }
+
+    private void applyHornRoute(ShellConfig shellConfig, int shoutingRoute) {
+        if (shellConfig == null) {
+            return;
+        }
+        boolean innerEnabled = shoutingRoute == SHOUTING_ROUTE_INNER || shoutingRoute == SHOUTING_ROUTE_BOTH;
+        boolean outerEnabled = shoutingRoute == SHOUTING_ROUTE_OUTER || shoutingRoute == SHOUTING_ROUTE_BOTH;
+        writePin("inner_audio", innerEnabled ? 1 : 0);
+        writePin("outer_audio", outerEnabled ? 1 : 0);
+        writePin("headphone_detect_power", 1);
+        writePin("inner_speaker", 0);
+    }
+
+    private String resolveShoutingOuterKey(ShellConfig shellConfig) {
+        if (shellConfig == null) {
+            return "shouting_outer";
+        }
+        String configured = shellConfig.getBasicSetupConfig().getOtherSettings().getShoutingPrimaryGpioKey();
+        return configured == null || configured.trim().isEmpty() ? "shouting_outer" : configured.trim();
+    }
+
+    private String resolveShoutingInnerKey(ShellConfig shellConfig) {
+        if (shellConfig == null) {
+            return "shouting_inner";
+        }
+        String configured = shellConfig.getBasicSetupConfig().getOtherSettings().getShoutingSecondaryGpioKey();
+        return configured == null || configured.trim().isEmpty() ? "shouting_inner" : configured.trim();
+    }
+
+    private boolean hasPin(ShellConfig shellConfig, String pinKey) {
+        return shellConfig != null
+                && pinKey != null
+                && !pinKey.trim().isEmpty()
+                && shellConfig.getGpioConfig().getPins().containsKey(pinKey.trim());
+    }
+
+    private void writePin(String pinKey, int value) {
+        try {
+            shellRuntime.getGpioAdapter().write(pinKey, value, "legacy-voice-" + pinKey + "-" + value);
+        } catch (Exception ignore) {
+            // Keep voice-call flow available even when GPIO is not writable.
+        }
     }
 }

@@ -174,7 +174,7 @@ public final class LegacyBasicSetupSectionFragment extends Fragment {
         List<String> baudOptions = Arrays.asList("9600", "19200", "38400", "51200", "57600", "115200");
         List<String> gpsBaudOptions = Arrays.asList("9600", "115200");
         List<String> protocol232Options = Arrays.asList("无", "DVR", "POS");
-        List<String> protocol485Options = Arrays.asList("无", "通达", "恒舞", "武汉乐的", "海梁", "LED导程牌", "LHXY", "HW3", "JHY");
+        List<String> protocol485Options = Arrays.asList("无", "通达", "TD", "恒舞", "武汉乐的", "海梁", "LED导程牌", "LHXY", "HW3", "JHY");
         List<String> dvrChannelOptions = Arrays.asList("VIN1-AHD", "VIN4-AUTO");
         List<String> portOptions = Arrays.asList("RS232-1", "RS232-2", "RS485");
 

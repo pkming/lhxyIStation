@@ -190,6 +190,15 @@ public final class LegacyUpgradeDownloadAgent {
             }
             task.state = TaskState.RUNNING;
             persistTask(task);
+                AppLogCenter.log(
+                    LogCategory.BIZ,
+                    LogLevel.INFO,
+                    TAG,
+                    "升级下载任务启动 type=" + task.downloadType
+                        + " / serial=" + task.command.getRequestSerialHex()
+                        + " / local=" + task.localFile.getAbsolutePath(),
+                    traceId
+                );
             task.runningFuture = downloadExecutor.submit(() -> runTask(task, traceId));
         }
     }
@@ -207,6 +216,15 @@ public final class LegacyUpgradeDownloadAgent {
         }
 
         try {
+            AppLogCenter.log(
+                LogCategory.BIZ,
+                LogLevel.INFO,
+                TAG,
+                "升级下载任务进入主流程 type=" + task.downloadType
+                    + " / serial=" + task.command.getRequestSerialHex()
+                    + " / target=" + task.localFile.getAbsolutePath(),
+                traceId
+            );
             ensureParent(task.localFile);
             if (task.localFile.exists() && !task.localFile.delete()) {
                 throw new IllegalStateException("无法覆盖旧下载文件: " + task.localFile.getAbsolutePath());
@@ -242,6 +260,16 @@ public final class LegacyUpgradeDownloadAgent {
                     persistTask(task);
                 }
             }
+            AppLogCenter.log(
+                    LogCategory.BIZ,
+                    LogLevel.INFO,
+                    TAG,
+                    "升级下载任务完成 type=" + task.downloadType
+                            + " / serial=" + task.command.getRequestSerialHex()
+                            + " / size=" + task.localFile.length()
+                            + " / local=" + task.localFile.getAbsolutePath(),
+                    traceId
+            );
         } catch (Exception e) {
             if (task.cancelled.get()) {
                 cleanupPartialFile(task.localFile);
@@ -352,6 +380,13 @@ public final class LegacyUpgradeDownloadAgent {
      */
     private void downloadToLocalFile(ManagedTask task, String traceId) throws Exception {
         String downloadUrl = buildDownloadUrl(task.command);
+        AppLogCenter.log(
+                LogCategory.BIZ,
+                LogLevel.INFO,
+                TAG,
+                "准备下载 type=" + task.downloadType + " / endpoint=" + describeDownloadEndpoint(downloadUrl),
+                traceId
+        );
         if (downloadUrl.startsWith("http://") || downloadUrl.startsWith("https://")) {
             downloadViaHttp(task, downloadUrl, traceId);
             return;
@@ -371,6 +406,7 @@ public final class LegacyUpgradeDownloadAgent {
         }
         connection.connect();
         int statusCode = connection.getResponseCode();
+        AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, TAG, "HTTP 下载已连接 code=" + statusCode + " / endpoint=" + describeDownloadEndpoint(downloadUrl), traceId);
         if (statusCode < 200 || statusCode >= 300) {
             throw new IOException("HTTP 下载失败 code=" + statusCode);
         }
@@ -398,6 +434,7 @@ public final class LegacyUpgradeDownloadAgent {
         ftpClient.setConnectTimeout(15000);
         ftpClient.setDefaultTimeout(30000);
         ftpClient.connect(host, port);
+        AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, TAG, "FTP 下载已连接 host=" + host + " / port=" + port + " / path=" + remotePath, traceId);
         if (!FTPReply.isPositiveCompletion(ftpClient.getReplyCode())) {
             throw new IOException("FTP 连接失败 code=" + ftpClient.getReplyCode());
         }
@@ -430,6 +467,19 @@ public final class LegacyUpgradeDownloadAgent {
                 }
             }
             task.activeFtpClient = null;
+        }
+    }
+
+    private String describeDownloadEndpoint(String downloadUrl) {
+        try {
+            Uri uri = Uri.parse(downloadUrl);
+            String scheme = uri.getScheme() == null ? "-" : uri.getScheme();
+            String host = uri.getHost() == null ? "-" : uri.getHost();
+            int port = uri.getPort();
+            String path = uri.getPath() == null ? "-" : uri.getPath();
+            return scheme + "://" + host + (port > 0 ? ":" + port : "") + path;
+        } catch (Exception e) {
+            return "unparseable-url";
         }
     }
 
