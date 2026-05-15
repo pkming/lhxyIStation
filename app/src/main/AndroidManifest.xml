@@ -14,6 +14,14 @@
         android:roundIcon="@android:drawable/sym_def_app_icon"
         android:supportsRtl="true"
         android:theme="@style/Theme.IStationShell">
+        <meta-data
+            android:name="TINKER_ID"
+            android:value="${TINKER_ID}" />
+
+        <service
+            android:name=".ShellTinkerResultService"
+            android:exported="false" />
+
         <activity
             android:name=".menu.LegacyMenuActivity"
             android:exported="false"

@@ -111,7 +111,8 @@ public final class ShellConfigLoader {
         }
 
         JSONObject gpioObject = root.optJSONObject("gpio");
-        DeviceMode gpioMode = gpioObject == null ? DeviceMode.STUB : DeviceMode.fromConfig(gpioObject.optString("mode", "stub"));
+        // 临时写死 GPIO 走 real，绕过 runtime/assets 中残留的 stub 配置。
+        DeviceMode gpioMode = DeviceMode.REAL;
         Map<String, ShellConfig.GpioPin> gpioPins = new LinkedHashMap<>();
         if (gpioObject != null) {
             JSONObject pinObject = gpioObject.optJSONObject("pins");
@@ -384,7 +385,7 @@ public final class ShellConfigLoader {
                 "fallback:code-default",
                 serialChannels,
                 socketChannels,
-                new ShellConfig.GpioConfig(DeviceMode.STUB, gpioPins, "M90 关键 GPIO"),
+                new ShellConfig.GpioConfig(DeviceMode.REAL, gpioPins, "M90 关键 GPIO"),
                 new ShellConfig.CameraConfig(DeviceMode.STUB, cameraChannels, "M90 预置 Camera 通道"),
                 new ShellConfig.RfidConfig(DeviceMode.STUB, "RFID-DEMO-001", "", "", "/dev/i2c-3", "0x00", "RFID 默认走 stub，I2C-3 待真机确认地址"),
                 new ShellConfig.SystemConfig(DeviceMode.STUB, false, false, false, "", "", "", "系统能力默认走 stub"),

@@ -5,27 +5,18 @@ import android.app.Application;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
+import android.util.Log;
 
-import com.lhxy.istationdevice.android11.core.AppLogCenter;
-import com.lhxy.istationdevice.android11.core.LogCategory;
-import com.lhxy.istationdevice.android11.core.LogLevel;
-import com.lhxy.istationdevice.android11.core.TraceIds;
-import com.lhxy.istationdevice.android11.domain.config.ShellConfig;
-import com.lhxy.istationdevice.android11.domain.config.ShellConfigRepository;
-import com.lhxy.istationdevice.android11.domain.config.ShellConfigLoader;
-import com.lhxy.istationdevice.android11.domain.config.ShellConfigValidator;
-import com.lhxy.istationdevice.android11.domain.file.StationResourceArchiveUseCase;
-import com.lhxy.istationdevice.android11.runtime.ShellRuntime;
 import com.tencent.tinker.entry.DefaultApplicationLike;
-import com.tencent.tinker.lib.tinker.TinkerInstaller;
 
-import java.io.File;
-import java.util.List;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 
 /**
  * 应用入口
  */
 public class ShellApplication extends DefaultApplicationLike {
+    private static final String TAG = "ShellApplication";
     public static boolean isUserPassword = false;
 
     public ShellApplication(
@@ -43,73 +34,64 @@ public class ShellApplication extends DefaultApplicationLike {
     @TargetApi(Build.VERSION_CODES.ICE_CREAM_SANDWICH)
     public void onBaseContextAttached(Context base) {
         super.onBaseContextAttached(base);
-        TinkerInstaller.install(this);
+        installTinker();
     }
 
     @Override
     public void onCreate() {
         super.onCreate();
-        Application application = getApplication();
-        AppLogCenter.init(application);
-        String traceId = TraceIds.next("app");
         try {
-            File runtimeConfigFile = ShellConfigLoader.bootstrapRuntimeConfig(application);
-            AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, "ShellApplication", "运行配置文件: " + runtimeConfigFile.getAbsolutePath(), traceId);
+            Class<?> startupClass = Class.forName("com.lhxy.istationdevice.android11.app.ShellAppStartup");
+            Method initializeMethod = startupClass.getMethod("initialize", Application.class);
+            initializeMethod.invoke(null, getApplication());
         } catch (Exception e) {
-            AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, "ShellApplication", "初始化运行配置文件失败: " + e.getMessage(), traceId);
+            throw buildIllegalState("应用启动初始化失败", e);
         }
-        ensureBundledStationResources(application, traceId);
-        ShellConfig shellConfig = ShellConfigRepository.get(application);
-        AppLanguageManager.apply(shellConfig.getBasicSetupConfig().getLanguageSettings().getLanguageCode());
-        ShellRuntime shellRuntime = ShellRuntime.get();
-        shellRuntime.applyConfig(application, shellConfig);
-        AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, "ShellApplication", "Android 11 新壳启动", traceId);
-        AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, "ShellApplication", "加载运行配置: " + shellConfig.getDeviceProfile() + " / " + shellConfig.getConfigVersion(), traceId);
-        List<String> issues = ShellConfigValidator.validate(shellConfig);
-        if (issues.isEmpty()) {
-            AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, "ShellApplication", "运行配置检查通过", traceId);
-        } else {
-            for (String issue : issues) {
-                AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, "ShellApplication", "运行配置问题: " + issue, traceId);
-            }
-        }
-        shellRuntime.getJt808SocketMonitor().syncDefaultChannels(shellRuntime.getSocketClientAdapter(), shellConfig, traceId + "-socket-monitor");
     }
 
-    private void ensureBundledStationResources(Context context, String traceId) {
-        StationResourceArchiveUseCase stationResourceArchiveUseCase = new StationResourceArchiveUseCase();
-        File sourceRoot = stationResourceArchiveUseCase.resolveManagedSourceRoot(context);
-        File lineInfoFile = new File(sourceRoot, "Bus/lineInfo.csv");
-        if (lineInfoFile.exists() && lineInfoFile.isFile()) {
-            return;
-        }
+    private void installTinker() {
         try {
-            StationResourceArchiveUseCase.OperationResult result = stationResourceArchiveUseCase.importStationResources(context);
-            if (result.isSuccess()) {
-                AppLogCenter.log(
-                        LogCategory.BIZ,
-                        LogLevel.INFO,
-                        "ShellApplication",
-                        "已自动初始化报站资源: " + result.getSummary(),
-                        traceId + "-station-resource-bootstrap"
-                );
-            } else {
-                AppLogCenter.log(
-                        LogCategory.ERROR,
-                        LogLevel.WARN,
-                        "ShellApplication",
-                        "自动初始化报站资源失败: " + result.getSummary() + " / " + result.getDetail(),
-                        traceId + "-station-resource-bootstrap"
-                );
-            }
+            Application application = getApplication();
+            Object loadReporter = Class.forName("com.tencent.tinker.lib.reporter.DefaultLoadReporter")
+                    .getConstructor(Context.class)
+                    .newInstance(application);
+            Object patchReporter = Class.forName("com.tencent.tinker.lib.reporter.DefaultPatchReporter")
+                    .getConstructor(Context.class)
+                    .newInstance(application);
+            Object patchListener = Class.forName("com.tencent.tinker.lib.listener.DefaultPatchListener")
+                    .getConstructor(Context.class)
+                    .newInstance(application);
+            Object upgradePatch = Class.forName("com.tencent.tinker.lib.patch.UpgradePatch")
+                    .getConstructor()
+                    .newInstance();
+            Class<?> resultServiceClass = Class.forName("com.lhxy.istationdevice.android11.app.ShellTinkerResultService");
+            Class<?> applicationLikeClass = Class.forName("com.tencent.tinker.entry.ApplicationLike");
+            Class<?> loadReporterClass = Class.forName("com.tencent.tinker.lib.reporter.LoadReporter");
+            Class<?> patchReporterClass = Class.forName("com.tencent.tinker.lib.reporter.PatchReporter");
+            Class<?> patchListenerClass = Class.forName("com.tencent.tinker.lib.listener.PatchListener");
+            Class<?> abstractPatchClass = Class.forName("com.tencent.tinker.lib.patch.AbstractPatch");
+            Class.forName("com.tencent.tinker.lib.tinker.TinkerInstaller")
+                    .getMethod(
+                            "install",
+                            applicationLikeClass,
+                            loadReporterClass,
+                            patchReporterClass,
+                            patchListenerClass,
+                            Class.class,
+                            abstractPatchClass
+                    )
+                    .invoke(null, this, loadReporter, patchReporter, patchListener, resultServiceClass, upgradePatch);
         } catch (Exception e) {
-            AppLogCenter.log(
-                    LogCategory.ERROR,
-                    LogLevel.WARN,
-                    "ShellApplication",
-                    "自动初始化报站资源异常: " + e.getMessage(),
-                    traceId + "-station-resource-bootstrap"
-            );
+            throw buildIllegalState("Tinker 安装失败", e);
         }
+    }
+
+    private IllegalStateException buildIllegalState(String message, Exception exception) {
+        Throwable cause = exception;
+        if (exception instanceof InvocationTargetException && ((InvocationTargetException) exception).getTargetException() != null) {
+            cause = ((InvocationTargetException) exception).getTargetException();
+        }
+        Log.e(TAG, message, cause);
+        return new IllegalStateException(message, cause);
     }
 }

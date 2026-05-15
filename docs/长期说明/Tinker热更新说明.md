@@ -96,6 +96,54 @@ Tinker 本身的限制仍然成立：
 
 ## 5. 验证方式
 
+### 一键生成补丁
+
+仓库现在已经补了发布侧一键命令：
+
+```bash
+sh apk.sh update --old-apk /path/to/base.apk
+```
+
+如果要先构建完整包，并把这次完整包固化成默认基线：
+
+```bash
+sh apk.sh rebuild --pin-base
+```
+
+后续继续出 patch，直接：
+
+```bash
+sh apk.sh update
+```
+
+`apk.sh update` 会在没显式传 `--old-apk` 时，默认读取 `apk/base/latest-base.apk`。
+
+默认行为：
+
+1. 如果没传 `--new-apk`，自动执行 `:app:assembleRelease`。
+2. 自动下载 `tinker-patch-cli-1.9.15.2.jar` 到 `build/tinker/`。
+3. 不传 `--patch-version` 时，自动递增生成 `<tinkerId>-pNNN` 形式的补丁版本号。
+4. 在 `build/hotfix/<patchVersion>/` 生成 patch 包、`manifest.json`、`index.json` 和当次使用的 `tinker_config.xml`。
+5. 默认先上传归档产物，最后再覆盖线上 manifest 指针。
+
+常用补充参数：
+
+- `--new-apk /path/to/new.apk`：直接指定新包
+- `--skip-build`：配合 `--new-apk` 跳过 release 构建
+- `--patch-version 20260514183000`：自定义补丁版本号
+- `--patch-object-key hotfix/android11/20260514183000/patch_signed_7zip.apk`：直接写设备端要读的 OSS object key
+- `--release-notes "修复真机联调问题"`
+- `--skip-upload`：只在本地生成，不上传 OSS
+
+注意：
+
+1. 基线包必须是这次补了 `TINKER_ID` 之后重新构建并安装的 release 包，否则 patch 无法正确匹配。
+2. 设备端当前固定从 `hotfix/android11/manifest.json` 读取 manifest，所以默认上传会最后一步才覆盖这个 object key。
+3. 默认 OSS 版本结构是：`hotfix/android11/releases/<tinkerId>/<patchVersion>/...`，同一基线的 patch 会按 `p001 / p002 / p003` 递增。
+4. 自动上传优先读取 `config/oss-config.local.properties`，没有它才会回退模板文件。
+5. 连续出多个 patch 时，`--old-apk` 要始终保持为设备最初安装的那版完整基线包，不能每次都换成最新 release APK；否则后续 patch 很容易打在错误基线上。
+6. 脚本会先把 old/new apk 快照到 `build/tinker/apk-inputs/`，避免 `assembleRelease` 刷新 `app/build/outputs/apk/release/` 时把基线包覆盖掉。
+
 本轮代码层已验证：
 
 ```bash

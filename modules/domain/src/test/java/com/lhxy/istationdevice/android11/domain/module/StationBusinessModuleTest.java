@@ -15,7 +15,7 @@ import com.lhxy.istationdevice.android11.protocol.gps.GpsFixSnapshot;
 public class StationBusinessModuleTest {
     @Test
     public void resolveSpeedLimit_prefersActiveCrossingLimit() throws Exception {
-        StationBusinessModule module = new StationBusinessModule(null, null, null, null, null, null);
+        StationBusinessModule module = new StationBusinessModule(null, null, null, null, null, null, null);
         module.getStationState().applyLineProfile("101", "上行", Arrays.asList("A站", "B站"));
         module.getStationState().recordAutoStation(1, "B站", LegacyGpsAutoReportEngine.STATION_TYPE_ENTER);
         module.getStationState().recordReminder("转弯提醒", "UID-12", "1", 12, "20", LegacyGpsAutoReportEngine.REMINDER_TYPE_ENTER);
@@ -40,7 +40,7 @@ public class StationBusinessModuleTest {
 
     @Test
     public void resolveSpeedLimit_fallsBackToStationLimitWhenNoCrossing() throws Exception {
-        StationBusinessModule module = new StationBusinessModule(null, null, null, null, null, null);
+        StationBusinessModule module = new StationBusinessModule(null, null, null, null, null, null, null);
         module.getStationState().applyLineProfile("101", "上行", Arrays.asList("A站", "B站"));
         module.getStationState().recordAutoStation(1, "B站", LegacyGpsAutoReportEngine.STATION_TYPE_ENTER);
 
@@ -64,7 +64,7 @@ public class StationBusinessModuleTest {
 
         @Test
         public void resolveSpeedWarningRepeatInterval_matchesM90Throttle() throws Exception {
-                StationBusinessModule module = new StationBusinessModule(null, null, null, null, null, null);
+                StationBusinessModule module = new StationBusinessModule(null, null, null, null, null, null, null);
 
                 Method method = StationBusinessModule.class.getDeclaredMethod("resolveSpeedWarningRepeatIntervalMs");
                 method.setAccessible(true);
@@ -75,7 +75,7 @@ public class StationBusinessModuleTest {
 
         @Test
         public void isSpeedWarningActive_requiresStrictlyExceedingSpeedLimit() throws Exception {
-                StationBusinessModule module = new StationBusinessModule(null, null, null, null, null, null);
+                StationBusinessModule module = new StationBusinessModule(null, null, null, null, null, null, null);
 
                 Method method = StationBusinessModule.class.getDeclaredMethod("isSpeedWarningActive", int.class, int.class);
                 method.setAccessible(true);
@@ -87,7 +87,7 @@ public class StationBusinessModuleTest {
 
         @Test
         public void isGpsReadyForSpeedWarning_requiresThreeSecondWarmupAfterInvalidFix() throws Exception {
-                StationBusinessModule module = new StationBusinessModule(null, null, null, null, null, null);
+                StationBusinessModule module = new StationBusinessModule(null, null, null, null, null, null, null);
 
                 Method method = StationBusinessModule.class.getDeclaredMethod("isGpsReadyForSpeedWarning", GpsFixSnapshot.class, long.class);
                 method.setAccessible(true);
@@ -100,7 +100,7 @@ public class StationBusinessModuleTest {
 
         @Test
         public void hasSpeedWarningInput_requiresCoordinatesAndLegacySpeedCap() throws Exception {
-                StationBusinessModule module = new StationBusinessModule(null, null, null, null, null, null);
+                StationBusinessModule module = new StationBusinessModule(null, null, null, null, null, null, null);
 
                 Method method = StationBusinessModule.class.getDeclaredMethod("hasSpeedWarningInput", GpsFixSnapshot.class, int.class);
                 method.setAccessible(true);

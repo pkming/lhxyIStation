@@ -5,6 +5,7 @@ captures/
 .idea/
 build/
 */build/
+apk/
 config/terminal-config.local.json
 config/oss-config.local.properties
 .DS_Store

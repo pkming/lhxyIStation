@@ -17,6 +17,7 @@ import com.lhxy.istationdevice.android11.domain.gps.LegacyGpsAutoReportEngine;
 import com.lhxy.istationdevice.android11.domain.gps.LegacyGpsFlowUseCase;
 import com.lhxy.istationdevice.android11.domain.gps.LegacyGpsRouteResource;
 import com.lhxy.istationdevice.android11.domain.module.state.StationState;
+import com.lhxy.istationdevice.android11.domain.passenger.JhyPassengerCounterMonitor;
 import com.lhxy.istationdevice.android11.domain.station.LegacyStationAudioUseCase;
 import com.lhxy.istationdevice.android11.domain.station.LegacyStationDisplayUseCase;
 import com.lhxy.istationdevice.android11.protocol.gps.GpsFixSnapshot;
@@ -40,6 +41,7 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
     private final GpsSerialMonitor gpsSerialMonitor;
     private final DispatchBusinessModule dispatchBusinessModule;
     private final DvrSerialDispatchUseCase dvrSerialDispatchUseCase;
+    private final JhyPassengerCounterMonitor passengerCounterMonitor;
     private final StationState stationState = new StationState();
     private final LegacyGpsFlowUseCase gpsFlowUseCase = new LegacyGpsFlowUseCase();
     private final LegacyStationDisplayUseCase stationDisplayUseCase;
@@ -63,12 +65,14 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
             SerialPortAdapter serialPortAdapter,
             GpioAdapter gpioAdapter,
             GpsSerialMonitor gpsSerialMonitor,
+            JhyPassengerCounterMonitor passengerCounterMonitor,
             DispatchBusinessModule dispatchBusinessModule,
             DvrSerialDispatchUseCase dvrSerialDispatchUseCase
     ) {
         this.protocolReplayUseCase = protocolReplayUseCase;
         this.serialPortAdapter = serialPortAdapter;
         this.gpsSerialMonitor = gpsSerialMonitor;
+        this.passengerCounterMonitor = passengerCounterMonitor;
         this.dispatchBusinessModule = dispatchBusinessModule;
         this.dvrSerialDispatchUseCase = dvrSerialDispatchUseCase;
         this.stationDisplayUseCase = new LegacyStationDisplayUseCase(serialPortAdapter);
@@ -252,6 +256,7 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
             }
             stationState.advanceStation();
             stationDisplayUseCase.sendCurrentStation(shellConfig, route, stationState, traceId + "-display-current");
+            requestPassengerCounterForArrival(traceId + "-jhy-current-count");
             playCurrentStationAudio(requireContextOrThrow(), shellConfig, route);
             sendSerialDispatchFramesIfNeeded(traceId + "-advance-station");
             maybeAutoStartBus(traceId + "-advance-station");
@@ -270,6 +275,20 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
         } catch (Exception e) {
             return failure("推进站点失败", e);
         }
+    }
+
+    private void requestPassengerCounterForArrival(String traceId) {
+        if (passengerCounterMonitor == null || stationState.getCurrentStationType() != 0) {
+            return;
+        }
+        passengerCounterMonitor.requestCurrentCount(traceId);
+    }
+
+    private void requestPassengerCounterForAutoStation(int stationType, String traceId) {
+        if (passengerCounterMonitor == null || stationType != LegacyGpsAutoReportEngine.STATION_TYPE_ENTER) {
+            return;
+        }
+        passengerCounterMonitor.requestCurrentCount(traceId);
     }
 
     /**
@@ -646,6 +665,7 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
                         event.getStationPoint().getStationName(),
                         event.getStationType()
                 );
+                requestPassengerCounterForAutoStation(event.getStationType(), traceId + "-auto-station-jhy-current-count");
                 stationAudioUseCase.playAutoStation(
                     context,
                     shellConfig,

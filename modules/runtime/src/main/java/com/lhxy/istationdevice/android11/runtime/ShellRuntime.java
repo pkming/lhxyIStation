@@ -56,6 +56,7 @@ public final class ShellRuntime {
                 rfidAdapter,
                 systemOps,
                 gpsSerialMonitor,
+                passengerCounterMonitor,
                 jt808SocketMonitor,
                 this::resolveExportDir,
                 this::describeFoundationStatus,

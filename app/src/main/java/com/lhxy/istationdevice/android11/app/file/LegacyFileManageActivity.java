@@ -4,13 +4,17 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.Button;
 import android.widget.LinearLayout;
+import android.widget.ProgressBar;
+import android.widget.RelativeLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.appcompat.app.AlertDialog;
 import androidx.core.content.ContextCompat;
@@ -30,7 +34,10 @@ import com.lhxy.istationdevice.android11.domain.module.TerminalBusinessModule;
 import com.lhxy.istationdevice.android11.domain.module.StationBusinessModule;
 import com.lhxy.istationdevice.android11.domain.module.state.StationState;
 import com.lhxy.istationdevice.android11.domain.upgrade.LocalUpgradeApkFinder;
+import com.lhxy.istationdevice.android11.domain.upgrade.TinkerHotUpdateStateStore;
 import com.lhxy.istationdevice.android11.runtime.ShellRuntime;
+import com.tencent.tinker.lib.tinker.Tinker;
+import com.tencent.tinker.lib.tinker.TinkerLoadResult;
 
 import java.io.File;
 import java.text.DateFormat;
@@ -39,7 +46,20 @@ import java.text.DateFormat;
  * 旧版文件管理页骨架。
  */
 public final class LegacyFileManageActivity extends LegacyBaseActivity {
+    private static final long HOT_UPDATE_TIMEOUT_MILLIS = 3L * 60L * 1000L;
+    private static final long HOT_UPDATE_POLL_INTERVAL_MILLIS = 5_000L;
+
     private BroadcastReceiver storageReceiver;
+    private SharedPreferences.OnSharedPreferenceChangeListener hotUpdateStateListener;
+    private ProgressBar hotUpdateProgressBar;
+    private TextView hotUpdateProgressView;
+    private final Runnable hotUpdateStatePoller = new Runnable() {
+        @Override
+        public void run() {
+            renderCheckUpdateState();
+            scheduleHotUpdateStatePoller();
+        }
+    };
 
     @Override
     protected int getLayoutId() {
@@ -53,14 +73,17 @@ public final class LegacyFileManageActivity extends LegacyBaseActivity {
 
     @Override
     protected void onPageReady(Bundle savedInstanceState) {
+        AppLogCenter.init(this);
         bindImportAction();
         bindExportAction();
         bindUpgradeAction();
         bindExportLogAction();
         bindCheckUpdateAction();
         bindDeleteLogAction();
+        attachCheckUpdateProgressViews();
         renderResourceStatus(null);
         registerStorageReceiver();
+        registerHotUpdateStateListener();
         refreshFileActionState();
     }
 
@@ -68,10 +91,19 @@ public final class LegacyFileManageActivity extends LegacyBaseActivity {
     protected void onResume() {
         super.onResume();
         refreshFileActionState();
+        scheduleHotUpdateStatePoller();
+    }
+
+    @Override
+    protected void onPause() {
+        stopHotUpdateStatePoller();
+        super.onPause();
     }
 
     @Override
     protected void onDestroy() {
+        stopHotUpdateStatePoller();
+        unregisterHotUpdateStateListener();
         unregisterStorageReceiver();
         super.onDestroy();
     }
@@ -508,6 +540,19 @@ public final class LegacyFileManageActivity extends LegacyBaseActivity {
     }
 
     private void runCheckHotUpdateAsync() {
+        if (TinkerHotUpdateStateStore.isProcessing(this)) {
+            renderCheckUpdateState();
+            return;
+        }
+        String traceId = TraceIds.next("legacy-file-manage-hot-update");
+        AppLogCenter.log(
+                com.lhxy.istationdevice.android11.core.LogCategory.BIZ,
+                com.lhxy.istationdevice.android11.core.LogLevel.INFO,
+                "LegacyFileManageActivity",
+                "用户点击检查热更新",
+                traceId
+        );
+        renderCheckUpdateState();
         TextView tips = findViewById(R.id.tvFileTips);
         if (tips != null) {
             tips.setVisibility(View.VISIBLE);
@@ -517,10 +562,11 @@ public final class LegacyFileManageActivity extends LegacyBaseActivity {
         new Thread(() -> {
             ModuleRunResult result = ShellRuntime.get()
                     .getModuleHub()
-                    .runAction("upgrade", "check_hot_update", TraceIds.next("legacy-file-manage-hot-update"));
+                    .runAction("upgrade", "check_hot_update", traceId);
             runOnUiThread(() -> {
                 publishHomeResultState("check_hot_update", result);
                 renderResourceStatus(result == null ? "" : result.describeBlock());
+                showHotUpdateResultToast(result);
                 refreshFileActionState();
             });
         }, "legacy-file-manage-hot-update").start();
@@ -557,6 +603,7 @@ public final class LegacyFileManageActivity extends LegacyBaseActivity {
     private void refreshFileActionState() {
         renderUpgradeHint();
         renderExportLogState();
+        renderCheckUpdateState();
     }
 
     private void renderExportLogState() {
@@ -577,7 +624,184 @@ public final class LegacyFileManageActivity extends LegacyBaseActivity {
     }
 
     private boolean canExportLogBundle() {
-        return AppLogCenter.getCurrentSessionFile() != null;
+        AppLogCenter.init(this);
+        return AppLogCenter.getCurrentSessionFile() != null
+                || !AppLogCenter.listSessionFiles(1).isEmpty()
+                || !AppLogCenter.snapshot().isEmpty();
+    }
+
+    private void showHotUpdateResultToast(ModuleRunResult result) {
+        String message = compactResultText(result);
+        if (message == null || message.trim().isEmpty()) {
+            message = result != null && result.isSuccess() ? "热更新检查完成" : "热更新检查失败";
+        }
+        Toast.makeText(this, message.trim(), Toast.LENGTH_LONG).show();
+    }
+
+    private void registerHotUpdateStateListener() {
+        if (hotUpdateStateListener != null) {
+            return;
+        }
+        hotUpdateStateListener = TinkerHotUpdateStateStore.registerListener(this, () -> runOnUiThread(this::renderCheckUpdateState));
+    }
+
+    private void unregisterHotUpdateStateListener() {
+        TinkerHotUpdateStateStore.unregisterListener(this, hotUpdateStateListener);
+        hotUpdateStateListener = null;
+    }
+
+    private void renderCheckUpdateState() {
+        Button button = findViewById(R.id.butCheckUpdate);
+        if (hotUpdateProgressBar == null || hotUpdateProgressView == null || button == null) {
+            return;
+        }
+        reconcileLoadedHotUpdateState();
+        resolveTimedOutHotUpdateState();
+        int progress = TinkerHotUpdateStateStore.getProgressPercent(this);
+        boolean processing = TinkerHotUpdateStateStore.isProcessing(this);
+        applyButtonState(button, !processing);
+        if (!processing) {
+            hotUpdateProgressBar.setVisibility(View.GONE);
+            hotUpdateProgressView.setVisibility(View.GONE);
+            hotUpdateProgressBar.setProgress(0);
+            return;
+        }
+        hotUpdateProgressBar.setVisibility(View.VISIBLE);
+        hotUpdateProgressView.setVisibility(View.VISIBLE);
+        hotUpdateProgressBar.setProgress(Math.max(progress, 1));
+        hotUpdateProgressView.setText("热更新处理中 " + Math.max(progress, 1) + "%");
+    }
+
+    private void reconcileLoadedHotUpdateState() {
+        if (!TinkerHotUpdateStateStore.isProcessing(this)) {
+            return;
+        }
+        try {
+            Tinker tinker = Tinker.with(getApplicationContext());
+            if (!tinker.isTinkerLoaded()) {
+                return;
+            }
+            TinkerLoadResult loadResult = tinker.getTinkerLoadResultIfPresent();
+            String currentVersion = loadResult == null ? "" : safeTrim(loadResult.currentVersion);
+            if (currentVersion.isEmpty()) {
+                return;
+            }
+            String patchVersion = firstNonBlank(TinkerHotUpdateStateStore.getPendingPatchVersion(this), currentVersion);
+            String patchMd5 = TinkerHotUpdateStateStore.getPendingPatchMd5(this);
+            TinkerHotUpdateStateStore.markApplied(this, patchVersion, patchMd5);
+            LegacyHomeStatusRepository.setInfoTips(this, "热更新补丁已生效");
+            AppLogCenter.log(
+                    com.lhxy.istationdevice.android11.core.LogCategory.BIZ,
+                    com.lhxy.istationdevice.android11.core.LogLevel.INFO,
+                    "LegacyFileManageActivity",
+                    "检测到补丁已加载，已自动清理处理中状态 currentVersion=" + currentVersion,
+                    firstNonBlank(TinkerHotUpdateStateStore.getPendingTraceId(this), "legacy-hot-update-reconcile")
+            );
+        } catch (Exception e) {
+            AppLogCenter.log(
+                    com.lhxy.istationdevice.android11.core.LogCategory.ERROR,
+                    com.lhxy.istationdevice.android11.core.LogLevel.WARN,
+                    "LegacyFileManageActivity",
+                    "检查补丁加载状态失败: " + e.getMessage(),
+                    firstNonBlank(TinkerHotUpdateStateStore.getPendingTraceId(this), "legacy-hot-update-reconcile")
+            );
+        }
+    }
+
+    private void scheduleHotUpdateStatePoller() {
+        if (hotUpdateProgressView == null) {
+            return;
+        }
+        hotUpdateProgressView.removeCallbacks(hotUpdateStatePoller);
+        hotUpdateProgressView.postDelayed(hotUpdateStatePoller, HOT_UPDATE_POLL_INTERVAL_MILLIS);
+    }
+
+    private void stopHotUpdateStatePoller() {
+        if (hotUpdateProgressView == null) {
+            return;
+        }
+        hotUpdateProgressView.removeCallbacks(hotUpdateStatePoller);
+    }
+
+    private void resolveTimedOutHotUpdateState() {
+        if (!TinkerHotUpdateStateStore.isProcessing(this)) {
+            return;
+        }
+        long pendingStartedAt = TinkerHotUpdateStateStore.getPendingStartedAt(this);
+        if (pendingStartedAt <= 0L) {
+            return;
+        }
+        long elapsedMillis = System.currentTimeMillis() - pendingStartedAt;
+        if (elapsedMillis < HOT_UPDATE_TIMEOUT_MILLIS) {
+            return;
+        }
+        TinkerHotUpdateStateStore.clearPending(this);
+        LegacyHomeStatusRepository.setInfoTips(this, "热更新处理超时，请重新检查或手动重启应用");
+        TextView tips = findViewById(R.id.tvFileTips);
+        if (tips != null) {
+            tips.setVisibility(View.VISIBLE);
+            tips.setText("热更新处理超时，请重新检查或手动重启应用");
+        }
+        AppLogCenter.log(
+                com.lhxy.istationdevice.android11.core.LogCategory.ERROR,
+                com.lhxy.istationdevice.android11.core.LogLevel.WARN,
+                "LegacyFileManageActivity",
+                "热更新长时间未收到结果回调，已按超时失败收口",
+            firstNonBlank(TinkerHotUpdateStateStore.getPendingTraceId(this), "legacy-hot-update-timeout")
+        );
+    }
+
+    private void attachCheckUpdateProgressViews() {
+        RelativeLayout container = findViewById(R.id.rlCheckUpdate);
+        if (container == null || hotUpdateProgressBar != null || hotUpdateProgressView != null) {
+            return;
+        }
+        android.view.ViewGroup.LayoutParams layoutParams = container.getLayoutParams();
+        if (layoutParams != null) {
+            layoutParams.height = dp(96);
+            container.setLayoutParams(layoutParams);
+        }
+
+        hotUpdateProgressBar = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
+        hotUpdateProgressBar.setId(View.generateViewId());
+        hotUpdateProgressBar.setMax(99);
+        hotUpdateProgressBar.setVisibility(View.GONE);
+        RelativeLayout.LayoutParams progressParams = new RelativeLayout.LayoutParams(
+                RelativeLayout.LayoutParams.MATCH_PARENT,
+                dp(6)
+        );
+        progressParams.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM);
+        progressParams.leftMargin = dp(2);
+        progressParams.rightMargin = dp(220);
+        progressParams.bottomMargin = dp(12);
+        container.addView(hotUpdateProgressBar, progressParams);
+
+        hotUpdateProgressView = new TextView(this);
+        hotUpdateProgressView.setTextColor(ContextCompat.getColor(this, R.color.c_b5b5b5));
+        hotUpdateProgressView.setTextSize(16f);
+        hotUpdateProgressView.setVisibility(View.GONE);
+        RelativeLayout.LayoutParams progressTextParams = new RelativeLayout.LayoutParams(
+                RelativeLayout.LayoutParams.WRAP_CONTENT,
+                RelativeLayout.LayoutParams.WRAP_CONTENT
+        );
+        progressTextParams.addRule(RelativeLayout.ABOVE, hotUpdateProgressBar.getId());
+        progressTextParams.leftMargin = dp(2);
+        progressTextParams.bottomMargin = dp(4);
+        container.addView(hotUpdateProgressView, progressTextParams);
+    }
+
+    private String firstNonBlank(String first, String second) {
+        if (first != null && !first.trim().isEmpty()) {
+            return first.trim();
+        }
+        if (second != null && !second.trim().isEmpty()) {
+            return second.trim();
+        }
+        return "NO_TRACE";
+    }
+
+    private String safeTrim(String value) {
+        return value == null ? "" : value.trim();
     }
 
     private void deleteLocalLog() {

@@ -400,6 +400,7 @@ public final class LegacyVideoMonitorActivity extends AppCompatActivity {
     private void closeActivePreview(boolean showToastOnSuccess) {
         String cameraKey = currentCameraKey;
         previewOpened = false;
+        currentCameraKey = null;
         if (cameraKey == null || cameraKey.trim().isEmpty()) {
             if (showToastOnSuccess) {
                 Toast.makeText(this, R.string.legacy_video_channel_closed, Toast.LENGTH_SHORT).show();

@@ -96,6 +96,72 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_centerVertical="true"
+            android:text="@string/sys_info_hot_update_version"
+            android:textColor="@color/c_ffffff"
+            android:textSize="22sp" />
+
+        <TextView
+            android:id="@+id/tvHotUpdateVersion"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentRight="true"
+            android:layout_centerVertical="true"
+            android:textColor="@color/c_ffffff"
+            android:textSize="20sp"
+            tools:ignore="RelativeOverlap" />
+    </RelativeLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/d_1px"
+        android:layout_marginLeft="@dimen/d_22"
+        android:layout_marginRight="@dimen/d_22"
+        android:background="@color/c_ffffff" />
+
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/d_52"
+        android:layout_marginLeft="@dimen/d_16"
+        android:layout_marginRight="@dimen/d_22"
+        android:orientation="horizontal">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerVertical="true"
+            android:text="@string/sys_info_build_time"
+            android:textColor="@color/c_ffffff"
+            android:textSize="22sp" />
+
+        <TextView
+            android:id="@+id/tvBuildTime"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentRight="true"
+            android:layout_centerVertical="true"
+            android:textColor="@color/c_ffffff"
+            android:textSize="20sp"
+            tools:ignore="RelativeOverlap" />
+    </RelativeLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/d_1px"
+        android:layout_marginLeft="@dimen/d_22"
+        android:layout_marginRight="@dimen/d_22"
+        android:background="@color/c_ffffff" />
+
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/d_52"
+        android:layout_marginLeft="@dimen/d_16"
+        android:layout_marginRight="@dimen/d_22"
+        android:orientation="horizontal">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerVertical="true"
             android:text="@string/sys_info_data_version"
             android:textColor="@color/c_ffffff"
             android:textSize="22sp" />
@@ -145,6 +211,58 @@
                         android:textColor="@color/c_ffffff"
                         android:textSize="20sp" />
                 </RelativeLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/d_1px"
+                    android:layout_marginLeft="@dimen/d_22"
+                    android:layout_marginRight="@dimen/d_22"
+                    android:background="@color/c_ffffff" />
+
+                <RelativeLayout
+                    android:id="@+id/rlCheckUpdate"
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/d_80"
+                    android:orientation="vertical"
+                    android:paddingLeft="@dimen/d_16"
+                    android:paddingRight="@dimen/d_16">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_centerVertical="true"
+                        android:text="@string/file_check_hot_update"
+                        android:textColor="@color/c_ffffff"
+                        android:textSize="22sp"
+                        android:textStyle="bold"
+                        tools:ignore="RelativeOverlap" />
+
+                    <Button
+                        android:id="@+id/butCheckUpdate"
+                        android:layout_width="@dimen/d_140"
+                        android:layout_height="wrap_content"
+                        android:layout_alignParentRight="true"
+                        android:layout_centerVertical="true"
+                        android:layout_marginRight="@dimen/d_40"
+                        android:background="@drawable/btn_basic_setup_bg"
+                        android:text="@string/file_check_hot_update_btn"
+                        android:textColor="@color/c_000000"
+                        android:textSize="24sp"
+                        android:textStyle="bold"
+                        tools:ignore="all" />
+
+                </RelativeLayout>
+
+                <TextView
+                    android:id="@+id/tvCheckUpdateStatus"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginLeft="@dimen/d_16"
+                    android:layout_marginRight="@dimen/d_22"
+                    android:layout_marginBottom="@dimen/d_12"
+                    android:textColor="@color/c_ffffff"
+                    android:textSize="18sp"
+                    android:visibility="gone" />
 
 
 </LinearLayout>

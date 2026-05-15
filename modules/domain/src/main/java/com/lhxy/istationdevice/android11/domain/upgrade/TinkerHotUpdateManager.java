@@ -1,7 +1,6 @@
 package com.lhxy.istationdevice.android11.domain.upgrade;
 
 import android.content.Context;
-import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
 import android.os.Build;
 import android.util.Base64;
@@ -35,10 +34,8 @@ import javax.crypto.spec.SecretKeySpec;
 
 public final class TinkerHotUpdateManager {
     private static final String TAG = "TinkerHotUpdate";
+    private static final long PENDING_STALE_MILLIS = 3L * 60L * 1000L;
     private static final String ASSET_NAME = "oss-config.properties";
-    private static final String PREFS_NAME = "tinker_hot_update";
-    private static final String KEY_LAST_PATCH_VERSION = "last_patch_version";
-    private static final String KEY_LAST_PATCH_MD5 = "last_patch_md5";
     private static final boolean FORCE_TEST_CONFIG = true;
     private static final String TEST_OSS_BUCKET = "p138-register-lucky";
     private static final String TEST_OSS_ENDPOINT = "oss-cn-hangzhou.aliyuncs.com";
@@ -58,49 +55,73 @@ public final class TinkerHotUpdateManager {
         if (context == null) {
             return Result.failure("热更新检查失败", "当前没有可用上下文");
         }
+        AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, TAG, "热更新检查开始", traceId);
+        Result inProgressResult = resolvePendingResult(context, traceId);
+        if (inProgressResult != null) {
+            return inProgressResult;
+        }
         HotUpdateConfig config = HotUpdateConfig.load(context);
         if (!config.isUsable()) {
+            AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, TAG, "热更新配置不可用: " + config.disabledReason, traceId);
             return Result.failure("热更新未配置", config.disabledReason);
         }
+        TinkerHotUpdateStateStore.startProgress(context, traceId);
         setTip(context, "正在检查热更新...");
         try {
             HotUpdateManifest manifest = loadManifest(config, traceId);
+            TinkerHotUpdateStateStore.setProgressPercent(context, 15);
+            if (manifest.isNoUpdate()) {
+                TinkerHotUpdateStateStore.clearPending(context);
+                AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, TAG, "热更新检查结束: 无可用补丁", traceId);
+                return Result.success("当前已是最新热更新", manifest.describeInline());
+            }
             PackageInfo packageInfo = context.getPackageManager().getPackageInfo(context.getPackageName(), 0);
             long localVersionCode = resolveVersionCode(packageInfo);
             String localVersionName = packageInfo.versionName == null ? "" : packageInfo.versionName.trim();
             if (!manifest.enabled) {
-                return Result.success("热更新未启用", manifest.describeInline());
+                TinkerHotUpdateStateStore.clearPending(context);
+                AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, TAG, "热更新已禁用 enabled=false", traceId);
+                return Result.success(buildLatestSummary(manifest), manifest.describeInline());
             }
             if (manifest.targetVersionCode > 0 && manifest.targetVersionCode != localVersionCode) {
+                TinkerHotUpdateStateStore.clearPending(context);
+                AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, TAG, "补丁版本码不匹配 local=" + localVersionCode + " target=" + manifest.targetVersionCode, traceId);
                 return Result.failure(
                         "当前版本不匹配补丁",
                         "localVersionCode=" + localVersionCode + " / targetVersionCode=" + manifest.targetVersionCode
                 );
             }
             if (!manifest.targetVersionName.isEmpty() && !manifest.targetVersionName.equals(localVersionName)) {
+                TinkerHotUpdateStateStore.clearPending(context);
+                AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, TAG, "补丁版本名不匹配 local=" + emptyAsDash(localVersionName) + " target=" + manifest.targetVersionName, traceId);
                 return Result.failure(
                         "当前版本名不匹配补丁",
                         "localVersionName=" + emptyAsDash(localVersionName) + " / targetVersionName=" + manifest.targetVersionName
                 );
             }
             String normalizedPatchVersion = manifest.resolvePatchVersion();
-            SharedPreferences prefs = prefs(context);
-            String lastPatchVersion = prefs.getString(KEY_LAST_PATCH_VERSION, "");
-            String lastPatchMd5 = prefs.getString(KEY_LAST_PATCH_MD5, "");
+            String lastPatchVersion = TinkerHotUpdateStateStore.getLastPatchVersion(context);
+            String lastPatchMd5 = TinkerHotUpdateStateStore.getLastPatchMd5(context);
             if (normalizedPatchVersion.equals(lastPatchVersion)
                     && (manifest.patchMd5.isEmpty() || manifest.patchMd5.equalsIgnoreCase(lastPatchMd5))) {
-                return Result.success("当前已是最新热更新", manifest.describeInline());
+                TinkerHotUpdateStateStore.clearPending(context);
+                AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, TAG, "补丁已应用，无需重复下发 patchVersion=" + normalizedPatchVersion, traceId);
+                return Result.success(buildLatestSummary(manifest), manifest.describeInline());
             }
 
             File patchFile = resolvePatchFile(context, manifest);
+            AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, TAG, "准备下载补丁 patchVersion=" + normalizedPatchVersion + " / targetFile=" + patchFile.getAbsolutePath(), traceId);
+            TinkerHotUpdateStateStore.setProgressPercent(context, 25);
             downloadPatch(config, manifest, patchFile, traceId);
+            TinkerHotUpdateStateStore.setProgressPercent(context, 95);
+            AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, TAG, "开始校验补丁 patchVersion=" + normalizedPatchVersion, traceId);
             verifyPatch(manifest, patchFile);
-            setTip(context, "热更新补丁已下载，正在下发...");
+            AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, TAG, "补丁校验通过 patchVersion=" + normalizedPatchVersion, traceId);
+            String patchMd5 = manifest.patchMd5.isEmpty() ? computeMd5(patchFile) : manifest.patchMd5;
+            TinkerHotUpdateStateStore.markPending(context, normalizedPatchVersion, patchMd5);
+            setTip(context, "热更新补丁已下载，正在合成，请勿重复检查...");
+            AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, TAG, "开始下发补丁到 Tinker patchVersion=" + normalizedPatchVersion + " / md5=" + patchMd5, traceId);
             TinkerInstaller.onReceiveUpgradePatch(context, patchFile.getAbsolutePath());
-            prefs.edit()
-                    .putString(KEY_LAST_PATCH_VERSION, normalizedPatchVersion)
-                    .putString(KEY_LAST_PATCH_MD5, manifest.patchMd5)
-                    .apply();
             AppLogCenter.log(
                     LogCategory.BIZ,
                     LogLevel.INFO,
@@ -108,8 +129,9 @@ public final class TinkerHotUpdateManager {
                     "热更新补丁已下发 patchVersion=" + normalizedPatchVersion + " / file=" + patchFile.getAbsolutePath(),
                     traceId
             );
-            return Result.success("已下发热更新补丁", manifest.describeInline() + " / 重启应用后生效");
+            return Result.success(buildIssuedSummary(normalizedPatchVersion), manifest.describeInline() + " / 正在合成补丁，完成后应用会自动重启");
         } catch (Exception e) {
+            TinkerHotUpdateStateStore.clearPending(context);
             AppLogCenter.log(
                     LogCategory.ERROR,
                     LogLevel.ERROR,
@@ -123,9 +145,14 @@ public final class TinkerHotUpdateManager {
 
     private HotUpdateManifest loadManifest(HotUpdateConfig config, String traceId) throws Exception {
         RequestSpec requestSpec = config.resolveManifestRequest();
+        AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, TAG, "开始加载 manifest " + requestSpec.describe(), traceId);
         HttpURLConnection connection = openConnection(requestSpec, config.timeoutMillis);
         try {
             int statusCode = connection.getResponseCode();
+            if (statusCode == HttpURLConnection.HTTP_NOT_FOUND) {
+                AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, TAG, "热更新 manifest 不存在，视为当前最新 " + requestSpec.describe(), traceId);
+                return HotUpdateManifest.noUpdate("manifest 不存在");
+            }
             if (statusCode < 200 || statusCode >= 300) {
                 throw new IllegalStateException("热更新 manifest 请求失败 status=" + statusCode + " / " + requestSpec.describe());
             }
@@ -157,6 +184,14 @@ public final class TinkerHotUpdateManager {
                 throw new IllegalStateException("补丁下载失败 status=" + statusCode + " / " + requestSpec.describe());
             }
             long totalBytes = manifest.patchSizeBytes > 0 ? manifest.patchSizeBytes : connection.getContentLengthLong();
+            boolean knownTotalBytes = totalBytes > 0;
+            AppLogCenter.log(
+                    LogCategory.BIZ,
+                    LogLevel.INFO,
+                    TAG,
+                    "开始下载补丁 source=" + requestSpec.describe() + " / totalBytes=" + (knownTotalBytes ? String.valueOf(totalBytes) : "unknown"),
+                    traceId
+            );
             try (InputStream inputStream = connection.getInputStream();
                  FileOutputStream outputStream = new FileOutputStream(patchFile)) {
                 byte[] buffer = new byte[8192];
@@ -166,11 +201,14 @@ public final class TinkerHotUpdateManager {
                 while ((length = inputStream.read(buffer)) != -1) {
                     outputStream.write(buffer, 0, length);
                     downloadedBytes += length;
-                    if (totalBytes > 0) {
-                        int percent = (int) Math.min(100L, downloadedBytes * 100L / totalBytes);
-                        if (percent != lastPercent) {
-                            lastPercent = percent;
-                            setTip(appContext, "正在下载热更新补丁：" + percent + "%");
+                    int displayPercent = resolveDownloadProgressPercent(knownTotalBytes, totalBytes, downloadedBytes);
+                    if (displayPercent != lastPercent) {
+                        lastPercent = displayPercent;
+                        TinkerHotUpdateStateStore.setProgressPercent(appContext, displayPercent);
+                        if (knownTotalBytes) {
+                            setTip(appContext, "正在下载热更新补丁：" + displayPercent + "%");
+                        } else {
+                            setTip(appContext, "正在下载热更新补丁...");
                         }
                     }
                 }
@@ -245,10 +283,6 @@ public final class TinkerHotUpdateManager {
         return packageInfo.versionCode;
     }
 
-    private static SharedPreferences prefs(Context context) {
-        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-    }
-
     private static void setTip(Context context, String message) {
         if (context == null) {
             return;
@@ -282,6 +316,71 @@ public final class TinkerHotUpdateManager {
 
     private static String emptyAsDash(String value) {
         return value == null || value.trim().isEmpty() ? "-" : value.trim();
+    }
+
+    private int resolveDownloadProgressPercent(boolean knownTotalBytes, long totalBytes, long downloadedBytes) {
+        if (knownTotalBytes && totalBytes > 0L) {
+            int rawPercent = (int) Math.min(100L, downloadedBytes * 100L / totalBytes);
+            return Math.max(25, Math.min(rawPercent, 94));
+        }
+        if (downloadedBytes >= 2L * 1024L * 1024L) {
+            return 90;
+        }
+        if (downloadedBytes >= 512L * 1024L) {
+            return 75;
+        }
+        if (downloadedBytes > 0L) {
+            return 60;
+        }
+        return 25;
+    }
+
+    private Result resolvePendingResult(Context context, String traceId) {
+        String pendingPatchVersion = TinkerHotUpdateStateStore.getPendingPatchVersion(context);
+        String pendingPatchMd5 = TinkerHotUpdateStateStore.getPendingPatchMd5(context);
+        int progressPercent = TinkerHotUpdateStateStore.getProgressPercent(context);
+        if (!TinkerHotUpdateStateStore.isProcessing(context)) {
+            return null;
+        }
+        long pendingStartedAt = TinkerHotUpdateStateStore.getPendingStartedAt(context);
+        String pendingTraceId = firstNonBlank(TinkerHotUpdateStateStore.getPendingTraceId(context), traceId);
+        if (pendingStartedAt > 0L && System.currentTimeMillis() - pendingStartedAt > PENDING_STALE_MILLIS) {
+            TinkerHotUpdateStateStore.clearPending(context);
+            AppLogCenter.log(LogCategory.BIZ, LogLevel.WARN, TAG, "发现过期 pending 补丁状态，已自动清理", pendingTraceId);
+            return null;
+        }
+        String summary = pendingPatchVersion.isEmpty()
+                ? "热更新补丁正在处理中"
+                : "热更新补丁正在处理中 " + pendingPatchVersion;
+        String detail = "上一个补丁仍在下载或合成，当前进度 " + Math.max(progressPercent, 1) + "% ，请勿重复检查，完成后应用会自动重启";
+        setTip(context, summary);
+        AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, TAG, summary + " / pendingMd5=" + emptyAsDash(pendingPatchMd5), pendingTraceId);
+        return Result.success(summary, detail);
+    }
+
+    private static String firstNonBlank(String first, String second) {
+        if (first != null && !first.trim().isEmpty()) {
+            return first.trim();
+        }
+        if (second != null && !second.trim().isEmpty()) {
+            return second.trim();
+        }
+        return "NO_TRACE";
+    }
+
+    private static String buildLatestSummary(HotUpdateManifest manifest) {
+        String patchVersion = manifest == null ? "" : manifest.resolvePatchVersion();
+        if (patchVersion == null || patchVersion.trim().isEmpty()) {
+            return "当前已是最新热更新";
+        }
+        return "当前已是最新热更新 " + patchVersion.trim();
+    }
+
+    private static String buildIssuedSummary(String patchVersion) {
+        if (patchVersion == null || patchVersion.trim().isEmpty()) {
+            return "热更新补丁已下发，正在合成";
+        }
+        return "热更新补丁已下发，正在合成 " + patchVersion.trim();
     }
 
     public static final class Result {
@@ -461,6 +560,8 @@ public final class TinkerHotUpdateManager {
 
     private static final class HotUpdateManifest {
         private final boolean enabled;
+        private final boolean noUpdate;
+        private final String noUpdateReason;
         private final String patchVersion;
         private final long targetVersionCode;
         private final String targetVersionName;
@@ -472,6 +573,8 @@ public final class TinkerHotUpdateManager {
 
         private HotUpdateManifest(
                 boolean enabled,
+            boolean noUpdate,
+            String noUpdateReason,
                 String patchVersion,
                 long targetVersionCode,
                 String targetVersionName,
@@ -482,6 +585,8 @@ public final class TinkerHotUpdateManager {
                 String releaseNotes
         ) {
             this.enabled = enabled;
+            this.noUpdate = noUpdate;
+            this.noUpdateReason = trim(noUpdateReason);
             this.patchVersion = trim(patchVersion);
             this.targetVersionCode = targetVersionCode;
             this.targetVersionName = trim(targetVersionName);
@@ -496,6 +601,8 @@ public final class TinkerHotUpdateManager {
             JSONObject object = new JSONObject(payload);
             return new HotUpdateManifest(
                     object.optBoolean("enabled", true),
+                    false,
+                    "",
                     coalesce(object.optString("patchVersion", ""), object.optString("version", "")),
                     optLong(object, "targetVersionCode", optLong(object, "baseVersionCode", 0L)),
                     coalesce(object.optString("targetVersionName", ""), object.optString("baseVersionName", "")),
@@ -505,6 +612,14 @@ public final class TinkerHotUpdateManager {
                     optLong(object, "patchSizeBytes", 0L),
                     object.optString("releaseNotes", "")
             );
+        }
+
+        static HotUpdateManifest noUpdate(String reason) {
+            return new HotUpdateManifest(false, true, reason, "", 0L, "", "", "", "", 0L, "");
+        }
+
+        boolean isNoUpdate() {
+            return noUpdate;
         }
 
         String resolvePatchVersion() {
@@ -536,6 +651,13 @@ public final class TinkerHotUpdateManager {
 
         String describeInline() {
             StringBuilder builder = new StringBuilder();
+            if (noUpdate) {
+                builder.append("status=no-update");
+                if (!noUpdateReason.isEmpty()) {
+                    builder.append(" / reason=").append(noUpdateReason);
+                }
+                return builder.toString();
+            }
             builder.append("patchVersion=").append(emptyAsDash(resolvePatchVersion()));
             if (targetVersionCode > 0) {
                 builder.append(" / targetVersionCode=").append(targetVersionCode);

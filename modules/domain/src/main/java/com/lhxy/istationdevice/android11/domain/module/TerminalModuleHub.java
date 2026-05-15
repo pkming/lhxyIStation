@@ -17,6 +17,7 @@ import com.lhxy.istationdevice.android11.domain.config.ShellConfig;
 import com.lhxy.istationdevice.android11.domain.dispatch.DvrSerialDispatchUseCase;
 import com.lhxy.istationdevice.android11.domain.dvr.DvrSerialMonitor;
 import com.lhxy.istationdevice.android11.domain.gps.GpsSerialMonitor;
+import com.lhxy.istationdevice.android11.domain.passenger.JhyPassengerCounterMonitor;
 import com.lhxy.istationdevice.android11.domain.socket.Jt808SocketMonitor;
 
 import java.io.File;
@@ -47,6 +48,7 @@ public final class TerminalModuleHub {
             RfidAdapter rfidAdapter,
             SystemOps systemOps,
             GpsSerialMonitor gpsSerialMonitor,
+            JhyPassengerCounterMonitor passengerCounterMonitor,
             Jt808SocketMonitor jt808SocketMonitor,
             Supplier<File> exportDirSupplier,
             Supplier<String> foundationStatusSupplier,
@@ -60,7 +62,15 @@ public final class TerminalModuleHub {
         GpsBusinessModule gpsModule =
             new GpsBusinessModule(serialPortAdapter, gpsSerialMonitor, systemOps);
         StationBusinessModule stationModule =
-                new StationBusinessModule(protocolReplayUseCase, serialPortAdapter, gpioAdapter, gpsSerialMonitor, dispatchModule, dvrSerialDispatchUseCase);
+            new StationBusinessModule(
+                protocolReplayUseCase,
+                serialPortAdapter,
+                gpioAdapter,
+                gpsSerialMonitor,
+                passengerCounterMonitor,
+                dispatchModule,
+                dvrSerialDispatchUseCase
+            );
         SignInBusinessModule signInModule =
                 new SignInBusinessModule(protocolReplayUseCase, socketClientAdapter, rfidAdapter, dvrSerialDispatchUseCase);
         dispatchModule.attachStateProviders(signInModule::getSignInState, stationModule::getStationState);

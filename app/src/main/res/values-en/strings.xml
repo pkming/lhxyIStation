@@ -266,10 +266,15 @@ Time: %3$s</string>
     <string name="sys_info_server1">Server 1</string>
     <string name="sys_info_server2">Server 2</string>
     <string name="sys_info_software_version">Software Ver</string>
+    <string name="sys_info_hot_update_version">Hotfix Ver</string>
+    <string name="sys_info_build_time">Build Time</string>
     <string name="sys_info_version">Version Info</string>
     <string name="sys_info_wifi">WiFi</string>
     <string name="sysinfo_title">System Info</string>
     <string name="systemsetup_title">System Setting</string>
+    <string name="version_hot_update_version">Hotfix Version: %1$s</string>
+    <string name="version_hot_update_not_applied">Not Applied</string>
+    <string name="version_build_time">Build Time: %1$s</string>
     <string name="tts_ok">Saved</string>
     <string name="tts_ok_tip">Are you sure to change the TTS settings?</string>
     <string name="upstream">Up</string>

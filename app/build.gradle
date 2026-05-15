@@ -2,6 +2,10 @@ plugins {
     id 'com.android.application'
 }
 
+def appVersionCode = 2
+def appVersionName = "0.1.1"
+def tinkerId = appVersionName
+def buildTimestamp = new Date().format("yyyyMMddHHmm")
 def runtimeConfigDir = new File(rootProject.projectDir, "config")
 def signingPropertiesFile = new File(runtimeConfigDir, "signing.local.properties")
 def generatedConfigAssetsDir = new File(buildDir, "generated/shell-config-assets")
@@ -32,8 +36,10 @@ android {
         applicationId "com.lhxy.istationdevice.android11"
         minSdk 26
         targetSdk 35
-        versionCode 1
-        versionName "0.1.0"
+        versionCode appVersionCode
+        versionName appVersionName
+        resValue "string", "app_build_time_value", buildTimestamp
+        manifestPlaceholders = [TINKER_ID: tinkerId]
     }
 
     buildFeatures {
