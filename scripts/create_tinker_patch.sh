@@ -32,6 +32,8 @@ TARGET_VERSION_CODE=""
 TARGET_VERSION_NAME=""
 TINKER_ID=""
 RELEASE_NOTES=""
+BASE_APK_MD5=""
+BASE_APK_FILE_NAME=""
 SKIP_BUILD=0
 SKIP_UPLOAD=0
 OSS_CONFIG_FILE=""
@@ -40,7 +42,8 @@ OSS_ENDPOINT=""
 OSS_ACCESS_KEY_ID=""
 OSS_ACCESS_KEY_SECRET=""
 OSS_SECURE="true"
-IGNORE_CHANGE_WARNING=""
+DEFAULT_IGNORE_CHANGE_WARNINGS=("res/RD.xml" "res/Zg.xml")
+IGNORE_CHANGE_WARNINGS=()
 
 usage() {
     cat <<'EOF'
@@ -65,8 +68,8 @@ usage() {
   --manifest-object-key KEY   设备端读取的 manifest object key, 默认 hotfix/android11/manifest.json
   --target-version-code NUM   覆盖 manifest.json 的 targetVersionCode
   --target-version-name NAME  覆盖 manifest.json 的 targetVersionName
-  --tinker-id VALUE           覆盖 CLI 配置中的 TINKER_ID
-    --ignore-change-warning P   透传到 Tinker 的 ignoreChangeWarning，例如 res/RD.xml
+    --tinker-id VALUE           覆盖 CLI 配置中的 TINKER_ID
+        --ignore-change-warning P   追加透传到 Tinker 的 ignoreChangeWarning，可重复传入
   --release-notes TEXT        写入 manifest.json 的 releaseNotes
     --skip-upload               只生成本地 patch, 不上传 OSS
     --oss-config PATH           指定 OSS 配置文件, 默认优先 config/oss-config.local.properties
@@ -77,7 +80,7 @@ usage() {
 示例:
   ./scripts/create_tinker_patch.sh --old-apk ~/Desktop/base.apk
   ./scripts/create_tinker_patch.sh --old-apk ~/Desktop/base.apk --new-apk app/build/outputs/apk/release/APP20260514155358.apk --skip-build
-    ./scripts/create_tinker_patch.sh --old-apk ~/Desktop/base.apk --ignore-change-warning res/RD.xml --skip-upload
+    ./scripts/create_tinker_patch.sh --old-apk ~/Desktop/base.apk --ignore-change-warning res/RD.xml --ignore-change-warning res/XX.xml --skip-upload
     ./scripts/create_tinker_patch.sh --old-apk ~/Desktop/base.apk --skip-upload
 
 注意:
@@ -343,6 +346,8 @@ generate_index_file() {
   "tinkerId": "$(json_escape "$TINKER_ID")",
   "targetVersionCode": ${TARGET_VERSION_CODE},
   "targetVersionName": "$(json_escape "$TARGET_VERSION_NAME")",
+    "baseApkMd5": "$(json_escape "$BASE_APK_MD5")",
+    "baseApkFileName": "$(json_escape "$BASE_APK_FILE_NAME")",
   "latestSequence": ${latest_sequence},
   "latestPatchVersion": "$(json_escape "$PATCH_VERSION")",
   "latestPatchObjectKey": "$(json_escape "$PATCH_OBJECT_KEY")",
@@ -449,6 +454,14 @@ resolve_patch_output() {
     fail "未在 $output_dir 找到 patch 输出文件"
 }
 
+build_ignore_change_warning_xml() {
+    local pattern
+    for pattern in "$@"; do
+        [[ -n "$pattern" ]] || continue
+        printf '        <ignoreChangeWarning value="%s"/>\n' "$(xml_escape "$pattern")"
+    done
+}
+
 generate_tinker_config() {
     local config_file="$1"
     local store_file="$2"
@@ -457,7 +470,9 @@ generate_tinker_config() {
     local key_password="$5"
     local tinker_id="$6"
     local seven_zip_path="$7"
-    local ignore_change_warning="$8"
+    shift 7
+    local ignore_change_warning_xml
+    ignore_change_warning_xml="$(build_ignore_change_warning_xml "$@")"
     cat > "$config_file" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <tinkerPatch>
@@ -488,8 +503,7 @@ generate_tinker_config() {
         <pattern value="assets/*"/>
         <pattern value="resources.arsc"/>
         <pattern value="AndroidManifest.xml"/>
-        <ignoreChangeWarning value="$(xml_escape "$ignore_change_warning")"/>
-        <largeModSize value="100"/>
+${ignore_change_warning_xml}        <largeModSize value="100"/>
     </issue>
 
     <issue id="packageConfig">
@@ -550,7 +564,7 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
         --ignore-change-warning)
-            IGNORE_CHANGE_WARNING="$2"
+            IGNORE_CHANGE_WARNINGS+=("$2")
             shift 2
             ;;
         --release-notes)
@@ -586,6 +600,8 @@ done
 [[ -n "$OLD_APK" ]] || fail "必须传 --old-apk"
 OLD_APK="$(make_absolute_path "$OLD_APK")"
 [[ -f "$OLD_APK" ]] || fail "old apk 不存在: $OLD_APK"
+BASE_APK_FILE_NAME="$(basename "$OLD_APK")"
+BASE_APK_MD5="$(compute_md5 "$OLD_APK")"
 OLD_APK="$(archive_input_apk "$OLD_APK" base)"
 
 if [[ "$SKIP_UPLOAD" -eq 0 ]]; then
@@ -653,6 +669,22 @@ STORE_FILE="$ROOT_DIR/$STORE_FILE_RELATIVE"
 
 ensure_cli
 
+MERGED_IGNORE_CHANGE_WARNINGS=("${DEFAULT_IGNORE_CHANGE_WARNINGS[@]:-}")
+if [[ ${#IGNORE_CHANGE_WARNINGS[@]:-} -gt 0 ]]; then
+    MERGED_IGNORE_CHANGE_WARNINGS+=("${IGNORE_CHANGE_WARNINGS[@]:-}")
+fi
+
+if [[ ${#MERGED_IGNORE_CHANGE_WARNINGS[@]:-} -gt 0 ]]; then
+    deduped_ignore_change_warnings=()
+    for pattern in "${MERGED_IGNORE_CHANGE_WARNINGS[@]:-}"; do
+        [[ -n "$pattern" ]] || continue
+        if [[ " ${deduped_ignore_change_warnings[@]:-} " != *" $pattern "* ]]; then
+            deduped_ignore_change_warnings+=("$pattern")
+        fi
+    done
+    MERGED_IGNORE_CHANGE_WARNINGS=("${deduped_ignore_change_warnings[@]:-}")
+fi
+
 SEVEN_ZIP_PATH=""
 if command -v 7za >/dev/null 2>&1; then
     SEVEN_ZIP_PATH="$(command -v 7za)"
@@ -665,7 +697,7 @@ fi
 CLI_CONFIG_DIR="$TOOLS_DIR/configs"
 mkdir -p "$CLI_CONFIG_DIR"
 CONFIG_FILE="$CLI_CONFIG_DIR/tinker_config_${PATCH_VERSION}.xml"
-generate_tinker_config "$CONFIG_FILE" "$STORE_FILE" "$STORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD" "$TINKER_ID" "$SEVEN_ZIP_PATH" "$IGNORE_CHANGE_WARNING"
+generate_tinker_config "$CONFIG_FILE" "$STORE_FILE" "$STORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD" "$TINKER_ID" "$SEVEN_ZIP_PATH" "${MERGED_IGNORE_CHANGE_WARNINGS[@]:-}"
 
 echo "开始生成 patch"
 mkdir -p "$TOOLS_DIR/logs"
@@ -694,6 +726,8 @@ cat > "$MANIFEST_FILE" <<EOF
   "patchVersion": "$(json_escape "$PATCH_VERSION")",
   "targetVersionCode": ${TARGET_VERSION_CODE},
   "targetVersionName": "$(json_escape "$TARGET_VERSION_NAME")",
+    "baseApkMd5": "$(json_escape "$BASE_APK_MD5")",
+    "baseApkFileName": "$(json_escape "$BASE_APK_FILE_NAME")",
   "patchObjectKey": "$(json_escape "$PATCH_OBJECT_KEY")",
   "patchMd5": "$(json_escape "$PATCH_MD5")",
   "patchSizeBytes": ${PATCH_SIZE_BYTES},
@@ -718,6 +752,7 @@ echo "manifest key:  $MANIFEST_OBJECT_KEY"
 echo "archive key:   $ARCHIVE_MANIFEST_OBJECT_KEY"
 echo "index key:     $INDEX_OBJECT_KEY"
 echo "patch key:     $PATCH_OBJECT_KEY"
+echo "base md5:      $BASE_APK_MD5"
 echo "patch md5:     $PATCH_MD5"
 echo "base note:     后续继续打补丁时，仍然复用这次对应的基线包，不要切成后续新 APK"
 

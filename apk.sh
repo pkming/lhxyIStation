@@ -15,7 +15,7 @@ LEGACY_LATEST_BASELINE_APK="$LEGACY_BASELINE_DIR/latest-base.apk"
 usage() {
     cat <<'EOF'
 用法:
-  sh apk.sh rebuild [--pin-base]
+    sh apk.sh rebuild [--pin-base] [--force-pin-base]
   sh apk.sh update [create_tinker_patch.sh 的参数]
 
 命令:
@@ -25,12 +25,14 @@ usage() {
 常用示例:
   sh apk.sh rebuild
   sh apk.sh rebuild --pin-base
+    sh apk.sh rebuild --pin-base --force-pin-base
   sh apk.sh update --skip-upload
   sh apk.sh update --old-apk /path/to/base.apk --skip-upload
 
 说明:
   1. 第一次立基线，建议执行 sh apk.sh rebuild --pin-base
-  2. 后续继续出 patch，直接执行 sh apk.sh update
+    2. 同一个 versionName/TINKER_ID 下，--pin-base 默认不允许用不同 APK 静默覆盖旧基线
+    3. 后续继续出 patch，直接执行 sh apk.sh update
   3. update 的其他参数会原样透传给 scripts/create_tinker_patch.sh
 EOF
 }
@@ -66,12 +68,18 @@ archive_release_apk() {
 
 pin_baseline_apk() {
     source_apk="$1"
+    force_pin_base="$2"
     version_name=$(detect_version_name)
     if [ -z "$version_name" ]; then
         version_name="manual"
     fi
     mkdir -p "$BASELINE_DIR"
     baseline_apk="$BASELINE_DIR/base-$version_name.apk"
+    if [ -f "$baseline_apk" ] && ! cmp -s "$source_apk" "$baseline_apk"; then
+        if [ "$force_pin_base" -ne 1 ]; then
+            fail "检测到同一 versionName=$version_name 已存在不同内容的基线: $baseline_apk\n这会让 latest-base.apk 漂移，后续 hotfix 容易打错基线。\n如果设备确实要切到这版完整包，请先安装新完整包后再执行 sh apk.sh rebuild --pin-base --force-pin-base"
+        fi
+    fi
     cp -f "$source_apk" "$baseline_apk"
     cp -f "$baseline_apk" "$LATEST_BASELINE_APK"
     printf '%s\n' "$baseline_apk"
@@ -100,10 +108,14 @@ has_old_apk_arg() {
 
 run_rebuild() {
     pin_base=0
+    force_pin_base=0
     while [ "$#" -gt 0 ]; do
         case "$1" in
             --pin-base)
                 pin_base=1
+                ;;
+            --force-pin-base)
+                force_pin_base=1
                 ;;
             --help|-h)
                 usage
@@ -131,7 +143,7 @@ run_rebuild() {
     echo "archive apk: $archived_apk"
 
     if [ "$pin_base" -eq 1 ]; then
-        baseline_apk=$(pin_baseline_apk "$archived_apk")
+        baseline_apk=$(pin_baseline_apk "$archived_apk" "$force_pin_base")
         echo "baseline apk: $baseline_apk"
         echo "latest base:  $LATEST_BASELINE_APK"
     fi

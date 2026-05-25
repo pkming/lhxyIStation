@@ -86,6 +86,7 @@ sh apk.sh update --old-apk /path/to/base.apk --new-apk /path/to/new.apk --skip-b
 8. 连续出第 2 个、第 3 个 patch 时，`--old-apk` 仍然要一直指向设备最初安装的那版基线 APK，不要改成后续新打出来的 APK。
 9. 不传 `--patch-version` 时，脚本会按同一 `tinkerId` 自动递增生成 `<tinkerId>-p001 / p002 / p003 ...`。
 10. 如果要把设备或模拟器重置回“干净基线”再测热更新，不能只做 `adb install -r` 覆盖安装；它会保留应用数据里的 Tinker 补丁目录，启动时仍可能自动加载旧 patch。要先执行 `adb uninstall com.lhxy.istationdevice.android11`，或者至少 `adb shell pm clear com.lhxy.istationdevice.android11`，再安装基线包。
+11. 当前 manifest 会带上基线 APK 的 MD5，设备检查热更新时会先核对当前安装完整包的 APK 指纹；如果基线不一致，会直接拒绝补丁，不再让错 patch 下发到设备上。
 
 ## 配置优先级
 

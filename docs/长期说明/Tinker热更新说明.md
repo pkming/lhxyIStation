@@ -55,6 +55,8 @@
   "patchVersion": "20260514-001",
   "targetVersionCode": 1,
   "targetVersionName": "0.1.0",
+  "baseApkMd5": "abcdef0123456789abcdef0123456789",
+  "baseApkFileName": "base-0.1.0.apk",
   "patchObjectKey": "hotfix/android11/patch-20260514-001.apk",
   "patchMd5": "0123456789abcdef0123456789abcdef",
   "patchSizeBytes": 123456,
@@ -72,8 +74,9 @@
 规则：
 
 1. `targetVersionCode/baseVersionCode` 必须和设备当前安装包版本一致，否则不会下发。
-2. `patchVersion` 用来判断“是不是已经下发过这版补丁”，不要留空。
-3. `patchMd5` 和 `patchSizeBytes` 虽然是可选，但真机上建议都带，避免坏包直接下发。
+2. `baseApkMd5` 强烈建议必带，设备会用当前安装完整包的 APK MD5 做二次校验，避免同一版本号下错基线误收补丁。
+3. `patchVersion` 用来判断“是不是已经下发过这版补丁”，不要留空。
+4. `patchMd5` 和 `patchSizeBytes` 虽然是可选，但真机上建议都带，避免坏包直接下发。
 
 ## 3. 设备侧行为
 
@@ -143,6 +146,7 @@ sh apk.sh update
 4. 自动上传优先读取 `config/oss-config.local.properties`，没有它才会回退模板文件。
 5. 连续出多个 patch 时，`--old-apk` 要始终保持为设备最初安装的那版完整基线包，不能每次都换成最新 release APK；否则后续 patch 很容易打在错误基线上。
 6. 脚本会先把 old/new apk 快照到 `build/tinker/apk-inputs/`，避免 `assembleRelease` 刷新 `app/build/outputs/apk/release/` 时把基线包覆盖掉。
+7. 当前脚本会把 `--old-apk` 的 MD5 写入 manifest 的 `baseApkMd5`，设备检查更新时会先比对这个指纹；不匹配时直接拒绝补丁，而不是等到合成失败后再靠卸载重装排障。
 
 本轮代码层已验证：
 

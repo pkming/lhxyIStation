@@ -92,6 +92,7 @@ public final class LegacyMainActivity extends AppCompatActivity {
     private boolean homeReverseSurfaceReady;
     private boolean homeMonitorPreviewOpened;
     private String homeMonitorCameraKey;
+    private final String homeMonitorOwnerToken = "legacy-home-monitor@" + Integer.toHexString(System.identityHashCode(this));
     private HomeMonitorMode currentHomeMonitorMode = HomeMonitorMode.DVR;
     private HomeMonitorMode lastLoggedHomeMonitorMode;
     private SharedPreferences.OnSharedPreferenceChangeListener homeStatusListener;
@@ -153,11 +154,7 @@ public final class LegacyMainActivity extends AppCompatActivity {
         homeDvrSurface = findViewById(R.id.surfaceViewDVR2);
         homeMiddleDoorSurface = findViewById(R.id.surfaceViewMittertor);
         homeReverseSurface = findViewById(R.id.surfaceViewBackingup);
-        View dvrContainer = findViewById(R.id.lyVideoDVRImage);
-        View videoContainer = findViewById(R.id.lyVideoImage);
         applyHomeMonitorMode(currentHomeMonitorMode);
-        bindHomeDvrTouch(dvrContainer);
-        bindHomeDvrTouch(videoContainer);
         bindHomeMonitorSurface(homeDvrSurface, HomeMonitorMode.DVR);
         bindHomeMonitorSurface(homeMiddleDoorSurface, HomeMonitorMode.MIDDLE_DOOR);
         bindHomeMonitorSurface(homeReverseSurface, HomeMonitorMode.REVERSE);
@@ -204,7 +201,6 @@ public final class LegacyMainActivity extends AppCompatActivity {
                 closeHomeMonitorPreview(false);
             }
         });
-        bindHomeDvrTouch(surfaceView);
     }
 
     private void bindHeader() {
@@ -377,6 +373,7 @@ public final class LegacyMainActivity extends AppCompatActivity {
                     holder.getSurface(),
                     Math.max(1, previewSurface.getWidth()),
                     Math.max(1, previewSurface.getHeight()),
+                    homeMonitorOwnerToken,
                     TraceIds.next("legacy-home-monitor-preview-" + cameraKey)
             );
             homeMonitorPreviewOpened = true;
@@ -407,7 +404,7 @@ public final class LegacyMainActivity extends AppCompatActivity {
         homeMonitorCameraKey = null;
         if (cameraKey != null && !cameraKey.trim().isEmpty() && wasOpened) {
             try {
-                shellRuntime.getCameraAdapter().close(cameraKey, TraceIds.next("legacy-home-monitor-close-" + cameraKey));
+                shellRuntime.getCameraAdapter().close(cameraKey, homeMonitorOwnerToken, TraceIds.next("legacy-home-monitor-close-" + cameraKey));
                 AppLogCenter.log(
                         LogCategory.UI,
                         LogLevel.INFO,

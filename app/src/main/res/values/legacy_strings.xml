@@ -235,6 +235,7 @@
     <string name="file_export_btn">导出</string>
     <string name="file_upgrade_btn">升级</string>
     <string name="file_check_hot_update_btn">检查</string>
+    <string name="file_reset_hot_update_btn">重置</string>
     <string name="file_import_tip">确定导入报站文件?</string>
     <string name="file_import_choose_package_title">选择导入包</string>
     <string name="file_import_choose_package_confirm">开始导入</string>
@@ -246,6 +247,10 @@
     <string name="file_upgrade_load_tip">正在升级APP,请务必不要做其他操作&#8230;</string>
     <string name="file_check_hot_update_tip">确定检查热更新?</string>
     <string name="file_check_hot_update_load_tip">正在检查热更新,请务必不要做其他操作&#8230;</string>
+    <string name="file_reset_hot_update_tip">确定重置热更新? 这会清掉当前补丁并立即重启应用，重启后回到完整包基线。</string>
+    <string name="file_reset_hot_update_processing_tip">当前热更新仍在处理中。是否立即重置热更新? 这会清掉当前补丁状态并立即重启应用，重启后回到完整包基线。</string>
+    <string name="file_reset_hot_update_confirm">重置并重启</string>
+    <string name="file_reset_hot_update_load_tip">正在重置热更新并重启应用&#8230;</string>
     <string name="file_upgrade_not_found">未找到本地升级包</string>
     <string name="file_import_diagnostics_title">导入诊断</string>
     <string name="file_import_diagnostics_summary">%1$s

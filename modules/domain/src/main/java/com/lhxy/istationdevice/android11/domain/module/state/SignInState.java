@@ -83,7 +83,7 @@ public final class SignInState {
         if (normalizedDriverName.startsWith("司机 ") && (normalizedDriverId.isEmpty() || "-".equals(normalizedDriverId))) {
             return false;
         }
-        return !"00000000".equals(normalizedCardNo);
+        return !isEmptyCardNo(normalizedCardNo);
     }
 
     public String getAttendanceMode() {
@@ -117,7 +117,20 @@ public final class SignInState {
             return "00000000";
         }
         String card = rawCardNo.trim();
-        return card.length() <= 8 ? card : card.substring(card.length() - 8);
+        return isEmptyCardNo(card) ? "00000000" : card;
+    }
+
+    private boolean isEmptyCardNo(String value) {
+        String normalized = value == null ? "" : value.trim().replaceAll("[^0-9A-Za-z]", "");
+        if (normalized.isEmpty()) {
+            return true;
+        }
+        for (int index = 0; index < normalized.length(); index++) {
+            if (normalized.charAt(index) != '0') {
+                return false;
+            }
+        }
+        return true;
     }
 
     private String normalizeDriverId(String rawDriverId) {

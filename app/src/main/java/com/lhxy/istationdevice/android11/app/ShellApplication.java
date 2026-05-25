@@ -7,6 +7,11 @@ import android.content.Intent;
 import android.os.Build;
 import android.util.Log;
 
+import com.tencent.tinker.lib.listener.DefaultPatchListener;
+import com.tencent.tinker.lib.patch.UpgradePatch;
+import com.tencent.tinker.lib.reporter.DefaultLoadReporter;
+import com.tencent.tinker.lib.reporter.DefaultPatchReporter;
+import com.tencent.tinker.lib.tinker.TinkerInstaller;
 import com.tencent.tinker.entry.DefaultApplicationLike;
 
 import java.lang.reflect.InvocationTargetException;
@@ -52,35 +57,15 @@ public class ShellApplication extends DefaultApplicationLike {
     private void installTinker() {
         try {
             Application application = getApplication();
-            Object loadReporter = Class.forName("com.tencent.tinker.lib.reporter.DefaultLoadReporter")
-                    .getConstructor(Context.class)
-                    .newInstance(application);
-            Object patchReporter = Class.forName("com.tencent.tinker.lib.reporter.DefaultPatchReporter")
-                    .getConstructor(Context.class)
-                    .newInstance(application);
-            Object patchListener = Class.forName("com.tencent.tinker.lib.listener.DefaultPatchListener")
-                    .getConstructor(Context.class)
-                    .newInstance(application);
-            Object upgradePatch = Class.forName("com.tencent.tinker.lib.patch.UpgradePatch")
-                    .getConstructor()
-                    .newInstance();
-            Class<?> resultServiceClass = Class.forName("com.lhxy.istationdevice.android11.app.ShellTinkerResultService");
-            Class<?> applicationLikeClass = Class.forName("com.tencent.tinker.entry.ApplicationLike");
-            Class<?> loadReporterClass = Class.forName("com.tencent.tinker.lib.reporter.LoadReporter");
-            Class<?> patchReporterClass = Class.forName("com.tencent.tinker.lib.reporter.PatchReporter");
-            Class<?> patchListenerClass = Class.forName("com.tencent.tinker.lib.listener.PatchListener");
-            Class<?> abstractPatchClass = Class.forName("com.tencent.tinker.lib.patch.AbstractPatch");
-            Class.forName("com.tencent.tinker.lib.tinker.TinkerInstaller")
-                    .getMethod(
-                            "install",
-                            applicationLikeClass,
-                            loadReporterClass,
-                            patchReporterClass,
-                            patchListenerClass,
-                            Class.class,
-                            abstractPatchClass
-                    )
-                    .invoke(null, this, loadReporter, patchReporter, patchListener, resultServiceClass, upgradePatch);
+            TinkerInstaller.install(
+                this,
+                new DefaultLoadReporter(application),
+                new DefaultPatchReporter(application),
+                new DefaultPatchListener(application),
+                ShellTinkerResultService.class,
+                new UpgradePatch()
+            );
+            Log.i(TAG, "Tinker 安装完成");
         } catch (Exception e) {
             throw buildIllegalState("Tinker 安装失败", e);
         }

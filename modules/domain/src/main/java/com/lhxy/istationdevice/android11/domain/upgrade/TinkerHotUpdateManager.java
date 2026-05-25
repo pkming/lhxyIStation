@@ -9,7 +9,9 @@ import com.lhxy.istationdevice.android11.core.AppLogCenter;
 import com.lhxy.istationdevice.android11.core.LegacyHomeStatusRepository;
 import com.lhxy.istationdevice.android11.core.LogCategory;
 import com.lhxy.istationdevice.android11.core.LogLevel;
+import com.tencent.tinker.lib.tinker.Tinker;
 import com.tencent.tinker.lib.tinker.TinkerInstaller;
+import com.tencent.tinker.lib.tinker.TinkerLoadResult;
 
 import org.json.JSONObject;
 
@@ -36,7 +38,7 @@ public final class TinkerHotUpdateManager {
     private static final String TAG = "TinkerHotUpdate";
     private static final long PENDING_STALE_MILLIS = 3L * 60L * 1000L;
     private static final String ASSET_NAME = "oss-config.properties";
-    private static final boolean FORCE_TEST_CONFIG = true;
+    private static final boolean FORCE_TEST_CONFIG = false;
     private static final String TEST_OSS_BUCKET = "p138-register-lucky";
     private static final String TEST_OSS_ENDPOINT = "oss-cn-hangzhou.aliyuncs.com";
     private static final String TEST_OSS_ACCESS_KEY_ID = "LTAI5t8Xfh2S1AdvFS2nfZeq";
@@ -60,6 +62,7 @@ public final class TinkerHotUpdateManager {
         if (inProgressResult != null) {
             return inProgressResult;
         }
+        TinkerRuntimeState preflightState = requireTinkerReady(context, traceId, "前置");
         HotUpdateConfig config = HotUpdateConfig.load(context);
         if (!config.isUsable()) {
             AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, TAG, "热更新配置不可用: " + config.disabledReason, traceId);
@@ -99,6 +102,30 @@ public final class TinkerHotUpdateManager {
                         "localVersionName=" + emptyAsDash(localVersionName) + " / targetVersionName=" + manifest.targetVersionName
                 );
             }
+                if (!manifest.baseApkMd5.isEmpty()) {
+                File localBaseApkFile = resolveInstalledBaseApkFile(packageInfo, context);
+                String localBaseApkMd5 = localBaseApkFile == null ? "" : computeMd5(localBaseApkFile);
+                if (!manifest.baseApkMd5.equalsIgnoreCase(localBaseApkMd5)) {
+                    TinkerHotUpdateStateStore.clearPending(context);
+                    AppLogCenter.log(
+                        LogCategory.ERROR,
+                        LogLevel.WARN,
+                        TAG,
+                        "补丁基线不匹配 localBaseApkMd5=" + emptyAsDash(localBaseApkMd5)
+                            + " targetBaseApkMd5=" + manifest.baseApkMd5
+                            + " / localBase=" + describeBaseApk(localBaseApkFile)
+                            + " / targetBase=" + emptyAsDash(manifest.baseApkFileName),
+                        traceId
+                    );
+                    return Result.failure(
+                        "当前完整包基线不匹配补丁",
+                        "localBaseApkMd5=" + emptyAsDash(localBaseApkMd5)
+                            + " / targetBaseApkMd5=" + manifest.baseApkMd5
+                            + " / localBase=" + describeBaseApk(localBaseApkFile)
+                            + " / targetBase=" + emptyAsDash(manifest.baseApkFileName)
+                    );
+                }
+                }
             String normalizedPatchVersion = manifest.resolvePatchVersion();
             String lastPatchVersion = TinkerHotUpdateStateStore.getLastPatchVersion(context);
             String lastPatchMd5 = TinkerHotUpdateStateStore.getLastPatchMd5(context);
@@ -122,14 +149,24 @@ public final class TinkerHotUpdateManager {
             setTip(context, "热更新补丁已下载，正在合成，请勿重复检查...");
             AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, TAG, "开始下发补丁到 Tinker patchVersion=" + normalizedPatchVersion + " / md5=" + patchMd5, traceId);
             TinkerInstaller.onReceiveUpgradePatch(context, patchFile.getAbsolutePath());
+                TinkerRuntimeState postflightState = requireTinkerReady(context, traceId, "后置");
             AppLogCenter.log(
                     LogCategory.BIZ,
                     LogLevel.INFO,
                     TAG,
-                    "热更新补丁已下发 patchVersion=" + normalizedPatchVersion + " / file=" + patchFile.getAbsolutePath(),
+                    "热更新补丁已下发 patchVersion=" + normalizedPatchVersion
+                        + " / file=" + patchFile.getAbsolutePath()
+                        + " / preflight=" + preflightState.describeCompact()
+                        + " / postflight=" + postflightState.describeCompact(),
                     traceId
             );
-            return Result.success(buildIssuedSummary(normalizedPatchVersion), manifest.describeInline() + " / 正在合成补丁，完成后应用会自动重启");
+                return Result.success(
+                    buildIssuedSummary(normalizedPatchVersion),
+                    manifest.describeInline()
+                        + " / 前置自检=" + preflightState.describeCompact()
+                        + " / 后置自检=" + postflightState.describeCompact()
+                        + " / 正在合成补丁，完成后应用会自动重启"
+                );
         } catch (Exception e) {
             TinkerHotUpdateStateStore.clearPending(context);
             AppLogCenter.log(
@@ -283,6 +320,38 @@ public final class TinkerHotUpdateManager {
         return packageInfo.versionCode;
     }
 
+    private static File resolveInstalledBaseApkFile(PackageInfo packageInfo, Context context) {
+        if (packageInfo != null && packageInfo.applicationInfo != null) {
+            String sourceDir = safeTrim(packageInfo.applicationInfo.sourceDir);
+            if (!sourceDir.isEmpty()) {
+                return new File(sourceDir);
+            }
+            String publicSourceDir = safeTrim(packageInfo.applicationInfo.publicSourceDir);
+            if (!publicSourceDir.isEmpty()) {
+                return new File(publicSourceDir);
+            }
+        }
+        if (context == null || context.getApplicationInfo() == null) {
+            return null;
+        }
+        String fallbackSourceDir = safeTrim(context.getApplicationInfo().sourceDir);
+        if (!fallbackSourceDir.isEmpty()) {
+            return new File(fallbackSourceDir);
+        }
+        String fallbackPublicSourceDir = safeTrim(context.getApplicationInfo().publicSourceDir);
+        if (!fallbackPublicSourceDir.isEmpty()) {
+            return new File(fallbackPublicSourceDir);
+        }
+        return null;
+    }
+
+    private static String describeBaseApk(File file) {
+        if (file == null) {
+            return "-";
+        }
+        return emptyAsDash(file.getName());
+    }
+
     private static void setTip(Context context, String message) {
         if (context == null) {
             return;
@@ -307,11 +376,46 @@ public final class TinkerHotUpdateManager {
         }
     }
 
+    private TinkerRuntimeState requireTinkerReady(Context context, String traceId, String phase) {
+        Context applicationContext = context == null ? null : context.getApplicationContext();
+        String applicationClassName = applicationContext == null
+                ? "-"
+                : applicationContext.getClass().getName();
+        try {
+            Tinker tinker = Tinker.with(applicationContext);
+            TinkerLoadResult loadResult = tinker.getTinkerLoadResultIfPresent();
+            TinkerRuntimeState state = TinkerRuntimeState.installed(
+                    applicationClassName,
+                    tinker.isTinkerLoaded(),
+                    loadResult == null ? "" : safeTrim(loadResult.currentVersion)
+            );
+            AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, TAG, phase + " Tinker 自检通过: " + state.describeInline(), traceId);
+            return state;
+        } catch (RuntimeException e) {
+            String normalizedReason = normalizeTinkerSelfCheckReason(safeMessage(e));
+            TinkerRuntimeState state = TinkerRuntimeState.missing(applicationClassName, normalizedReason);
+            AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, TAG, phase + " Tinker 自检失败: " + state.describeInline(), traceId);
+            throw new IllegalStateException(phase + " Tinker 自检失败: " + normalizedReason + " / application=" + applicationClassName, e);
+        }
+    }
+
     private static String safeMessage(Exception exception) {
         if (exception == null || exception.getMessage() == null || exception.getMessage().trim().isEmpty()) {
             return exception == null ? "未知错误" : exception.getClass().getSimpleName();
         }
         return exception.getMessage().trim();
+    }
+
+    private static String normalizeTinkerSelfCheckReason(String message) {
+        String normalizedMessage = safeTrim(message).toLowerCase(Locale.ROOT);
+        if (normalizedMessage.contains("install tinker before get tinker sinstance")) {
+            return "当前进程未安装 Tinker 单例，请确认设备运行的是带 ShellTinkerApplication 的完整包并已冷启动";
+        }
+        return emptyAsDash(message);
+    }
+
+    private static String safeTrim(String value) {
+        return value == null ? "" : value.trim();
     }
 
     private static String emptyAsDash(String value) {
@@ -381,6 +485,44 @@ public final class TinkerHotUpdateManager {
             return "热更新补丁已下发，正在合成";
         }
         return "热更新补丁已下发，正在合成 " + patchVersion.trim();
+    }
+
+    private static final class TinkerRuntimeState {
+        private final String applicationClassName;
+        private final boolean installed;
+        private final boolean loaded;
+        private final String currentVersion;
+        private final String reason;
+
+        private TinkerRuntimeState(String applicationClassName, boolean installed, boolean loaded, String currentVersion, String reason) {
+            this.applicationClassName = emptyAsDash(applicationClassName);
+            this.installed = installed;
+            this.loaded = loaded;
+            this.currentVersion = emptyAsDash(currentVersion);
+            this.reason = emptyAsDash(reason);
+        }
+
+        private static TinkerRuntimeState installed(String applicationClassName, boolean loaded, String currentVersion) {
+            return new TinkerRuntimeState(applicationClassName, true, loaded, currentVersion, "");
+        }
+
+        private static TinkerRuntimeState missing(String applicationClassName, String reason) {
+            return new TinkerRuntimeState(applicationClassName, false, false, "", reason);
+        }
+
+        private String describeInline() {
+            if (!installed) {
+                return "application=" + applicationClassName + " / installed=false / reason=" + reason;
+            }
+            return "application=" + applicationClassName + " / installed=true / loaded=" + loaded + " / currentVersion=" + currentVersion;
+        }
+
+        private String describeCompact() {
+            if (!installed) {
+                return "installed=false(" + reason + ")";
+            }
+            return "installed=true,loaded=" + loaded + ",currentVersion=" + currentVersion;
+        }
     }
 
     public static final class Result {
@@ -567,6 +709,8 @@ public final class TinkerHotUpdateManager {
         private final String targetVersionName;
         private final String patchUrl;
         private final String patchObjectKey;
+        private final String baseApkMd5;
+        private final String baseApkFileName;
         private final String patchMd5;
         private final long patchSizeBytes;
         private final String releaseNotes;
@@ -580,6 +724,8 @@ public final class TinkerHotUpdateManager {
                 String targetVersionName,
                 String patchUrl,
                 String patchObjectKey,
+                String baseApkMd5,
+                String baseApkFileName,
                 String patchMd5,
                 long patchSizeBytes,
                 String releaseNotes
@@ -592,6 +738,8 @@ public final class TinkerHotUpdateManager {
             this.targetVersionName = trim(targetVersionName);
             this.patchUrl = trim(patchUrl);
             this.patchObjectKey = normalizeObjectKey(patchObjectKey);
+            this.baseApkMd5 = trim(baseApkMd5);
+            this.baseApkFileName = trim(baseApkFileName);
             this.patchMd5 = trim(patchMd5);
             this.patchSizeBytes = patchSizeBytes;
             this.releaseNotes = trim(releaseNotes);
@@ -608,6 +756,8 @@ public final class TinkerHotUpdateManager {
                     coalesce(object.optString("targetVersionName", ""), object.optString("baseVersionName", "")),
                     object.optString("patchUrl", ""),
                     object.optString("patchObjectKey", ""),
+                    coalesce(object.optString("baseApkMd5", ""), object.optString("baseMd5", "")),
+                    object.optString("baseApkFileName", ""),
                     object.optString("patchMd5", ""),
                     optLong(object, "patchSizeBytes", 0L),
                     object.optString("releaseNotes", "")
@@ -615,7 +765,7 @@ public final class TinkerHotUpdateManager {
         }
 
         static HotUpdateManifest noUpdate(String reason) {
-            return new HotUpdateManifest(false, true, reason, "", 0L, "", "", "", "", 0L, "");
+            return new HotUpdateManifest(false, true, reason, "", 0L, "", "", "", "", "", "", 0L, "");
         }
 
         boolean isNoUpdate() {
@@ -664,6 +814,9 @@ public final class TinkerHotUpdateManager {
             }
             if (!targetVersionName.isEmpty()) {
                 builder.append(" / targetVersionName=").append(targetVersionName);
+            }
+            if (!baseApkMd5.isEmpty()) {
+                builder.append(" / baseApkMd5=").append(baseApkMd5);
             }
             if (!releaseNotes.isEmpty()) {
                 builder.append(" / notes=").append(releaseNotes.replace('\n', ' ').trim());

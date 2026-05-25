@@ -108,6 +108,18 @@ public final class TinkerHotUpdateStateStore {
         );
     }
 
+    public static void clearAll(Context context) {
+        commitNow(prefs(context).edit()
+                .remove(KEY_LAST_PATCH_VERSION)
+                .remove(KEY_LAST_PATCH_MD5)
+                .remove(KEY_PENDING_PATCH_VERSION)
+                .remove(KEY_PENDING_PATCH_MD5)
+                .remove(KEY_PENDING_STARTED_AT)
+                .remove(KEY_PENDING_TRACE_ID)
+                .remove(KEY_PROGRESS_PERCENT)
+        );
+    }
+
     public static SharedPreferences.OnSharedPreferenceChangeListener registerListener(
             Context context,
             Runnable listener

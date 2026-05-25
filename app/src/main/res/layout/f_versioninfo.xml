@@ -238,12 +238,26 @@
                         tools:ignore="RelativeOverlap" />
 
                     <Button
-                        android:id="@+id/butCheckUpdate"
+                        android:id="@+id/butResetHotUpdate"
                         android:layout_width="@dimen/d_140"
                         android:layout_height="wrap_content"
                         android:layout_alignParentRight="true"
                         android:layout_centerVertical="true"
                         android:layout_marginRight="@dimen/d_40"
+                        android:background="@drawable/btn_basic_setup_bg"
+                        android:text="@string/file_reset_hot_update_btn"
+                        android:textColor="@color/c_000000"
+                        android:textSize="24sp"
+                        android:textStyle="bold"
+                        tools:ignore="all" />
+
+                    <Button
+                        android:id="@+id/butCheckUpdate"
+                        android:layout_width="@dimen/d_140"
+                        android:layout_height="wrap_content"
+                        android:layout_centerVertical="true"
+                        android:layout_toLeftOf="@id/butResetHotUpdate"
+                        android:layout_marginRight="@dimen/d_16"
                         android:background="@drawable/btn_basic_setup_bg"
                         android:text="@string/file_check_hot_update_btn"
                         android:textColor="@color/c_000000"

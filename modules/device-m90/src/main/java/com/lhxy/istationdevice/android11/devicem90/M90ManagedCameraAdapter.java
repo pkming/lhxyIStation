@@ -39,8 +39,18 @@ public final class M90ManagedCameraAdapter implements CameraAdapter {
     }
 
     @Override
+    public void openPreview(String cameraId, Surface surface, int width, int height, String ownerToken, String traceId) {
+        delegate().openPreview(cameraId, surface, width, height, ownerToken, traceId);
+    }
+
+    @Override
     public void close(String cameraId, String traceId) {
         delegate().close(cameraId, traceId);
+    }
+
+    @Override
+    public void close(String cameraId, String ownerToken, String traceId) {
+        delegate().close(cameraId, ownerToken, traceId);
     }
 
     /**

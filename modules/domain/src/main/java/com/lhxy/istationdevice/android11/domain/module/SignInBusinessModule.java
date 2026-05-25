@@ -1,5 +1,9 @@
 package com.lhxy.istationdevice.android11.domain.module;
 
+import com.lhxy.istationdevice.android11.core.AppLogCenter;
+import com.lhxy.istationdevice.android11.core.LogCategory;
+import com.lhxy.istationdevice.android11.core.LogLevel;
+import com.lhxy.istationdevice.android11.deviceapi.DeviceMode;
 import com.lhxy.istationdevice.android11.deviceapi.RfidAdapter;
 import com.lhxy.istationdevice.android11.deviceapi.SocketClientAdapter;
 import com.lhxy.istationdevice.android11.domain.ProtocolReplayUseCase;
@@ -15,12 +19,24 @@ import com.lhxy.istationdevice.android11.domain.module.state.SignInState;
  * 查找关键字：RFID 刷卡、签到签退、司机考勤、DVR 考勤帧。
  */
 public final class SignInBusinessModule extends AbstractTerminalBusinessModule {
+    private static final String TAG = "SignInBusinessModule";
+    private static final long AUTO_POLL_INTERVAL_MS = 400L;
+    private static final long WAIT_CARD_REMOVED_TIMEOUT_MS = 5000L;
+    private static final long WAIT_CARD_REMOVED_POLL_MS = 150L;
+
     private final ProtocolReplayUseCase protocolReplayUseCase;
     private final SocketClientAdapter socketClientAdapter;
     private final RfidAdapter rfidAdapter;
     private final DvrSerialDispatchUseCase dvrSerialDispatchUseCase;
+    private final Object signInLock = new Object();
+    private final Object autoPollLock = new Object();
+    private final long autoPollIntervalMs;
+    private final long waitCardRemovedTimeoutMs;
+    private final long waitCardRemovedPollMs;
     private int lastAttendanceReplayCount;
     private final SignInState signInState = new SignInState();
+    private volatile boolean autoPolling;
+    private volatile Thread autoPollThread;
 
     public SignInBusinessModule(
             ProtocolReplayUseCase protocolReplayUseCase,
@@ -28,10 +44,33 @@ public final class SignInBusinessModule extends AbstractTerminalBusinessModule {
             RfidAdapter rfidAdapter,
             DvrSerialDispatchUseCase dvrSerialDispatchUseCase
     ) {
+        this(
+                protocolReplayUseCase,
+                socketClientAdapter,
+                rfidAdapter,
+                dvrSerialDispatchUseCase,
+                AUTO_POLL_INTERVAL_MS,
+                WAIT_CARD_REMOVED_TIMEOUT_MS,
+                WAIT_CARD_REMOVED_POLL_MS
+        );
+    }
+
+    SignInBusinessModule(
+            ProtocolReplayUseCase protocolReplayUseCase,
+            SocketClientAdapter socketClientAdapter,
+            RfidAdapter rfidAdapter,
+            DvrSerialDispatchUseCase dvrSerialDispatchUseCase,
+            long autoPollIntervalMs,
+            long waitCardRemovedTimeoutMs,
+            long waitCardRemovedPollMs
+    ) {
         this.protocolReplayUseCase = protocolReplayUseCase;
         this.socketClientAdapter = socketClientAdapter;
         this.rfidAdapter = rfidAdapter;
         this.dvrSerialDispatchUseCase = dvrSerialDispatchUseCase;
+        this.autoPollIntervalMs = Math.max(50L, autoPollIntervalMs);
+        this.waitCardRemovedTimeoutMs = Math.max(0L, waitCardRemovedTimeoutMs);
+        this.waitCardRemovedPollMs = Math.max(50L, waitCardRemovedPollMs);
     }
 
     @Override
@@ -59,6 +98,7 @@ public final class SignInBusinessModule extends AbstractTerminalBusinessModule {
             ShellConfig shellConfig = requireShellConfig();
             if (dvrSerialDispatchUseCase.canUse(shellConfig)) {
                 return "RFID=" + (rfidAdapter.isAvailable() ? "可读" : "未就绪")
+                        + " / autoPoll=" + (autoPolling ? "运行中" : "已停止")
                         + "\n- 调度考勤主链 -> RS232-1/DVR"
                         + "\n- " + signInState.describe()
                         + "\n- replayCount=" + lastAttendanceReplayCount
@@ -66,6 +106,7 @@ public final class SignInBusinessModule extends AbstractTerminalBusinessModule {
             }
             ShellConfig.SocketChannel jt808 = shellConfig.requireSocketChannel(shellConfig.getDebugReplay().getJt808SocketKey());
             return "RFID=" + (rfidAdapter.isAvailable() ? "可读" : "未就绪")
+                    + " / autoPoll=" + (autoPolling ? "运行中" : "已停止")
                     + "\n- 调度上报码通道 -> " + jt808.getKey()
                     + " / connected=" + yesNo(socketClientAdapter.isConnected(jt808.getChannelName()))
                     + "\n- " + signInState.describe()
@@ -79,6 +120,16 @@ public final class SignInBusinessModule extends AbstractTerminalBusinessModule {
     @Override
     public ModuleRunResult runSample(String traceId) {
         return handleReadAndReplay(traceId, true);
+    }
+
+    @Override
+    protected void onContextUpdated() {
+        ShellConfig shellConfig = requireShellConfig();
+        if (shouldAutoPoll(shellConfig)) {
+            startAutoPolling();
+            return;
+        }
+        stopAutoPolling("signin-auto-poll-stop");
     }
 
     /**
@@ -112,28 +163,17 @@ public final class SignInBusinessModule extends AbstractTerminalBusinessModule {
                 }
                 cardNo = "DRIVER0001";
             }
-            signInState.applyCard(cardNo);
-            if (dvrSerialDispatchUseCase.canUse(shellConfig)) {
-                lastAttendanceReplayCount = 0;
-                dvrSerialDispatchUseCase.sendDriverAttendance(
-                        shellConfig,
-                        shellConfig.getBasicSetupConfig().getResourceImportSettings().getLineName(),
-                        signInState,
-                        traceId + "-serial-attendance"
-                );
+            ProcessReadCardResult result = processReadCard(shellConfig, cardNo, replayAttendance, traceId);
+            if (result.sentDvrAttendance) {
                 return success(
                         replayAttendance ? "已执行签到主链并发送 DVR 考勤帧" : "已读取卡号并发送 DVR 考勤帧",
-                        "RFID 卡号=" + signInState.getCardNo() + " / " + signInState.getAttendanceMode() + " / RS232-1"
+                        result.detail + " / RS232-1"
                 );
             }
-            int count = replayAttendance ? protocolReplayUseCase.replaySignInDemo(socketClientAdapter, shellConfig, traceId) : 0;
             if (replayAttendance) {
-                lastAttendanceReplayCount = count;
+                return success("已回放签到样例 " + result.replayCount + " 条", result.detail);
             }
-            return success(
-                    replayAttendance ? "已回放签到样例 " + count + " 条" : "已读取一次卡号",
-                    "RFID 卡号=" + signInState.getCardNo() + " / " + signInState.getAttendanceMode()
-            );
+            return success("已读取一次卡号", result.detail);
         } catch (Exception e) {
             return failure("签到样例执行失败", e);
         }
@@ -157,6 +197,130 @@ public final class SignInBusinessModule extends AbstractTerminalBusinessModule {
             return success(successSummary, successDetail);
         } catch (Exception e) {
             return failure("司机考勤发送失败", e);
+        }
+    }
+
+    private ProcessReadCardResult processReadCard(
+            ShellConfig shellConfig,
+            String cardNo,
+            boolean replayAttendance,
+            String traceId
+    ) {
+        synchronized (signInLock) {
+            signInState.applyCard(cardNo);
+            if (dvrSerialDispatchUseCase.canUse(shellConfig)) {
+                lastAttendanceReplayCount = 0;
+                dvrSerialDispatchUseCase.sendDriverAttendance(
+                        shellConfig,
+                        shellConfig.getBasicSetupConfig().getResourceImportSettings().getLineName(),
+                        signInState,
+                        traceId + "-serial-attendance"
+                );
+                return new ProcessReadCardResult(true, 0, detailText());
+            }
+            int replayCount = replayAttendance ? protocolReplayUseCase.replaySignInDemo(socketClientAdapter, shellConfig, traceId) : 0;
+            if (replayAttendance) {
+                lastAttendanceReplayCount = replayCount;
+            }
+            return new ProcessReadCardResult(false, replayCount, detailText());
+        }
+    }
+
+    private String detailText() {
+        return "RFID 卡号=" + signInState.getCardNo() + " / " + signInState.getAttendanceMode();
+    }
+
+    private boolean shouldAutoPoll(ShellConfig shellConfig) {
+        return shellConfig != null
+                && shellConfig.getRfidConfig() != null
+                && shellConfig.getRfidConfig().getMode() == DeviceMode.REAL
+                && rfidAdapter.isAvailable();
+    }
+
+    private void startAutoPolling() {
+        synchronized (autoPollLock) {
+            if (autoPolling && autoPollThread != null && autoPollThread.isAlive()) {
+                return;
+            }
+            autoPolling = true;
+            Thread thread = new Thread(this::runAutoPollLoop, "signin-rfid-poll");
+            thread.setDaemon(true);
+            autoPollThread = thread;
+            thread.start();
+        }
+        safeLog(LogCategory.BIZ, LogLevel.INFO, "RFID auto poll started", "signin-auto-poll");
+    }
+
+    private void stopAutoPolling(String traceId) {
+        Thread thread;
+        synchronized (autoPollLock) {
+            autoPolling = false;
+            thread = autoPollThread;
+            autoPollThread = null;
+        }
+        if (thread != null) {
+            thread.interrupt();
+        }
+        safeLog(LogCategory.BIZ, LogLevel.INFO, "RFID auto poll stopped", traceId);
+    }
+
+    private void runAutoPollLoop() {
+        Thread currentThread = Thread.currentThread();
+        while (autoPolling && currentThread == autoPollThread) {
+            String traceId = "signin-auto-poll-" + System.currentTimeMillis();
+            try {
+                pollCardOnce(traceId);
+            } catch (Throwable throwable) {
+                safeLog(LogCategory.ERROR, LogLevel.WARN, "RFID auto poll failed: " + emptyAsDash(throwable.getMessage()), traceId);
+            }
+            if (!sleepQuietly(autoPollIntervalMs) || !autoPolling || currentThread != autoPollThread) {
+                break;
+            }
+        }
+    }
+
+    private void pollCardOnce(String traceId) {
+        if (!rfidAdapter.isAvailable()) {
+            return;
+        }
+        String cardNo = rfidAdapter.readCard(traceId + "-rfid");
+        if (cardNo == null || cardNo.trim().isEmpty()) {
+            return;
+        }
+        ShellConfig shellConfig = requireShellConfig();
+        ProcessReadCardResult result = processReadCard(shellConfig, cardNo, false, traceId);
+        safeLog(LogCategory.BIZ, LogLevel.INFO, "RFID auto read success / " + result.detail, traceId);
+        boolean removed = rfidAdapter.waitCardRemoved(traceId + "-wait-off", waitCardRemovedTimeoutMs, waitCardRemovedPollMs);
+        safeLog(LogCategory.DEVICE, LogLevel.INFO, "RFID wait card off -> " + yesNo(removed), traceId);
+    }
+
+    private boolean sleepQuietly(long delayMs) {
+        try {
+            Thread.sleep(delayMs);
+            return true;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        }
+    }
+
+    private void safeLog(LogCategory category, LogLevel level, String message, String traceId) {
+        try {
+            AppLogCenter.log(category, level, TAG, message, traceId);
+        } catch (RuntimeException ignore) {
+            // Keep background polling alive in local tests even if logging is unavailable.
+        }
+    }
+
+    private static final class ProcessReadCardResult {
+        private final boolean sentDvrAttendance;
+        private final int replayCount;
+        private final String detail;
+
+        private ProcessReadCardResult(boolean sentDvrAttendance, int replayCount, String detail) {
+            this.sentDvrAttendance = sentDvrAttendance;
+            this.replayCount = replayCount;
+            this.detail = detail;
         }
     }
 }

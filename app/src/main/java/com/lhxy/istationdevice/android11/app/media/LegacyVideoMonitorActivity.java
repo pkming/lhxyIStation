@@ -52,6 +52,7 @@ public final class LegacyVideoMonitorActivity extends AppCompatActivity {
     private String currentCameraKey;
     private String lastAutoMonitorCameraKey;
     private String manualCameraKey;
+    private final String previewOwnerToken = "legacy-video-monitor@" + Integer.toHexString(System.identityHashCode(this));
     private final Handler uiHandler = new Handler(Looper.getMainLooper());
     private final Runnable hideControlsRunnable = new Runnable() {
         @Override
@@ -374,6 +375,7 @@ public final class LegacyVideoMonitorActivity extends AppCompatActivity {
                     holder.getSurface(),
                     Math.max(1, previewSurface.getWidth()),
                     Math.max(1, previewSurface.getHeight()),
+                    previewOwnerToken,
                     TraceIds.next("legacy-video-preview-" + currentCameraKey)
             );
             previewOpened = true;
@@ -408,7 +410,7 @@ public final class LegacyVideoMonitorActivity extends AppCompatActivity {
             return;
         }
         try {
-            ShellRuntime.get().getCameraAdapter().close(cameraKey, TraceIds.next("legacy-video-close-" + cameraKey));
+            ShellRuntime.get().getCameraAdapter().close(cameraKey, previewOwnerToken, TraceIds.next("legacy-video-close-" + cameraKey));
         } catch (Exception e) {
             AppLogCenter.log(
                     LogCategory.ERROR,

@@ -1,10 +1,15 @@
 package com.lhxy.istationdevice.android11.app.sysinfo;
 
+import android.app.AlarmManager;
+import android.app.PendingIntent;
+import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Process;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -27,10 +32,12 @@ import com.lhxy.istationdevice.android11.core.AppLogCenter;
 import com.lhxy.istationdevice.android11.core.LegacyHomeStatusRepository;
 import com.lhxy.istationdevice.android11.core.TraceIds;
 import com.lhxy.istationdevice.android11.domain.config.ShellConfig;
+import com.lhxy.istationdevice.android11.domain.config.ShellConfigRepository;
 import com.lhxy.istationdevice.android11.domain.module.ModuleRunResult;
 import com.lhxy.istationdevice.android11.domain.upgrade.TinkerHotUpdateStateStore;
 import com.lhxy.istationdevice.android11.runtime.ShellRuntime;
 import com.tencent.tinker.lib.tinker.Tinker;
+import com.tencent.tinker.lib.tinker.TinkerInstaller;
 import com.tencent.tinker.lib.tinker.TinkerLoadResult;
 
 import java.text.SimpleDateFormat;
@@ -43,6 +50,8 @@ import java.util.Locale;
 public final class LegacySystemVersionFragment extends Fragment {
     private static final long HOT_UPDATE_TIMEOUT_MILLIS = 3L * 60L * 1000L;
     private static final long HOT_UPDATE_POLL_INTERVAL_MILLIS = 5_000L;
+    private static final int HOT_UPDATE_RESET_RESTART_REQUEST_CODE = 1003;
+    private static final long HOT_UPDATE_RESET_RESTART_DELAY_MILLIS = 300L;
 
     private TextView tvSVersionCode;
     private TextView tvVersionCode;
@@ -52,6 +61,7 @@ public final class LegacySystemVersionFragment extends Fragment {
     private TextView tvDataVersionCode;
     private TextView tvSourceVersionTime;
     private Button butCheckUpdate;
+    private Button butResetHotUpdate;
     private TextView tvCheckUpdateStatus;
     private ProgressBar hotUpdateProgressBar;
     private TextView hotUpdateProgressView;
@@ -81,8 +91,10 @@ public final class LegacySystemVersionFragment extends Fragment {
         tvDataVersionCode = view.findViewById(R.id.tvDataVersionCode);
         tvSourceVersionTime = view.findViewById(R.id.tvSourceVersionTime);
         butCheckUpdate = view.findViewById(R.id.butCheckUpdate);
+        butResetHotUpdate = view.findViewById(R.id.butResetHotUpdate);
         tvCheckUpdateStatus = view.findViewById(R.id.tvCheckUpdateStatus);
         bindCheckUpdateAction();
+        bindResetHotUpdateAction();
         attachCheckUpdateProgressViews(view);
         registerHotUpdateStateListener();
         render();
@@ -114,6 +126,7 @@ public final class LegacySystemVersionFragment extends Fragment {
         tvDataVersionCode = null;
         tvSourceVersionTime = null;
         butCheckUpdate = null;
+        butResetHotUpdate = null;
         tvCheckUpdateStatus = null;
         hotUpdateProgressBar = null;
         hotUpdateProgressView = null;
@@ -174,12 +187,20 @@ public final class LegacySystemVersionFragment extends Fragment {
         if (butCheckUpdate == null || getContext() == null) {
             return;
         }
-        applyButtonState(!TinkerHotUpdateStateStore.isProcessing(requireContext()));
+        applyActionButtonState(butCheckUpdate, true);
         butCheckUpdate.setOnClickListener(v -> new AlertDialog.Builder(requireContext())
                 .setMessage(R.string.file_check_hot_update_tip)
                 .setPositiveButton(R.string.confirm, (dialog, which) -> runCheckHotUpdateAsync())
                 .setNegativeButton(android.R.string.cancel, null)
                 .show());
+    }
+
+    private void bindResetHotUpdateAction() {
+        if (butResetHotUpdate == null || getContext() == null) {
+            return;
+        }
+        applyActionButtonState(butResetHotUpdate, true);
+        butResetHotUpdate.setOnClickListener(v -> showResetHotUpdateDialog(TinkerHotUpdateStateStore.isProcessing(requireContext())));
     }
 
     private void runCheckHotUpdateAsync() {
@@ -191,6 +212,7 @@ public final class LegacySystemVersionFragment extends Fragment {
             renderCheckUpdateState();
             return;
         }
+        ShellRuntime.get().applyConfig(requireContext(), ShellConfigRepository.get(requireContext()));
         String traceId = TraceIds.next("legacy-system-version-hot-update");
         AppLogCenter.log(
                 com.lhxy.istationdevice.android11.core.LogCategory.BIZ,
@@ -235,14 +257,15 @@ public final class LegacySystemVersionFragment extends Fragment {
     }
 
     private void renderCheckUpdateState() {
-        if (getContext() == null || hotUpdateProgressBar == null || hotUpdateProgressView == null || butCheckUpdate == null) {
+        if (getContext() == null || hotUpdateProgressBar == null || hotUpdateProgressView == null || butCheckUpdate == null || butResetHotUpdate == null) {
             return;
         }
         reconcileLoadedHotUpdateState();
         resolveTimedOutHotUpdateState();
         int progress = TinkerHotUpdateStateStore.getProgressPercent(requireContext());
         boolean processing = TinkerHotUpdateStateStore.isProcessing(requireContext());
-        applyButtonState(!processing);
+        applyActionButtonState(butCheckUpdate, !processing);
+        applyActionButtonState(butResetHotUpdate, true);
         if (!processing) {
             hotUpdateProgressBar.setVisibility(View.GONE);
             hotUpdateProgressView.setVisibility(View.GONE);
@@ -253,6 +276,100 @@ public final class LegacySystemVersionFragment extends Fragment {
         hotUpdateProgressView.setVisibility(View.VISIBLE);
         hotUpdateProgressBar.setProgress(Math.max(progress, 1));
         hotUpdateProgressView.setText("热更新处理中 " + Math.max(progress, 1) + "%");
+    }
+
+    private void showResetHotUpdateDialog(boolean processing) {
+        int messageResId = processing
+                ? R.string.file_reset_hot_update_processing_tip
+                : R.string.file_reset_hot_update_tip;
+        new AlertDialog.Builder(requireContext())
+                .setMessage(messageResId)
+                .setPositiveButton(R.string.file_reset_hot_update_confirm, (dialog, which) -> resetHotUpdateAndRestart())
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    private void resetHotUpdateAndRestart() {
+        if (getContext() == null) {
+            return;
+        }
+        String traceId = TraceIds.next("legacy-system-version-hot-update-reset");
+        Context appContext = requireContext().getApplicationContext();
+        String loadedPatchVersion = "";
+        String lastPatchVersion = TinkerHotUpdateStateStore.getLastPatchVersion(appContext);
+        try {
+            Tinker tinker = Tinker.with(appContext);
+            if (tinker != null && tinker.isTinkerLoaded()) {
+                TinkerLoadResult loadResult = tinker.getTinkerLoadResultIfPresent();
+                loadedPatchVersion = loadResult == null ? "" : safeTrim(loadResult.currentVersion);
+            }
+        } catch (Exception ignored) {
+            loadedPatchVersion = "";
+        }
+
+        try {
+            TinkerInstaller.cleanPatch(appContext);
+        } catch (Exception e) {
+            AppLogCenter.log(
+                    com.lhxy.istationdevice.android11.core.LogCategory.ERROR,
+                    com.lhxy.istationdevice.android11.core.LogLevel.WARN,
+                    "LegacySystemVersionFragment",
+                    "清理热更新补丁失败: " + e.getMessage(),
+                    traceId
+            );
+        }
+        TinkerHotUpdateStateStore.clearAll(appContext);
+        LegacyHomeStatusRepository.setInfoTips(appContext, "热更新已重置，应用即将重启");
+        showCheckUpdateStatus(getString(R.string.file_reset_hot_update_load_tip));
+        Toast.makeText(requireContext(), R.string.file_reset_hot_update_load_tip, Toast.LENGTH_LONG).show();
+        AppLogCenter.log(
+                com.lhxy.istationdevice.android11.core.LogCategory.BIZ,
+                com.lhxy.istationdevice.android11.core.LogLevel.INFO,
+                "LegacySystemVersionFragment",
+                "用户重置热更新 loadedPatchVersion=" + firstNonBlank(loadedPatchVersion, "-")
+                        + " lastPatchVersion=" + firstNonBlank(lastPatchVersion, "-"),
+                traceId
+        );
+        scheduleAppRestart();
+        FragmentActivity activity = getActivity();
+        if (activity != null) {
+            activity.finishAffinity();
+        }
+        Process.killProcess(Process.myPid());
+        System.exit(0);
+    }
+
+    private void scheduleAppRestart() {
+        if (getContext() == null) {
+            return;
+        }
+        Context appContext = requireContext().getApplicationContext();
+        Intent launchIntent = appContext.getPackageManager().getLaunchIntentForPackage(appContext.getPackageName());
+        if (launchIntent == null) {
+            return;
+        }
+        launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        int flags = PendingIntent.FLAG_ONE_SHOT;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            flags |= PendingIntent.FLAG_IMMUTABLE;
+        }
+        PendingIntent pendingIntent = PendingIntent.getActivity(
+                appContext,
+                HOT_UPDATE_RESET_RESTART_REQUEST_CODE,
+                launchIntent,
+                flags
+        );
+        AlarmManager alarmManager = (AlarmManager) appContext.getSystemService(Context.ALARM_SERVICE);
+        if (alarmManager == null) {
+            startActivity(launchIntent);
+            return;
+        }
+        long triggerAtMillis = System.currentTimeMillis() + HOT_UPDATE_RESET_RESTART_DELAY_MILLIS;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC, triggerAtMillis, pendingIntent);
+        } else {
+            alarmManager.setExact(AlarmManager.RTC, triggerAtMillis, pendingIntent);
+        }
     }
 
     private void reconcileLoadedHotUpdateState() {
@@ -337,7 +454,7 @@ public final class LegacySystemVersionFragment extends Fragment {
         );
         progressParams.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM);
         progressParams.leftMargin = dp(2);
-        progressParams.rightMargin = dp(220);
+        progressParams.rightMargin = dp(380);
         progressParams.bottomMargin = dp(12);
         container.addView(hotUpdateProgressBar, progressParams);
 
@@ -397,13 +514,13 @@ public final class LegacySystemVersionFragment extends Fragment {
         hotUpdateProgressView.removeCallbacks(hotUpdateStatePoller);
     }
 
-    private void applyButtonState(boolean enabled) {
-        if (butCheckUpdate == null || getContext() == null) {
+    private void applyActionButtonState(Button button, boolean enabled) {
+        if (button == null || getContext() == null) {
             return;
         }
-        butCheckUpdate.setEnabled(enabled);
-        butCheckUpdate.setTextColor(ContextCompat.getColor(requireContext(), enabled ? R.color.c_000000 : R.color.c_414141));
-        butCheckUpdate.setBackgroundResource(enabled ? R.drawable.btn_basic_setup_bg : R.drawable.btn_upgrade_bg);
+        button.setEnabled(enabled);
+        button.setTextColor(ContextCompat.getColor(requireContext(), enabled ? R.color.c_000000 : R.color.c_414141));
+        button.setBackgroundResource(enabled ? R.drawable.btn_basic_setup_bg : R.drawable.btn_upgrade_bg);
     }
 
     private void showCheckUpdateStatus(String text) {

@@ -1,11 +1,15 @@
 package com.lhxy.istationdevice.android11.app.file;
 
+import android.app.AlarmManager;
+import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
+import android.os.Build;
 import android.os.Bundle;
+import android.os.Process;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -37,6 +41,7 @@ import com.lhxy.istationdevice.android11.domain.upgrade.LocalUpgradeApkFinder;
 import com.lhxy.istationdevice.android11.domain.upgrade.TinkerHotUpdateStateStore;
 import com.lhxy.istationdevice.android11.runtime.ShellRuntime;
 import com.tencent.tinker.lib.tinker.Tinker;
+import com.tencent.tinker.lib.tinker.TinkerInstaller;
 import com.tencent.tinker.lib.tinker.TinkerLoadResult;
 
 import java.io.File;
@@ -48,6 +53,8 @@ import java.text.DateFormat;
 public final class LegacyFileManageActivity extends LegacyBaseActivity {
     private static final long HOT_UPDATE_TIMEOUT_MILLIS = 3L * 60L * 1000L;
     private static final long HOT_UPDATE_POLL_INTERVAL_MILLIS = 5_000L;
+    private static final int HOT_UPDATE_RESET_RESTART_REQUEST_CODE = 1002;
+    private static final long HOT_UPDATE_RESET_RESTART_DELAY_MILLIS = 300L;
 
     private BroadcastReceiver storageReceiver;
     private SharedPreferences.OnSharedPreferenceChangeListener hotUpdateStateListener;
@@ -272,11 +279,21 @@ public final class LegacyFileManageActivity extends LegacyBaseActivity {
             return;
         }
         applyButtonState(button, true);
-        button.setOnClickListener(v -> new AlertDialog.Builder(this)
-                .setMessage(R.string.file_check_hot_update_tip)
-                .setPositiveButton(R.string.confirm, (dialog, which) -> runCheckHotUpdateAsync())
-                .setNegativeButton(android.R.string.cancel, null)
-                .show());
+        button.setOnClickListener(v -> {
+            if (TinkerHotUpdateStateStore.isProcessing(this)) {
+                showResetHotUpdateDialog(true);
+                return;
+            }
+            new AlertDialog.Builder(this)
+                    .setMessage(R.string.file_check_hot_update_tip)
+                    .setPositiveButton(R.string.confirm, (dialog, which) -> runCheckHotUpdateAsync())
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .show();
+        });
+        button.setOnLongClickListener(v -> {
+            showResetHotUpdateDialog(false);
+            return true;
+        });
     }
 
     private void bindAction(int buttonId, int titleResId, int tipResId) {
@@ -544,6 +561,7 @@ public final class LegacyFileManageActivity extends LegacyBaseActivity {
             renderCheckUpdateState();
             return;
         }
+        ShellRuntime.get().applyConfig(this, ShellConfigRepository.get(this));
         String traceId = TraceIds.next("legacy-file-manage-hot-update");
         AppLogCenter.log(
                 com.lhxy.istationdevice.android11.core.LogCategory.BIZ,
@@ -659,7 +677,7 @@ public final class LegacyFileManageActivity extends LegacyBaseActivity {
         resolveTimedOutHotUpdateState();
         int progress = TinkerHotUpdateStateStore.getProgressPercent(this);
         boolean processing = TinkerHotUpdateStateStore.isProcessing(this);
-        applyButtonState(button, !processing);
+        applyButtonState(button, true);
         if (!processing) {
             hotUpdateProgressBar.setVisibility(View.GONE);
             hotUpdateProgressView.setVisibility(View.GONE);
@@ -670,6 +688,93 @@ public final class LegacyFileManageActivity extends LegacyBaseActivity {
         hotUpdateProgressView.setVisibility(View.VISIBLE);
         hotUpdateProgressBar.setProgress(Math.max(progress, 1));
         hotUpdateProgressView.setText("热更新处理中 " + Math.max(progress, 1) + "%");
+    }
+
+    private void showResetHotUpdateDialog(boolean processing) {
+        int messageResId = processing
+                ? R.string.file_reset_hot_update_processing_tip
+                : R.string.file_reset_hot_update_tip;
+        new AlertDialog.Builder(this)
+                .setMessage(messageResId)
+                .setPositiveButton(R.string.file_reset_hot_update_confirm, (dialog, which) -> resetHotUpdateAndRestart())
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    private void resetHotUpdateAndRestart() {
+        String traceId = TraceIds.next("legacy-file-manage-hot-update-reset");
+        Context appContext = getApplicationContext();
+        String loadedPatchVersion = "";
+        try {
+            Tinker tinker = Tinker.with(appContext);
+            if (tinker != null && tinker.isTinkerLoaded()) {
+                TinkerLoadResult loadResult = tinker.getTinkerLoadResultIfPresent();
+                loadedPatchVersion = loadResult == null ? "" : safeTrim(loadResult.currentVersion);
+            }
+        } catch (Exception ignored) {
+            loadedPatchVersion = "";
+        }
+
+        try {
+            TinkerInstaller.cleanPatch(appContext);
+        } catch (Exception e) {
+            AppLogCenter.log(
+                    com.lhxy.istationdevice.android11.core.LogCategory.ERROR,
+                    com.lhxy.istationdevice.android11.core.LogLevel.WARN,
+                    "LegacyFileManageActivity",
+                    "清理热更新补丁失败: " + e.getMessage(),
+                    traceId
+            );
+        }
+        TinkerHotUpdateStateStore.clearAll(appContext);
+        LegacyHomeStatusRepository.setInfoTips(appContext, "热更新已重置，应用即将重启");
+        TextView tips = findViewById(R.id.tvFileTips);
+        if (tips != null) {
+            tips.setVisibility(View.VISIBLE);
+            tips.setText(R.string.file_reset_hot_update_load_tip);
+        }
+        AppLogCenter.log(
+                com.lhxy.istationdevice.android11.core.LogCategory.BIZ,
+                com.lhxy.istationdevice.android11.core.LogLevel.INFO,
+                "LegacyFileManageActivity",
+                "用户重置热更新 loadedPatchVersion=" + firstNonBlank(loadedPatchVersion, "-")
+                        + " lastPatchVersion=" + firstNonBlank(TinkerHotUpdateStateStore.getLastPatchVersion(appContext), "-"),
+                traceId
+        );
+        Toast.makeText(this, R.string.file_reset_hot_update_load_tip, Toast.LENGTH_LONG).show();
+        scheduleAppRestart();
+        finishAffinity();
+        Process.killProcess(Process.myPid());
+        System.exit(0);
+    }
+
+    private void scheduleAppRestart() {
+        Intent launchIntent = getPackageManager().getLaunchIntentForPackage(getPackageName());
+        if (launchIntent == null) {
+            return;
+        }
+        launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        int flags = PendingIntent.FLAG_ONE_SHOT;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            flags |= PendingIntent.FLAG_IMMUTABLE;
+        }
+        PendingIntent pendingIntent = PendingIntent.getActivity(
+                this,
+                HOT_UPDATE_RESET_RESTART_REQUEST_CODE,
+                launchIntent,
+                flags
+        );
+        AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+        if (alarmManager == null) {
+            startActivity(launchIntent);
+            return;
+        }
+        long triggerAtMillis = System.currentTimeMillis() + HOT_UPDATE_RESET_RESTART_DELAY_MILLIS;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC, triggerAtMillis, pendingIntent);
+        } else {
+            alarmManager.setExact(AlarmManager.RTC, triggerAtMillis, pendingIntent);
+        }
     }
 
     private void reconcileLoadedHotUpdateState() {

@@ -10,6 +10,7 @@ import com.lhxy.istationdevice.android11.deviceapi.SocketClientAdapter;
 import com.lhxy.istationdevice.android11.deviceapi.SystemOps;
 import com.lhxy.istationdevice.android11.devicem90.M90ManagedCameraAdapter;
 import com.lhxy.istationdevice.android11.devicem90.M90ManagedGpioAdapter;
+import com.lhxy.istationdevice.android11.devicem90.M90ManagedJhySerialPortAdapter;
 import com.lhxy.istationdevice.android11.devicem90.M90ManagedRfidAdapter;
 import com.lhxy.istationdevice.android11.devicem90.M90ManagedSerialPortAdapter;
 import com.lhxy.istationdevice.android11.devicem90.M90ManagedSocketClientAdapter;
@@ -40,9 +41,11 @@ public final class ShellRuntime {
     private final M90ManagedCameraAdapter cameraAdapter = new M90ManagedCameraAdapter();
     private final M90ManagedRfidAdapter rfidAdapter = new M90ManagedRfidAdapter();
     private final M90ManagedSystemOps systemOps = new M90ManagedSystemOps();
+        private final M90ManagedJhySerialPortAdapter jhySerialPortAdapter = new M90ManagedJhySerialPortAdapter();
     private final GpsSerialMonitor gpsSerialMonitor = new GpsSerialMonitor();
     private final Jt808SocketMonitor jt808SocketMonitor = new Jt808SocketMonitor();
-    private final JhyPassengerCounterMonitor passengerCounterMonitor = new JhyPassengerCounterMonitor(serialPortAdapter);
+        private final JhyPassengerCounterMonitor passengerCounterMonitor =
+            new JhyPassengerCounterMonitor(serialPortAdapter, jhySerialPortAdapter);
     private final TerminalModuleHub moduleHub;
     private volatile ShellConfig activeConfig;
     private volatile Context appContext;

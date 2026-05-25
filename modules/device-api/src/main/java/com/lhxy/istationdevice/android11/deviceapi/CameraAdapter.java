@@ -26,8 +26,16 @@ public interface CameraAdapter {
         open(cameraId, traceId);
     }
 
+    default void openPreview(String cameraId, Surface surface, int width, int height, String ownerToken, String traceId) {
+        openPreview(cameraId, surface, width, height, traceId);
+    }
+
     /**
      * 关闭一个逻辑 Camera 通道。
      */
     void close(String cameraId, String traceId);
+
+    default void close(String cameraId, String ownerToken, String traceId) {
+        close(cameraId, traceId);
+    }
 }

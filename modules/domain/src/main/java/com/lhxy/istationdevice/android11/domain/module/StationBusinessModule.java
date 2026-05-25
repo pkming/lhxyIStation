@@ -278,17 +278,57 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
     }
 
     private void requestPassengerCounterForArrival(String traceId) {
-        if (passengerCounterMonitor == null || stationState.getCurrentStationType() != 0) {
+        if (passengerCounterMonitor == null) {
+            AppLogCenter.log(LogCategory.BIZ, LogLevel.WARN, TAG, "JHY query skipped on manual arrival: monitor unavailable", traceId);
             return;
         }
-        passengerCounterMonitor.requestCurrentCount(traceId);
+        if (stationState.getCurrentStationType() != 0) {
+            AppLogCenter.log(
+                    LogCategory.BIZ,
+                    LogLevel.DEBUG,
+                    TAG,
+                    "JHY query skipped on manual arrival: stationType=" + stationState.getCurrentStationType()
+                            + " station=" + stationState.getCurrentStation(),
+                    traceId
+            );
+            return;
+        }
+        AppLogCenter.log(
+                LogCategory.BIZ,
+                LogLevel.INFO,
+                TAG,
+                "JHY query scheduled on manual arrival: station=" + stationState.getCurrentStation()
+                        + " stationNo=" + stationState.getCurrentStationNo(),
+                traceId
+        );
+        passengerCounterMonitor.requestCurrentCountAfterStationDisplay(traceId);
     }
 
     private void requestPassengerCounterForAutoStation(int stationType, String traceId) {
-        if (passengerCounterMonitor == null || stationType != LegacyGpsAutoReportEngine.STATION_TYPE_ENTER) {
+        if (passengerCounterMonitor == null) {
+            AppLogCenter.log(LogCategory.BIZ, LogLevel.WARN, TAG, "JHY query skipped on auto-station: monitor unavailable", traceId);
             return;
         }
-        passengerCounterMonitor.requestCurrentCount(traceId);
+        if (stationType != LegacyGpsAutoReportEngine.STATION_TYPE_ENTER) {
+            AppLogCenter.log(
+                    LogCategory.BIZ,
+                    LogLevel.DEBUG,
+                    TAG,
+                    "JHY query skipped on auto-station: stationType=" + stationType
+                            + " station=" + stationState.getCurrentStation(),
+                    traceId
+            );
+            return;
+        }
+        AppLogCenter.log(
+                LogCategory.BIZ,
+                LogLevel.INFO,
+                TAG,
+                "JHY query scheduled on auto-station enter: station=" + stationState.getCurrentStation()
+                        + " stationNo=" + stationState.getCurrentStationNo(),
+                traceId
+        );
+        passengerCounterMonitor.requestCurrentCountAfterStationDisplay(traceId);
     }
 
     /**
@@ -665,7 +705,6 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
                         event.getStationPoint().getStationName(),
                         event.getStationType()
                 );
-                requestPassengerCounterForAutoStation(event.getStationType(), traceId + "-auto-station-jhy-current-count");
                 stationAudioUseCase.playAutoStation(
                     context,
                     shellConfig,
@@ -674,6 +713,7 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
                     event.getStationType()
                 );
                 stationDisplayUseCase.sendCurrentStation(shellConfig, route, stationState, traceId + "-display-current");
+                requestPassengerCounterForAutoStation(event.getStationType(), traceId + "-auto-station-jhy-current-count");
                 sendSerialDispatchFramesIfNeeded(traceId + "-auto-station");
                 maybeAutoStartBus(traceId + "-auto-station");
             }
