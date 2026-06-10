@@ -285,4 +285,174 @@ Time: %3$s</string>
     <string name="voice_call_state">State:</string>
     <string name="voicecall_title">Phone</string>
     <string name="wireless_setup">Tap to open system settings</string>
+
+    <string name="infobrows_not_tip">No info</string>
+    <string name="main_newspaper_station">Station</string>
+    <string name="main_repeat">Repeat</string>
+    <string name="main_switch">Switch</string>
+    <string name="main_cease">Stop</string>
+    <string name="main_ser">Service Key</string>
+    <string name="main_dvr_value">DVR:%1$s</string>
+    <string name="main_cms_value">CMS:%1$s</string>
+    <string name="main_wifi_value">WiFi:%1$s</string>
+    <string name="main_4g_value">4G:%1$s</string>
+    <string name="main_gps_value">GPS:%1$s</string>
+    <string name="main_lan_value">NET:%1$s</string>
+    <string name="main_message_view">Info\nView</string>
+    <string name="main_scheduling_query">Schedule</string>
+    <string name="main_speed">Limit</string>
+    <string name="main_velocity">Speed</string>
+    <string name="main_no_start">NO.Start</string>
+    <string name="main_no_end">NO.End</string>
+    <string name="main_no">NO.%1$s</string>
+    <string name="main_home_station">Current:</string>
+    <string name="main_leave_for">Terminal:</string>
+    <string name="main_next_station">Next:</string>
+    <string name="main_mittertor">Middle</string>
+    <string name="main_backingup">Reverse</string>
+    <string name="main_dlg_terminal_authorization">Terminal Authorization</string>
+    <string name="main_dlg_author_name">Name</string>
+    <string name="main_dlg_author_name_hint">Unique terminal name</string>
+    <string name="main_dlg_author_ip">IP</string>
+    <string name="main_dlg_author_ip_vluae">39.104.66.194:8081</string>
+    <string name="main_dlg_author_ip_hint">Such as 192.168.0.1:8080</string>
+    <string name="main_dlg_author_user">User</string>
+    <string name="main_dlg_author_user_hint">User</string>
+    <string name="main_dlg_author_user_ip_tip">Terminal name or IP cannot be empty</string>
+    <string name="main_dlg_author_ip_errer_tip">IP format error</string>
+    <string name="main_dlg_author_suss">Success.</string>
+    <string name="main_dlg_author_errer_tip">Authorization limit reached</string>
+    <string name="main_dlg_author_ip_value">%1$s:%2$s</string>
+    <string name="main_dividing_line">Divider</string>
+    <string name="main_bus_icon">Bus Icon</string>
+    <string name="main_speed_company">km/h</string>
+    <string name="main_paycard_tip">Please import station resources first.</string>
+    <string name="keyboard_quit">ESC</string>
+    <string name="keyboard_open_door">Open Video</string>
+    <string name="keyboard_reversing">Reverse Video</string>
+    <string name="keyboard_close_video">Close Video</string>
+    <string name="keyboard_f1">F1</string>
+    <string name="keyboard_f2">F2</string>
+    <string name="keyboard_f3">F3</string>
+    <string name="keyboard_f4">F4</string>
+    <string name="keyboard_f5">F5</string>
+    <string name="keyboard_f6">F6</string>
+    <string name="keyboard_f7">F7</string>
+    <string name="keyboard_f8">F8</string>
+    <string name="keyboard_f9">F9</string>
+    <string name="keyboard_f0">F0</string>
+    <string name="keyboard_down">↓</string>
+    <string name="keyboard_upward">↑</string>
+    <string name="keyboard_esc">ESC</string>
+    <string name="dvr_keyboard_esc">ESC</string>
+    <string name="dvr_keyboard_del">DEL</string>
+    <string name="dvr_keyboard_ent">ENT</string>
+    <string name="dvr_keyboard_m">M</string>
+    <string name="dvr_keyboard_back">Back</string>
+    <string name="dvr_keyboard_number1">1</string>
+    <string name="dvr_keyboard_number2">2</string>
+    <string name="dvr_keyboard_number3">3</string>
+    <string name="dvr_keyboard_number4">4</string>
+    <string name="dvr_keyboard_number5">5</string>
+    <string name="dvr_keyboard_number6">6</string>
+    <string name="dvr_keyboard_number7">7</string>
+    <string name="dvr_keyboard_number8">8</string>
+    <string name="dvr_keyboard_number9">9</string>
+    <string name="dvr_keyboard_number0">0</string>
+    <string name="dvr_keyboard_left">←</string>
+    <string name="dvr_keyboard_right">→</string>
+    <string name="dvr_keyboard_down">↓</string>
+    <string name="dvr_keyboard_upward">↑</string>
+    <string name="main_line_en">SER.%1$s</string>
+    <string name="main_driver">Driver:\n%1$s</string>
+    <string name="version_hardware">Hardware Ver: %1$s</string>
+    <string name="version_software_number">Data Ver: %1$s</string>
+    <string name="version_software_name">Name Ver: %1$s</string>
+    <string name="file_import">Import</string>
+    <string name="file_export">Export</string>
+    <string name="file_udisk_upgrade">USB Upgrade</string>
+    <string name="file_export_log">Export Log</string>
+    <string name="file_import_btn">Import</string>
+    <string name="file_export_btn">Export</string>
+    <string name="file_upgrade_btn">Upgrade</string>
+    <string name="file_import_tip">Are you sure to import?</string>
+    <string name="file_export_tip">Are you sure to export?</string>
+    <string name="file_upgrade_tip">Are you sure to upgrade the app?</string>
+    <string name="file_upgrade_find">APK file: %1$s</string>
+    <string name="file_import_load_tip">Importing station data. Please do not perform other operations...</string>
+    <string name="file_export_load_tip">Exporting station data. Please do not perform other operations...</string>
+    <string name="file_upgrade_load_tip">Upgrading app. Please do not perform other operations...</string>
+    <string name="file_import_complete_suss">Station data imported successfully. Please remove the USB drive.</string>
+    <string name="file_import_complete_fail">Station data import failed. Please try again.</string>
+    <string name="file_import_complete_fail1">No importable station data found.</string>
+    <string name="file_export_complete_suss">Station data exported successfully. Please remove the USB drive.</string>
+    <string name="file_export_complete_fail">Station data export failed. Please try again.</string>
+    <string name="file_export_complete_fail1">No export USB drive found.</string>
+    <string name="file_delete_local_logs">Delete Local Logs</string>
+    <string name="paycard_fail">Card read failed. Please try again.</string>
+    <string name="paycard_suss">Card read success</string>
+    <string name="unconnected">Disconnected</string>
+    <string name="invalid">Invalid</string>
+    <string name="nosignal">No Signal</string>
+    <string name="wtrongest">Strongest</string>
+    <string name="stronger">Strong</string>
+    <string name="weaker">Weak</string>
+    <string name="weak">Very Weak</string>
+    <string name="notopened">Not Opened</string>
+    <string name="undetected">Undetected</string>
+    <string name="dateformat">EEEE\nyyyy.MM.dd. HH:mm:ss</string>
+    <string name="ingoto">In</string>
+    <string name="arrow">Arrow</string>
+    <string name="index">Index</string>
+    <string name="del">Delete</string>
+
+    <string-array name="arrayport">
+        <item>RS232-1</item>
+        <item>RS232-2</item>
+        <item>RS485</item>
+    </string-array>
+
+    <string-array name="arrayprotocol232">
+        <item>None</item>
+        <item>DVR</item>
+        <item>POS</item>
+    </string-array>
+
+    <string-array name="arrayprotocoldispatch">
+        <item>None</item>
+        <item>ALINK</item>
+        <item>AL808</item>
+    </string-array>
+
+    <string-array name="arraybaud">
+        <item>9600</item>
+        <item>19200</item>
+        <item>38400</item>
+        <item>51200</item>
+        <item>57600</item>
+        <item>115200</item>
+    </string-array>
+
+    <string-array name="arrayprotocoltype">
+        <item>None</item>
+        <item>Tongda</item>
+        <item>TD</item>
+        <item>Hengwu</item>
+        <item>Wuhan Ledi</item>
+        <item>Hailiang</item>
+        <item>LED Guide Board</item>
+        <item>LHXY</item>
+        <item>HW3</item>
+        <item>JHY</item>
+    </string-array>
+
+    <string-array name="channelport">
+        <item>VIN1-AHD</item>
+        <item>VIN4-AUTO</item>
+    </string-array>
+
+    <string-array name="gpsportbaud">
+        <item>9600</item>
+        <item>115200</item>
+    </string-array>
 </resources>

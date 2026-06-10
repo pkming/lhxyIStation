@@ -1,9 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical">
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
 
         <RelativeLayout
             android:layout_width="match_parent"
@@ -278,5 +283,57 @@
                     android:textSize="18sp"
                     android:visibility="gone" />
 
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/d_1px"
+                    android:layout_marginLeft="@dimen/d_22"
+                    android:layout_marginRight="@dimen/d_22"
+                    android:background="@color/c_ffffff" />
+
+                <RelativeLayout
+                    android:id="@+id/rlFieldDiagnostic"
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/d_80"
+                    android:orientation="vertical"
+                    android:paddingLeft="@dimen/d_16"
+                    android:paddingRight="@dimen/d_16">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_centerVertical="true"
+                        android:text="@string/file_field_diagnostic"
+                        android:textColor="@color/c_ffffff"
+                        android:textSize="22sp"
+                        android:textStyle="bold"
+                        tools:ignore="RelativeOverlap" />
+
+                    <Button
+                        android:id="@+id/butFieldDiagnostic"
+                        android:layout_width="@dimen/d_220"
+                        android:layout_height="wrap_content"
+                        android:layout_alignParentRight="true"
+                        android:layout_centerVertical="true"
+                        android:layout_marginRight="@dimen/d_40"
+                        android:background="@drawable/btn_basic_setup_bg"
+                        android:text="@string/file_field_diagnostic_btn"
+                        android:textColor="@color/c_000000"
+                        android:textSize="24sp"
+                        android:textStyle="bold"
+                        tools:ignore="all" />
+
+                </RelativeLayout>
+
+                <TextView
+                    android:id="@+id/tvFieldDiagnosticStatus"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginLeft="@dimen/d_16"
+                    android:layout_marginRight="@dimen/d_22"
+                    android:layout_marginBottom="@dimen/d_12"
+                    android:textColor="@color/c_ffffff"
+                    android:textSize="18sp"
+                    android:visibility="gone" />
 
 </LinearLayout>
+</ScrollView>

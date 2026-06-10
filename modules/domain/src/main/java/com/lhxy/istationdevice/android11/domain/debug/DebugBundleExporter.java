@@ -55,7 +55,7 @@ public final class DebugBundleExporter {
 
         public String describeForUser() {
             StringBuilder builder = new StringBuilder(file == null ? "-" : file.getAbsolutePath());
-            if (uploadResult != null && uploadResult.isAttempted()) {
+            if (uploadResult != null) {
                 builder.append("\nOSS: ").append(uploadResult.describeForUser());
             }
             return builder.toString();

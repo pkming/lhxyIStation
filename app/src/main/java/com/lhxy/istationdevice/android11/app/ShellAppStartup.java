@@ -11,6 +11,7 @@ import com.lhxy.istationdevice.android11.domain.config.ShellConfigLoader;
 import com.lhxy.istationdevice.android11.domain.config.ShellConfigRepository;
 import com.lhxy.istationdevice.android11.domain.config.ShellConfigValidator;
 import com.lhxy.istationdevice.android11.domain.file.StationResourceArchiveUseCase;
+import com.lhxy.istationdevice.android11.domain.file.StationResourceConfigApplier;
 import com.lhxy.istationdevice.android11.runtime.ShellRuntime;
 
 import java.io.File;
@@ -57,11 +58,19 @@ public final class ShellAppStartup {
         try {
             StationResourceArchiveUseCase.OperationResult result = stationResourceArchiveUseCase.importStationResources(application);
             if (result.isSuccess()) {
+                ShellConfig updated = StationResourceConfigApplier.applyImportResult(
+                        application,
+                        ShellConfigRepository.get(application),
+                        result
+                );
+                ShellConfigRepository.save(application, updated);
                 AppLogCenter.log(
                         LogCategory.BIZ,
                         LogLevel.INFO,
                         "ShellApplication",
-                        "已自动初始化报站资源: " + result.getSummary(),
+                        "已自动初始化报站资源: " + result.getSummary()
+                                + "\n- detail=" + result.getDetail()
+                                + "\n- appliedConfig=" + StationResourceConfigApplier.describeAppliedConfig(updated),
                         traceId + "-station-resource-bootstrap"
                 );
             } else {

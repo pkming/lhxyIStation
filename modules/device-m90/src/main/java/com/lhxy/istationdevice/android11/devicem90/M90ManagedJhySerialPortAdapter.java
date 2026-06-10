@@ -19,10 +19,11 @@ public final class M90ManagedJhySerialPortAdapter implements JhySerialPortAdapte
     private static final String TAG = "M90JhySerial";
 
     private final Map<String, JhySession> sessions = new ConcurrentHashMap<>();
+    private volatile boolean nativeAvailable = M90NativeJhySerialPort.LIBRARY_LOADED;
 
     @Override
     public boolean isSupported() {
-        return M90NativeJhySerialPort.LIBRARY_LOADED;
+        return nativeAvailable;
     }
 
     @Override
@@ -76,9 +77,9 @@ public final class M90ManagedJhySerialPortAdapter implements JhySerialPortAdapte
                     throw new IllegalStateException("write result=" + result);
                 }
                 log(LogCategory.PROTOCOL_TX, LogLevel.DEBUG, "native send on " + portPath + ": " + Hexs.toHex(payload), traceId);
-            } catch (Exception e) {
+            } catch (Throwable e) {
                 session.closeQuietly();
-                log(LogCategory.ERROR, LogLevel.ERROR, "native send failed on " + portPath + ": " + e.getMessage(), traceId);
+                handleNativeFailure("native send failed on " + portPath, e, traceId);
             }
         });
     }
@@ -100,10 +101,24 @@ public final class M90ManagedJhySerialPortAdapter implements JhySerialPortAdapte
             session.baudRate = baudRate;
             log(LogCategory.DEVICE, LogLevel.INFO, "native open " + portPath + " @" + baudRate, traceId);
             session.startReadLoop(traceId);
-        } catch (Exception e) {
+        } catch (Throwable e) {
             session.closeQuietly();
-            log(LogCategory.ERROR, LogLevel.ERROR, "native open failed on " + portPath + ": " + e.getMessage(), traceId);
+            handleNativeFailure("native open failed on " + portPath, e, traceId);
         }
+    }
+
+    private void handleNativeFailure(String message, Throwable throwable, String traceId) {
+        if (throwable instanceof UnsatisfiedLinkError) {
+            nativeAvailable = false;
+            log(
+                    LogCategory.ERROR,
+                    LogLevel.ERROR,
+                    message + ": JNI unavailable, disable native JHY and fallback to SerialPortAdapter / " + throwable.getMessage(),
+                    traceId
+            );
+            return;
+        }
+        log(LogCategory.ERROR, LogLevel.ERROR, message + ": " + throwable.getMessage(), traceId);
     }
 
     private String normalizePortPath(String portName) {
@@ -161,9 +176,9 @@ public final class M90ManagedJhySerialPortAdapter implements JhySerialPortAdapte
                             log(LogCategory.ERROR, LogLevel.WARN, "native recv dropped, listener missing on " + currentPortPath, readTraceId);
                         }
                     }
-                } catch (Exception e) {
+                } catch (Throwable e) {
                     if (currentPort == port && currentPortPath.equals(portPath)) {
-                        log(LogCategory.ERROR, LogLevel.WARN, "native recv failed on " + currentPortPath + ": " + e.getMessage(), readTraceId);
+                        handleNativeFailure("native recv failed on " + currentPortPath, e, readTraceId);
                     }
                 } finally {
                     log(LogCategory.DEVICE, LogLevel.INFO, "native read loop stop " + currentPortPath, readTraceId);
@@ -188,7 +203,7 @@ public final class M90ManagedJhySerialPortAdapter implements JhySerialPortAdapte
             }
             try {
                 currentPort.close();
-            } catch (Exception ignore) {
+            } catch (Throwable ignore) {
                 // ignore
             }
         }

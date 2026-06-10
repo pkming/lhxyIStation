@@ -18,10 +18,8 @@ import com.lhxy.istationdevice.android11.app.R;
 import com.lhxy.istationdevice.android11.deviceapi.SocketClientAdapter;
 import com.lhxy.istationdevice.android11.domain.config.ShellConfig;
 import com.lhxy.istationdevice.android11.domain.gps.GpsSerialMonitor;
-import com.lhxy.istationdevice.android11.domain.module.DispatchBusinessModule;
-import com.lhxy.istationdevice.android11.domain.module.TerminalBusinessModule;
-import com.lhxy.istationdevice.android11.domain.module.state.DispatchState;
 import com.lhxy.istationdevice.android11.runtime.ShellRuntime;
+import com.lhxy.istationdevice.android11.protocol.gps.GpsFixSnapshot;
 
 import java.net.Inet4Address;
 import java.net.InetAddress;
@@ -115,10 +113,9 @@ public final class LegacySystemNetworkFragment extends Fragment {
         String wifiIp = findIpAddress("wlan");
         boolean wifiConnected = hasTransport(context, NetworkCapabilities.TRANSPORT_WIFI);
         boolean mobileConnected = hasTransport(context, NetworkCapabilities.TRANSPORT_CELLULAR);
+        GpsFixSnapshot latestGps = gpsSerialMonitor.getLatestSnapshot();
 
-        bindText(tvGpsState, gpsSerialMonitor.isAttached()
-                ? getString(R.string.connected)
-                : getString(R.string.notopened));
+        bindText(tvGpsState, resolveGpsStateText(gpsSerialMonitor, latestGps));
         bindText(tvWiredIp, wiredIp);
         bindText(tvLanState, hasText(wiredIp)
                 ? getString(R.string.connected)
@@ -132,8 +129,8 @@ public final class LegacySystemNetworkFragment extends Fragment {
                 : getString(R.string.unconnected));
 
         serverProbeVersion++;
-        bindDispatchServer(resolvePrimaryServer(shellConfig), tvServerIp1, tvServerState1, socketClientAdapter, runtime);
-        bindUpdateServer(resolveSecondaryServer(shellConfig), tvServerIp2, tvServerState2, context);
+        bindServer(resolvePrimaryServer(shellConfig), tvServerIp1, tvServerState1, socketClientAdapter, context);
+        bindServer(resolveSecondaryServer(shellConfig), tvServerIp2, tvServerState2, socketClientAdapter, context);
     }
 
     @Nullable
@@ -174,30 +171,11 @@ public final class LegacySystemNetworkFragment extends Fragment {
         return null;
     }
 
-    private void bindDispatchServer(
+    private void bindServer(
             @Nullable ShellConfig.SocketChannel channel,
             @Nullable TextView ipView,
             @Nullable TextView stateView,
             @NonNull SocketClientAdapter socketClientAdapter,
-            @NonNull ShellRuntime runtime
-    ) {
-        if (channel == null) {
-            bindText(ipView, "-");
-            bindText(stateView, getString(R.string.unconnected));
-            return;
-        }
-        bindText(ipView, channel.getHost());
-        boolean connected = isDispatchBusinessActive(runtime);
-        if (!connected) {
-            connected = socketClientAdapter.isConnected(channel.getChannelName());
-        }
-        bindText(stateView, connected ? getString(R.string.connected) : getString(R.string.unconnected));
-    }
-
-    private void bindUpdateServer(
-            @Nullable ShellConfig.SocketChannel channel,
-            @Nullable TextView ipView,
-            @Nullable TextView stateView,
             @NonNull Context context
     ) {
         if (channel == null) {
@@ -206,6 +184,10 @@ public final class LegacySystemNetworkFragment extends Fragment {
             return;
         }
         bindText(ipView, channel.getHost());
+        if (socketClientAdapter.isConnected(channel.getChannelName())) {
+            bindText(stateView, getString(R.string.connected));
+            return;
+        }
         bindText(stateView, getString(R.string.unconnected));
         if (!hasActiveNetwork(context) || !hasText(channel.getHost()) || channel.getPort() <= 0) {
             return;
@@ -220,9 +202,19 @@ public final class LegacySystemNetworkFragment extends Fragment {
                 if (!isAdded() || probeVersion != serverProbeVersion) {
                     return;
                 }
-                bindText(stateView, getString(reachable ? R.string.connected : R.string.unconnected));
+                bindText(stateView, getString(reachable ? R.string.reachable : R.string.unconnected));
             });
         }, "legacy-update-server-probe").start();
+    }
+
+    private String resolveGpsStateText(@NonNull GpsSerialMonitor gpsSerialMonitor, @Nullable GpsFixSnapshot latestGps) {
+        if (!gpsSerialMonitor.isAttached()) {
+            return getString(R.string.notopened);
+        }
+        if (latestGps != null && latestGps.isValid()) {
+            return getString(R.string.gps_fixed);
+        }
+        return getString(R.string.gps_no_fix);
     }
 
     private boolean hasActiveNetwork(Context context) {
@@ -245,21 +237,6 @@ public final class LegacySystemNetworkFragment extends Fragment {
         } catch (Exception ignored) {
             return false;
         }
-    }
-
-    private boolean isDispatchBusinessActive(@NonNull ShellRuntime runtime) {
-        TerminalBusinessModule module = runtime.getModuleHub().findModule("dispatch");
-        if (!(module instanceof DispatchBusinessModule)) {
-            return false;
-        }
-        DispatchState dispatchState = ((DispatchBusinessModule) module).getDispatchState();
-        if (dispatchState == null) {
-            return false;
-        }
-        return dispatchState.isStartedBus()
-                || dispatchState.isDispatchedConfirmed()
-                || dispatchState.isJoinedOperation()
-                || dispatchState.getLastUpdateTimeMillis() > 0L;
     }
 
     private boolean hasTransport(Context context, int transportType) {

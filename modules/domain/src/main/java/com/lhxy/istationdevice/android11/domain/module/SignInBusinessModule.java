@@ -37,6 +37,7 @@ public final class SignInBusinessModule extends AbstractTerminalBusinessModule {
     private final SignInState signInState = new SignInState();
     private volatile boolean autoPolling;
     private volatile Thread autoPollThread;
+    private int exclusiveRfidHoldCount;
 
     public SignInBusinessModule(
             ProtocolReplayUseCase protocolReplayUseCase,
@@ -125,11 +126,46 @@ public final class SignInBusinessModule extends AbstractTerminalBusinessModule {
     @Override
     protected void onContextUpdated() {
         ShellConfig shellConfig = requireShellConfig();
-        if (shouldAutoPoll(shellConfig)) {
+        if (shouldAutoPoll(shellConfig) && !isAutoPollingSuspended()) {
             startAutoPolling();
             return;
         }
         stopAutoPolling("signin-auto-poll-stop");
+    }
+
+    /**
+     * 调度中心刷卡测试页需要独占 RFID 时，先暂停后台签到轮询，避免两个线程抢同一张卡。
+     */
+    public void pauseAutoPollingForExclusiveRfid(String traceId) {
+        synchronized (autoPollLock) {
+            exclusiveRfidHoldCount++;
+        }
+        stopAutoPolling(traceId);
+        safeLog(LogCategory.BIZ, LogLevel.INFO, "RFID auto poll paused for exclusive reader", traceId);
+    }
+
+    /**
+     * 释放 RFID 独占测试占用，并按当前配置恢复后台签到轮询。
+     */
+    public void resumeAutoPollingAfterExclusiveRfid(String traceId) {
+        boolean shouldResume;
+        synchronized (autoPollLock) {
+            if (exclusiveRfidHoldCount > 0) {
+                exclusiveRfidHoldCount--;
+            }
+            shouldResume = exclusiveRfidHoldCount == 0;
+        }
+        if (!shouldResume) {
+            return;
+        }
+        try {
+            ShellConfig shellConfig = requireShellConfig();
+            if (shouldAutoPoll(shellConfig)) {
+                startAutoPolling();
+            }
+        } catch (Exception e) {
+            safeLog(LogCategory.ERROR, LogLevel.WARN, "RFID auto poll resume skipped: " + emptyAsDash(e.getMessage()), traceId);
+        }
     }
 
     /**
@@ -235,6 +271,12 @@ public final class SignInBusinessModule extends AbstractTerminalBusinessModule {
                 && shellConfig.getRfidConfig() != null
                 && shellConfig.getRfidConfig().getMode() == DeviceMode.REAL
                 && rfidAdapter.isAvailable();
+    }
+
+    private boolean isAutoPollingSuspended() {
+        synchronized (autoPollLock) {
+            return exclusiveRfidHoldCount > 0;
+        }
     }
 
     private void startAutoPolling() {

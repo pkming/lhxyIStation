@@ -438,6 +438,24 @@ public final class StationState {
         terminalStation = routeStations.get(routeStations.size() - 1);
     }
 
+    /**
+     * 判断给定站点列表（按 applyLineProfile 的清洗规则）是否与当前线路完全一致。
+     * <p>
+     * 首页刷新会反复尝试对账线路，只有在站点内容真正变化时才允许重置游标，
+     * 避免每次刷新都把正在报站的进度打回起点站。
+     */
+    public boolean matchesRoute(List<String> stations) {
+        List<String> normalized = new ArrayList<>();
+        if (stations != null) {
+            for (String station : stations) {
+                if (station != null && !station.trim().isEmpty()) {
+                    normalized.add(station.trim());
+                }
+            }
+        }
+        return normalized.equals(routeStations);
+    }
+
     public String describe() {
         return "line=" + emptyAsDash(lineName)
                 + "\n- attribute=" + emptyAsDash(lineAttribute)

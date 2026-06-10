@@ -12,6 +12,7 @@
         android:layout_marginRight="@dimen/d_16">
 
         <TextView
+            android:id="@+id/tvPaycardLabel"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_centerVertical="true"
@@ -21,10 +22,19 @@
 
         <TextView
             android:id="@+id/tvPaycard"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_centerVertical="true"
-            android:layout_marginLeft="@dimen/d_58"
+            android:layout_marginLeft="@dimen/d_8"
+            android:layout_toEndOf="@id/tvPaycardLabel"
+            android:ellipsize="none"
+            android:focusable="true"
+            android:focusableInTouchMode="true"
+            android:freezesText="true"
+            android:gravity="start|center_vertical"
+            android:scrollHorizontally="true"
+            android:scrollbars="horizontal"
+            android:singleLine="true"
             android:textColor="@color/c_ffffff"
             android:textSize="20sp" />
     </RelativeLayout>

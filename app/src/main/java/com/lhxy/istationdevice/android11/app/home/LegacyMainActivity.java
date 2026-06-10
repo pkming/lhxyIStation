@@ -61,6 +61,8 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * 旧版首页骨架。
@@ -73,6 +75,7 @@ import java.util.Locale;
 public final class LegacyMainActivity extends AppCompatActivity {
     private static final int DVR_TOUCH_WIDTH = 1280;
     private static final int DVR_TOUCH_HEIGHT = 800;
+    private static final long HOME_MONITOR_SWITCH_DEBOUNCE_MS = 600L;
 
     private enum HomeMonitorMode {
         MIDDLE_DOOR,
@@ -84,14 +87,21 @@ public final class LegacyMainActivity extends AppCompatActivity {
 
     private final ShellRuntime shellRuntime = ShellRuntime.get();
     private final Handler clockHandler = new Handler(Looper.getMainLooper());
+    private final ExecutorService homeActionExecutor = Executors.newSingleThreadExecutor(runnable -> {
+        Thread thread = new Thread(runnable, "legacy-home-action");
+        thread.setDaemon(true);
+        return thread;
+    });
     private SurfaceView homeDvrSurface;
     private SurfaceView homeMiddleDoorSurface;
     private SurfaceView homeReverseSurface;
     private boolean homeDvrSurfaceReady;
     private boolean homeMiddleDoorSurfaceReady;
     private boolean homeReverseSurfaceReady;
+    private boolean homeMonitorPreviewOpening;
     private boolean homeMonitorPreviewOpened;
     private String homeMonitorCameraKey;
+    private long lastHomeMonitorSwitchTimeMs;
     private final String homeMonitorOwnerToken = "legacy-home-monitor@" + Integer.toHexString(System.identityHashCode(this));
     private HomeMonitorMode currentHomeMonitorMode = HomeMonitorMode.DVR;
     private HomeMonitorMode lastLoggedHomeMonitorMode;
@@ -120,6 +130,9 @@ public final class LegacyMainActivity extends AppCompatActivity {
         super.onResume();
         applyImmersiveFullscreen();
         registerHomeStatusListener();
+        shellRuntime.getPassengerCounterMonitor().setStateListener(
+                state -> runOnUiThread(() -> bindPassengerCounters(state))
+        );
         startClockTicker();
         refreshHomeState();
         openHomeMonitorPreviewIfReady();
@@ -136,6 +149,7 @@ public final class LegacyMainActivity extends AppCompatActivity {
     @Override
     protected void onPause() {
         closeHomeMonitorPreview(false);
+        shellRuntime.getPassengerCounterMonitor().setStateListener(null);
         unregisterHomeStatusListener();
         super.onPause();
         stopClockTicker();
@@ -143,7 +157,9 @@ public final class LegacyMainActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
+        shellRuntime.getPassengerCounterMonitor().setStateListener(null);
         unregisterHomeStatusListener();
+        homeActionExecutor.shutdownNow();
         super.onDestroy();
     }
 
@@ -360,14 +376,20 @@ public final class LegacyMainActivity extends AppCompatActivity {
         if (cameraKey.isEmpty()) {
             return;
         }
-        if (homeMonitorPreviewOpened && cameraKey.equals(homeMonitorCameraKey)) {
+        if (isHomeMonitorPreviewActive(cameraKey)) {
             return;
         }
         try {
-            if (homeMonitorPreviewOpened) {
+            long now = System.currentTimeMillis();
+            if (now - lastHomeMonitorSwitchTimeMs < HOME_MONITOR_SWITCH_DEBOUNCE_MS) {
+                return;
+            }
+            lastHomeMonitorSwitchTimeMs = now;
+            if (homeMonitorPreviewOpened || homeMonitorPreviewOpening) {
                 closeHomeMonitorPreview(false);
             }
             homeMonitorCameraKey = cameraKey;
+            homeMonitorPreviewOpening = true;
             shellRuntime.getCameraAdapter().openPreview(
                     cameraKey,
                     holder.getSurface(),
@@ -377,6 +399,11 @@ public final class LegacyMainActivity extends AppCompatActivity {
                     TraceIds.next("legacy-home-monitor-preview-" + cameraKey)
             );
             homeMonitorPreviewOpened = true;
+            clockHandler.postDelayed(() -> {
+                if (cameraKey.equals(homeMonitorCameraKey)) {
+                    homeMonitorPreviewOpening = false;
+                }
+            }, HOME_MONITOR_SWITCH_DEBOUNCE_MS);
                 AppLogCenter.log(
                     LogCategory.UI,
                     LogLevel.INFO,
@@ -386,6 +413,7 @@ public final class LegacyMainActivity extends AppCompatActivity {
                     TraceIds.next("legacy-home-monitor-open")
                 );
         } catch (Exception e) {
+            homeMonitorPreviewOpening = false;
             homeMonitorPreviewOpened = false;
                 AppLogCenter.log(
                     LogCategory.ERROR,
@@ -399,7 +427,9 @@ public final class LegacyMainActivity extends AppCompatActivity {
 
     private void closeHomeMonitorPreview(boolean showPlaceholder) {
         String cameraKey = homeMonitorCameraKey;
-        boolean wasOpened = homeMonitorPreviewOpened;
+        boolean wasOpened = homeMonitorPreviewOpened || homeMonitorPreviewOpening;
+        lastHomeMonitorSwitchTimeMs = System.currentTimeMillis();
+        homeMonitorPreviewOpening = false;
         homeMonitorPreviewOpened = false;
         homeMonitorCameraKey = null;
         if (cameraKey != null && !cameraKey.trim().isEmpty() && wasOpened) {
@@ -416,6 +446,10 @@ public final class LegacyMainActivity extends AppCompatActivity {
                 // Keep the home page responsive even if preview teardown fails.
             }
         }
+    }
+
+    private boolean isHomeMonitorPreviewActive(@NonNull String cameraKey) {
+        return (homeMonitorPreviewOpened || homeMonitorPreviewOpening) && cameraKey.equals(homeMonitorCameraKey);
     }
 
     private void setHomeMonitorSurfaceReady(@NonNull HomeMonitorMode mode, boolean ready) {
@@ -596,24 +630,32 @@ public final class LegacyMainActivity extends AppCompatActivity {
         }
         int touchX = scaleCoordinate(event.getX(), view.getWidth(), DVR_TOUCH_WIDTH);
         int touchY = scaleCoordinate(event.getY(), view.getHeight(), DVR_TOUCH_HEIGHT);
-        ModuleRunResult result = shellRuntime.getModuleHub().runAction(
-                "camera_dvr",
-                buildTouchActionKey(phase, touchX, touchY),
-                TraceIds.next("legacy-home-dvr-touch")
-        );
-        AppLogCenter.log(
-            result.isSuccess() ? LogCategory.UI : LogCategory.ERROR,
-            result.isSuccess() ? LogLevel.INFO : LogLevel.WARN,
-            "LegacyMainActivity",
-            "首页 DVR 触摸 phase=" + phase + " / raw=" + event.getX() + "," + event.getY()
-                + " / view=" + view.getWidth() + "x" + view.getHeight()
-                + " / scaled=" + touchX + "," + touchY
-                + " / result=" + result.describeInline(),
-            TraceIds.next("legacy-home-dvr-touch-result")
-        );
-        if (!result.isSuccess() && ("down".equals(phase) || "up".equals(phase))) {
-            Toast.makeText(this, result.describeInline(), Toast.LENGTH_SHORT).show();
-        }
+        float rawX = event.getX();
+        float rawY = event.getY();
+        int viewWidth = view.getWidth();
+        int viewHeight = view.getHeight();
+        homeActionExecutor.execute(() -> {
+            ModuleRunResult result = shellRuntime.getModuleHub().runAction(
+                    "camera_dvr",
+                    buildTouchActionKey(phase, touchX, touchY),
+                    TraceIds.next("legacy-home-dvr-touch")
+            );
+            runOnUiThread(() -> {
+                AppLogCenter.log(
+                    result.isSuccess() ? LogCategory.UI : LogCategory.ERROR,
+                    result.isSuccess() ? LogLevel.INFO : LogLevel.WARN,
+                    "LegacyMainActivity",
+                    "首页 DVR 触摸 phase=" + phase + " / raw=" + rawX + "," + rawY
+                        + " / view=" + viewWidth + "x" + viewHeight
+                        + " / scaled=" + touchX + "," + touchY
+                        + " / result=" + result.describeInline(),
+                    TraceIds.next("legacy-home-dvr-touch-result")
+                );
+                if (!result.isSuccess() && ("down".equals(phase) || "up".equals(phase))) {
+                    Toast.makeText(this, result.describeInline(), Toast.LENGTH_SHORT).show();
+                }
+            });
+        });
         return true;
     }
 
@@ -759,31 +801,39 @@ public final class LegacyMainActivity extends AppCompatActivity {
     }
 
     private void runStationAction(String actionKey) {
-        ModuleRunResult result = shellRuntime.getModuleHub().runAction("station", actionKey, "legacy-main-" + actionKey);
-        AppLogCenter.log(
-                result.isSuccess() ? LogCategory.UI : LogCategory.ERROR,
-                result.isSuccess() ? LogLevel.INFO : LogLevel.WARN,
-                "LegacyMainActivity",
-                "首页站点动作 action=" + actionKey + " / result=" + result.describeInline(),
-                "legacy-main-" + actionKey
-        );
-        Toast.makeText(this, result.describeInline(), Toast.LENGTH_SHORT).show();
-        refreshHomeState();
+        homeActionExecutor.execute(() -> {
+            ModuleRunResult result = shellRuntime.getModuleHub().runAction("station", actionKey, "legacy-main-" + actionKey);
+            runOnUiThread(() -> {
+                AppLogCenter.log(
+                        result.isSuccess() ? LogCategory.UI : LogCategory.ERROR,
+                        result.isSuccess() ? LogLevel.INFO : LogLevel.WARN,
+                        "LegacyMainActivity",
+                        "首页站点动作 action=" + actionKey + " / result=" + result.describeInline(),
+                        "legacy-main-" + actionKey
+                );
+                Toast.makeText(this, result.describeInline(), Toast.LENGTH_SHORT).show();
+                refreshHomeState();
+            });
+        });
     }
 
     private void runDriverAction() {
         SignInState signInState = requireSignInState();
         String actionKey = shouldReadDriverCard(signInState) ? "read_card" : "manual_sign_out";
-        ModuleRunResult result = shellRuntime.getModuleHub().runAction("signin", actionKey, "legacy-main-" + actionKey);
-        AppLogCenter.log(
-            result.isSuccess() ? LogCategory.UI : LogCategory.ERROR,
-            result.isSuccess() ? LogLevel.INFO : LogLevel.WARN,
-            "LegacyMainActivity",
-            "首页司机动作 action=" + actionKey + " / result=" + result.describeInline(),
-            "legacy-main-" + actionKey
-        );
-        Toast.makeText(this, result.describeInline(), Toast.LENGTH_SHORT).show();
-        refreshHomeState();
+        homeActionExecutor.execute(() -> {
+            ModuleRunResult result = shellRuntime.getModuleHub().runAction("signin", actionKey, "legacy-main-" + actionKey);
+            runOnUiThread(() -> {
+                AppLogCenter.log(
+                    result.isSuccess() ? LogCategory.UI : LogCategory.ERROR,
+                    result.isSuccess() ? LogLevel.INFO : LogLevel.WARN,
+                    "LegacyMainActivity",
+                    "首页司机动作 action=" + actionKey + " / result=" + result.describeInline(),
+                    "legacy-main-" + actionKey
+                );
+                Toast.makeText(this, result.describeInline(), Toast.LENGTH_SHORT).show();
+                refreshHomeState();
+            });
+        });
     }
 
     private void updateDriverActionButton(@Nullable SignInState signInState) {
@@ -1095,6 +1145,10 @@ public final class LegacyMainActivity extends AppCompatActivity {
 
     private void bindPassengerCounters(@NonNull StationState stationState) {
         JhyPassengerCounterState passengerState = shellRuntime.getPassengerCounterMonitor().getState();
+        bindPassengerCounters(passengerState);
+    }
+
+    private void bindPassengerCounters(@NonNull JhyPassengerCounterState passengerState) {
         setText(R.id.tvFin001, passengerState.getFrontInText());
         setText(R.id.tvFout001, passengerState.getFrontOutText());
         setText(R.id.tvBin001, passengerState.getBackInText());
@@ -1176,16 +1230,17 @@ public final class LegacyMainActivity extends AppCompatActivity {
             preferredLine = resourceState.getLineName();
         }
         LegacyLineCatalog.LineProfile profile = LegacyLineCatalog.findByName(this, preferredLine);
-        boolean lineChanged = !profile.matchesLineName(stationState.getLineName());
         String direction = valueOrDefault(resourceState.getDirectionText(), valueOrDefault(stationState.getDirectionText(), "上行"));
-        boolean directionChanged = !direction.equals(valueOrDefault(stationState.getDirectionText(), "上行"));
         List<String> stations = profile.stationsForDirection(direction);
         if (stations.isEmpty()) {
             return;
         }
-        String expectedTerminal = stations.get(stations.size() - 1);
-        boolean routeChanged = !expectedTerminal.equals(valueOrDefault(stationState.getTerminalStation(), "-"));
-        if (lineChanged || directionChanged || routeChanged) {
+        // 只在线路或站点内容“真的”变了（换线/换向得到不同的站序）时才重置游标。
+        // 此前用终点站名/方向文本做对账，字段格式只要不完全一致就误判为变化，
+        // 于是每次首页刷新都会 applyLineProfile 把游标打回起点站，正在报站的推进被吃掉。
+        boolean lineChanged = !profile.matchesLineName(stationState.getLineName());
+        boolean routeChanged = !stationState.matchesRoute(stations);
+        if (lineChanged || routeChanged) {
             stationState.applyLineProfile(profile.getLineName(), direction, stations);
             stationState.setLineAttribute(profile.getLineAttribute());
         } else if (!profile.getLineAttribute().equals(valueOrDefault(stationState.getLineAttribute(), "-"))) {

@@ -4,6 +4,10 @@
     <string name="debug_reset_config">重置运行配置</string>
     <string name="debug_clear">清空</string>
     <string name="debug_export">导出调试包</string>
+    <string name="debug_run_field_diagnostic">一键现场 A/B 自检并上传</string>
+    <string name="debug_field_diagnostic_idle">进度 0%：未开始现场 A/B 自检。</string>
+    <string name="debug_field_diagnostic_log_idle">现场 A/B 自检日志：
+- 点击按钮后会实时显示每一步进度、耗时和 traceId。</string>
     <string name="debug_replay_display">回放屏显</string>
     <string name="debug_replay_jt808">回放 808</string>
     <string name="debug_replay_all">全量回放</string>

@@ -2,6 +2,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <application>
+        <service
+            android:name=".DebugJhyNativeProbeService"
+            android:exported="false"
+            android:process=":jhy_probe" />
+
         <activity
             android:name=".DebugToolsActivity"
             android:exported="false" />

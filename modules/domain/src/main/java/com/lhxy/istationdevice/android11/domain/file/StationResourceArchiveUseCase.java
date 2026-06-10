@@ -154,6 +154,7 @@ public final class StationResourceArchiveUseCase {
         List<File> finalExtractedFiles = new ArrayList<>();
         collectFiles(finalExtractedDir, finalExtractedFiles);
         LinkedHashSet<String> lineCandidates = deriveLineCandidates(finalExtractedFiles);
+        ResourceConfigOverrides configOverrides = parseResourceConfigOverrides(finalExtractedDir);
         int importedMessageCount = importMessageCatalog(context, finalExtractedFiles);
         String lineName = lineCandidates.isEmpty() ? "-" : lineCandidates.iterator().next();
         File summaryFile = new File(managedRoot, SUMMARY_FILE_NAME);
@@ -166,12 +167,14 @@ public final class StationResourceArchiveUseCase {
                 + "\n文件数=" + finalExtractedFiles.size()
                 + "\n消息数=" + importedMessageCount
                 + "\n线路候选=" + (lineCandidates.isEmpty() ? "-" : join(lineCandidates))
+                + "\n配置覆盖=" + configOverrides.describe()
                 + "\n" + buildDiagnosticSummary(diagnostics),
             selectedCandidate.getFile(),
             finalExtractedDir,
                 lineName,
             scan.allCandidatePaths,
-            diagnostics
+            diagnostics,
+            configOverrides
         );
     }
 
@@ -943,6 +946,60 @@ public final class StationResourceArchiveUseCase {
         return values;
     }
 
+    ResourceConfigOverrides parseResourceConfigOverrides(File extractedDir) {
+        File sourceRoot = resolveExtractedSourceRoot(extractedDir);
+        File busDir = sourceRoot == null ? null : new File(sourceRoot, "Bus");
+        File configFile = resolveTabularFile(busDir, "config");
+        List<List<String>> rows = readTableRows(configFile);
+        if (rows.isEmpty()) {
+            return ResourceConfigOverrides.empty();
+        }
+        Map<String, String> values = new LinkedHashMap<>();
+        for (int index = 1; index < rows.size(); index++) {
+            List<String> row = rows.get(index);
+            String key = cell(row, 0);
+            String value = cell(row, 1);
+            if (key.isEmpty() || value.isEmpty()) {
+                continue;
+            }
+            values.put(key, value);
+        }
+        return new ResourceConfigOverrides(
+                values.get("RS232-1Protocol"),
+                values.get("RS232-2Protocol"),
+                values.get("RS485Protocol"),
+                values.get("RS485-2Protocol"),
+                parseInteger(values.get("RS232-1Baud")),
+                parseInteger(values.get("RS232-2Baud")),
+                parseInteger(values.get("RS485Baud")),
+                parseInteger(values.get("RS485-2Baud")),
+                mapLanguageSetting(values.get("LanguageSettings"))
+        );
+    }
+
+    private String mapLanguageSetting(String value) {
+        String normalized = value == null ? "" : value.trim();
+        if (normalized.isEmpty()) {
+            return null;
+        }
+        switch (normalized) {
+            case "0":
+                return "auto";
+            case "1":
+                return "zh-CN";
+            case "2":
+                return "zh-TW";
+            case "3":
+                return "en";
+            case "4":
+                return "ko";
+            case "5":
+                return "es";
+            default:
+                return normalized;
+        }
+    }
+
     ArchiveSelfCheck inspectExtractedArchive(File extractedDir, List<File> extractedFiles) {
         List<String> problems = new ArrayList<>();
         if (extractedDir == null || !extractedDir.exists()) {
@@ -1337,7 +1394,6 @@ public final class StationResourceArchiveUseCase {
         }
         String value = cell(row, columnIndex);
         if (value.isEmpty()) {
-            issues.add(buildColumnIssue(header, columnIndex, fallbackLabel, "为空"));
             return;
         }
         String normalized = value.trim().toUpperCase(Locale.ROOT);
@@ -2530,8 +2586,13 @@ public final class StationResourceArchiveUseCase {
         private final String lineName;
         private final List<String> candidatePaths;
         private final List<DiagnosticItem> diagnostics;
+        private final ResourceConfigOverrides configOverrides;
 
         private OperationResult(boolean success, String summary, String detail, File archiveFile, File workingDir, String lineName, List<String> candidatePaths, List<DiagnosticItem> diagnostics) {
+            this(success, summary, detail, archiveFile, workingDir, lineName, candidatePaths, diagnostics, ResourceConfigOverrides.empty());
+        }
+
+        private OperationResult(boolean success, String summary, String detail, File archiveFile, File workingDir, String lineName, List<String> candidatePaths, List<DiagnosticItem> diagnostics, ResourceConfigOverrides configOverrides) {
             this.success = success;
             this.summary = summary == null ? "" : summary.trim();
             this.detail = detail == null ? "" : detail.trim();
@@ -2540,6 +2601,7 @@ public final class StationResourceArchiveUseCase {
             this.lineName = lineName == null || lineName.trim().isEmpty() ? "-" : lineName.trim();
             this.candidatePaths = candidatePaths == null ? new ArrayList<>() : new ArrayList<>(candidatePaths);
             this.diagnostics = diagnostics == null ? new ArrayList<>() : new ArrayList<>(diagnostics);
+            this.configOverrides = configOverrides == null ? ResourceConfigOverrides.empty() : configOverrides;
         }
 
         public static OperationResult success(String summary, String detail, File archiveFile, File workingDir, String lineName, List<String> candidatePaths) {
@@ -2548,6 +2610,10 @@ public final class StationResourceArchiveUseCase {
 
         public static OperationResult success(String summary, String detail, File archiveFile, File workingDir, String lineName, List<String> candidatePaths, List<DiagnosticItem> diagnostics) {
             return new OperationResult(true, summary, detail, archiveFile, workingDir, lineName, candidatePaths, diagnostics);
+        }
+
+        public static OperationResult success(String summary, String detail, File archiveFile, File workingDir, String lineName, List<String> candidatePaths, List<DiagnosticItem> diagnostics, ResourceConfigOverrides configOverrides) {
+            return new OperationResult(true, summary, detail, archiveFile, workingDir, lineName, candidatePaths, diagnostics, configOverrides);
         }
 
         public static OperationResult failure(String summary, String detail) {
@@ -2588,6 +2654,112 @@ public final class StationResourceArchiveUseCase {
 
         public List<DiagnosticItem> getDiagnostics() {
             return new ArrayList<>(diagnostics);
+        }
+
+        public ResourceConfigOverrides getConfigOverrides() {
+            return configOverrides;
+        }
+    }
+
+    public static final class ResourceConfigOverrides {
+        private final String rs2321Protocol;
+        private final String rs2322Protocol;
+        private final String rs485Protocol;
+        private final String rs4852Protocol;
+        private final Integer rs2321Baud;
+        private final Integer rs2322Baud;
+        private final Integer rs485Baud;
+        private final Integer rs4852Baud;
+        private final String languageCode;
+
+        private ResourceConfigOverrides(
+                String rs2321Protocol,
+                String rs2322Protocol,
+                String rs485Protocol,
+                String rs4852Protocol,
+                Integer rs2321Baud,
+                Integer rs2322Baud,
+                Integer rs485Baud,
+                Integer rs4852Baud,
+                String languageCode
+        ) {
+            this.rs2321Protocol = blankToNull(rs2321Protocol);
+            this.rs2322Protocol = blankToNull(rs2322Protocol);
+            this.rs485Protocol = blankToNull(rs485Protocol);
+            this.rs4852Protocol = blankToNull(rs4852Protocol);
+            this.rs2321Baud = validBaudOrNull(rs2321Baud);
+            this.rs2322Baud = validBaudOrNull(rs2322Baud);
+            this.rs485Baud = validBaudOrNull(rs485Baud);
+            this.rs4852Baud = validBaudOrNull(rs4852Baud);
+            this.languageCode = blankToNull(languageCode);
+        }
+
+        public static ResourceConfigOverrides empty() {
+            return new ResourceConfigOverrides(null, null, null, null, null, null, null, null, null);
+        }
+
+        public boolean hasAny() {
+            return rs2321Protocol != null
+                    || rs2322Protocol != null
+                    || rs485Protocol != null
+                    || rs4852Protocol != null
+                    || rs2321Baud != null
+                    || rs2322Baud != null
+                    || rs485Baud != null
+                    || rs4852Baud != null
+                    || languageCode != null;
+        }
+
+        public String describe() {
+            if (!hasAny()) {
+                return "-";
+            }
+            List<String> values = new ArrayList<>();
+            append(values, "RS232-1Protocol", rs2321Protocol);
+            append(values, "RS232-2Protocol", rs2322Protocol);
+            append(values, "RS485Protocol", rs485Protocol);
+            append(values, "RS485-2Protocol", rs4852Protocol);
+            append(values, "RS232-1Baud", rs2321Baud);
+            append(values, "RS232-2Baud", rs2322Baud);
+            append(values, "RS485Baud", rs485Baud);
+            append(values, "RS485-2Baud", rs4852Baud);
+            append(values, "LanguageSettings", languageCode);
+            return joinValues(values);
+        }
+
+        public String getRs2321Protocol() { return rs2321Protocol; }
+        public String getRs2322Protocol() { return rs2322Protocol; }
+        public String getRs485Protocol() { return rs485Protocol; }
+        public String getRs4852Protocol() { return rs4852Protocol; }
+        public Integer getRs2321Baud() { return rs2321Baud; }
+        public Integer getRs2322Baud() { return rs2322Baud; }
+        public Integer getRs485Baud() { return rs485Baud; }
+        public Integer getRs4852Baud() { return rs4852Baud; }
+        public String getLanguageCode() { return languageCode; }
+
+        private static void append(List<String> values, String key, Object value) {
+            if (value != null) {
+                values.add(key + "=" + value);
+            }
+        }
+
+        private static String joinValues(List<String> values) {
+            StringBuilder builder = new StringBuilder();
+            for (String value : values) {
+                if (builder.length() > 0) {
+                    builder.append(", ");
+                }
+                builder.append(value);
+            }
+            return builder.toString();
+        }
+
+        private static String blankToNull(String value) {
+            return value == null || value.trim().isEmpty() ? null : value.trim();
+        }
+
+        private static Integer validBaudOrNull(Integer value) {
+            return value == null || value <= 0 ? null : value;
         }
     }
 }

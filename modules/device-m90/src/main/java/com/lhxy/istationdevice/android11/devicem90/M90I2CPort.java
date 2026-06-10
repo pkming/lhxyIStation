@@ -27,13 +27,25 @@ final class M90I2CPort {
         return LOAD_ERROR_MESSAGE;
     }
 
-    native void RfidClose();
+    private final com.lianhexinye.iicport.I2CPort delegate = new com.lianhexinye.iicport.I2CPort();
 
-    native byte[] RfidGetId(byte channel);
+    void RfidClose() {
+        delegate.RfidClose();
+    }
 
-    native void RfidInit();
+    byte[] RfidGetId(byte channel) {
+        return delegate.RfidGetId(channel);
+    }
 
-    native void RfidSetID(byte channel, byte[] value);
+    void RfidInit() {
+        delegate.RfidInit();
+    }
 
-    native void RfidWaitCardOff();
+    void RfidSetID(byte channel, byte[] value) {
+        delegate.RfidSetID(channel, value);
+    }
+
+    void RfidWaitCardOff() {
+        delegate.RfidWaitCardOff();
+    }
 }

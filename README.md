@@ -25,6 +25,16 @@ sh apk.sh rebuild
 sh apk.sh rebuild --pin-base
 ```
 
+如果提示“同一 versionName 已存在不同内容的基线”，说明完整包已经构建成功，但脚本拒绝用同一个版本号静默覆盖旧基线。处理方式：
+
+1. 只是给测试安装完整包：直接使用 `apk/release/` 下新生成的 APK，不需要钉基线。
+2. 要作为新现场完整包长期留档：优先升级 `versionName`，再重新执行 `sh apk.sh rebuild --pin-base`。
+3. 确认设备已经切到这版完整包，并且要强制把它设为当前基线时，再执行：
+
+```bash
+sh apk.sh rebuild --pin-base --force-pin-base
+```
+
 ## 热更新补丁
 
 日常继续发 patch，直接执行：

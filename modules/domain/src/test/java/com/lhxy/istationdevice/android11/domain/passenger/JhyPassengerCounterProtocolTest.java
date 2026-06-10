@@ -32,4 +32,25 @@ public final class JhyPassengerCounterProtocolTest {
         assertEquals(4, state.getBackOut());
         assertEquals(8, state.getTotal());
     }
+
+    @Test
+    public void parseCurrentCountFrame_acceptsRealTtyS9Response() {
+        byte[] frame = new byte[] {
+                0x63, 0x00, 0x28, 0x06,
+                0x00, 0x00, 0x00, 0x02,
+                0x00, 0x00, 0x00, 0x04,
+                0x00, 0x00, 0x00, 0x02,
+                0x00, 0x00, 0x00,
+                (byte) 0xBD, 0x0A
+        };
+
+        JhyPassengerCounterState state = JhyPassengerCounterProtocol.parseCurrentCountFrame(frame);
+
+        assertNotNull(state);
+        assertEquals(2, state.getFrontIn());
+        assertEquals(4, state.getFrontOut());
+        assertEquals(2, state.getBackIn());
+        assertEquals(0, state.getBackOut());
+        assertEquals(0, state.getTotal());
+    }
 }

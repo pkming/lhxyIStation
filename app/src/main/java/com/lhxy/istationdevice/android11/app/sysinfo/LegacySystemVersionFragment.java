@@ -31,6 +31,7 @@ import com.lhxy.istationdevice.android11.app.station.LegacyStationResourceStateR
 import com.lhxy.istationdevice.android11.core.AppLogCenter;
 import com.lhxy.istationdevice.android11.core.LegacyHomeStatusRepository;
 import com.lhxy.istationdevice.android11.core.TraceIds;
+import com.lhxy.istationdevice.android11.debugtools.DebugToolsActivity;
 import com.lhxy.istationdevice.android11.domain.config.ShellConfig;
 import com.lhxy.istationdevice.android11.domain.config.ShellConfigRepository;
 import com.lhxy.istationdevice.android11.domain.module.ModuleRunResult;
@@ -62,7 +63,9 @@ public final class LegacySystemVersionFragment extends Fragment {
     private TextView tvSourceVersionTime;
     private Button butCheckUpdate;
     private Button butResetHotUpdate;
+    private Button butFieldDiagnostic;
     private TextView tvCheckUpdateStatus;
+    private TextView tvFieldDiagnosticStatus;
     private ProgressBar hotUpdateProgressBar;
     private TextView hotUpdateProgressView;
     private SharedPreferences.OnSharedPreferenceChangeListener hotUpdateStateListener;
@@ -92,9 +95,12 @@ public final class LegacySystemVersionFragment extends Fragment {
         tvSourceVersionTime = view.findViewById(R.id.tvSourceVersionTime);
         butCheckUpdate = view.findViewById(R.id.butCheckUpdate);
         butResetHotUpdate = view.findViewById(R.id.butResetHotUpdate);
+        butFieldDiagnostic = view.findViewById(R.id.butFieldDiagnostic);
         tvCheckUpdateStatus = view.findViewById(R.id.tvCheckUpdateStatus);
+        tvFieldDiagnosticStatus = view.findViewById(R.id.tvFieldDiagnosticStatus);
         bindCheckUpdateAction();
         bindResetHotUpdateAction();
+        bindFieldDiagnosticAction();
         attachCheckUpdateProgressViews(view);
         registerHotUpdateStateListener();
         render();
@@ -127,7 +133,9 @@ public final class LegacySystemVersionFragment extends Fragment {
         tvSourceVersionTime = null;
         butCheckUpdate = null;
         butResetHotUpdate = null;
+        butFieldDiagnostic = null;
         tvCheckUpdateStatus = null;
+        tvFieldDiagnosticStatus = null;
         hotUpdateProgressBar = null;
         hotUpdateProgressView = null;
     }
@@ -201,6 +209,34 @@ public final class LegacySystemVersionFragment extends Fragment {
         }
         applyActionButtonState(butResetHotUpdate, true);
         butResetHotUpdate.setOnClickListener(v -> showResetHotUpdateDialog(TinkerHotUpdateStateStore.isProcessing(requireContext())));
+    }
+
+    private void bindFieldDiagnosticAction() {
+        if (butFieldDiagnostic == null || getContext() == null) {
+            return;
+        }
+        applyActionButtonState(butFieldDiagnostic, true);
+        butFieldDiagnostic.setOnClickListener(v -> new AlertDialog.Builder(requireContext())
+                .setMessage(R.string.file_field_diagnostic_tip)
+                .setPositiveButton(R.string.confirm, (dialog, which) -> startFieldDiagnostic())
+                .setNegativeButton(android.R.string.cancel, null)
+                .show());
+    }
+
+    private void startFieldDiagnostic() {
+        if (getContext() == null) {
+            return;
+        }
+        showFieldDiagnosticStatus(getString(R.string.file_field_diagnostic_start_tip));
+        LegacyHomeStatusRepository.setInfoTips(requireContext(), getString(R.string.file_field_diagnostic_start_tip));
+        AppLogCenter.log(
+                com.lhxy.istationdevice.android11.core.LogCategory.BIZ,
+                com.lhxy.istationdevice.android11.core.LogLevel.INFO,
+                "LegacySystemVersionFragment",
+                "用户从版本信息页启动一键现场 A/B 自检",
+                TraceIds.next("legacy-system-version-field-diagnostic")
+        );
+        startActivity(DebugToolsActivity.createFieldDiagnosticIntent(requireContext()));
     }
 
     private void runCheckHotUpdateAsync() {
@@ -534,6 +570,19 @@ public final class LegacySystemVersionFragment extends Fragment {
         }
         tvCheckUpdateStatus.setText(text.trim());
         tvCheckUpdateStatus.setVisibility(View.VISIBLE);
+    }
+
+    private void showFieldDiagnosticStatus(String text) {
+        if (tvFieldDiagnosticStatus == null) {
+            return;
+        }
+        if (text == null || text.trim().isEmpty()) {
+            tvFieldDiagnosticStatus.setText("");
+            tvFieldDiagnosticStatus.setVisibility(View.GONE);
+            return;
+        }
+        tvFieldDiagnosticStatus.setText(text.trim());
+        tvFieldDiagnosticStatus.setVisibility(View.VISIBLE);
     }
 
     private String resolveCheckUpdateStatusText(ModuleRunResult result) {

@@ -19,6 +19,8 @@ import androidx.fragment.app.Fragment;
 
 import com.lhxy.istationdevice.android11.app.R;
 import com.lhxy.istationdevice.android11.domain.config.ShellConfig;
+import com.lhxy.istationdevice.android11.domain.module.SignInBusinessModule;
+import com.lhxy.istationdevice.android11.domain.module.TerminalBusinessModule;
 import com.lhxy.istationdevice.android11.runtime.ShellRuntime;
 
 import java.util.Locale;
@@ -121,6 +123,10 @@ public final class LegacyDispatchPaycardTestFragment extends Fragment {
         if (pollThread != null) {
             return;
         }
+        SignInBusinessModule signInModule = findSignInModule();
+        if (signInModule != null) {
+            signInModule.pauseAutoPollingForExclusiveRfid("legacy-paycard-exclusive-start");
+        }
         polling = true;
         pollThread = new Thread(this::pollLoop, "dispatch-paycard-poll");
         pollThread.start();
@@ -132,6 +138,10 @@ public final class LegacyDispatchPaycardTestFragment extends Fragment {
         pollThread = null;
         if (thread != null) {
             thread.interrupt();
+        }
+        SignInBusinessModule signInModule = findSignInModule();
+        if (signInModule != null) {
+            signInModule.resumeAutoPollingAfterExclusiveRfid("legacy-paycard-exclusive-stop");
         }
     }
 
@@ -173,6 +183,11 @@ public final class LegacyDispatchPaycardTestFragment extends Fragment {
         } catch (Exception ignore) {
             return "";
         }
+    }
+
+    private SignInBusinessModule findSignInModule() {
+        TerminalBusinessModule module = ShellRuntime.get().getModuleHub().findModule("signin");
+        return module instanceof SignInBusinessModule ? (SignInBusinessModule) module : null;
     }
 
     private void onCardDetected(String cardNo) {

@@ -12,7 +12,10 @@ import com.lhxy.istationdevice.android11.core.LogCategory;
 import com.lhxy.istationdevice.android11.core.LogLevel;
 import com.lhxy.istationdevice.android11.deviceapi.SocketClientAdapter;
 import com.lhxy.istationdevice.android11.deviceapi.SystemOps;
+import com.lhxy.istationdevice.android11.domain.config.ShellConfig;
+import com.lhxy.istationdevice.android11.domain.config.ShellConfigRepository;
 import com.lhxy.istationdevice.android11.domain.file.StationResourceArchiveUseCase;
+import com.lhxy.istationdevice.android11.domain.file.StationResourceConfigApplier;
 import com.lhxy.istationdevice.android11.protocol.jt808.Jt808GeneralResponse;
 import com.lhxy.istationdevice.android11.protocol.jt808.Jt808LegacyMessages;
 import com.lhxy.istationdevice.android11.protocol.jt808.Jt808UpgradeCommand;
@@ -250,6 +253,21 @@ public final class LegacyUpgradeDownloadAgent {
                     finishResourceFailure(task, result.getSummary() + ": " + result.getDetail(), traceId);
                     return;
                 }
+                ShellConfig updated = StationResourceConfigApplier.applyImportResult(
+                        context,
+                        ShellConfigRepository.get(context),
+                        result
+                );
+                ShellConfigRepository.save(context, updated);
+                AppLogCenter.log(
+                        LogCategory.BIZ,
+                        LogLevel.INFO,
+                        TAG,
+                        "资源包导入完成并应用配置: " + result.getSummary()
+                                + "\n- detail=" + result.getDetail()
+                                + "\n- appliedConfig=" + StationResourceConfigApplier.describeAppliedConfig(updated),
+                        traceId + "-resource-import"
+                );
                 LegacyHomeStatusRepository.setInfoOperation(context, LegacyHomeStatusRepository.InfoOperation.NO_DOWNLOAD_TASK);
             }
 

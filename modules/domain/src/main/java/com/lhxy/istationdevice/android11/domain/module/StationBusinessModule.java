@@ -109,7 +109,7 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
     @Override
     protected void onContextUpdated() {
         syncRouteProfileIfNeeded();
-        if (gpsSerialMonitor.isAttached()) {
+        if (isGpsMonitorAttached()) {
             startPeriodicGpsReportIfNeeded("station-config-gps-report");
             startAutoGpsReportIfNeeded("station-config-auto-report");
         } else {
@@ -130,7 +130,7 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
                     + "，GPS 口=" + gpsChannel.getKey()
                     + "\n- 屏显串口 -> " + (serialPortAdapter.isOpen(displayChannel.getPortName()) ? "已打开" : "未打开")
                     + "\n- GPS 串口 -> " + (serialPortAdapter.isOpen(gpsChannel.getPortName()) ? "已打开" : "未打开")
-                    + "\n- GPS 监听 -> " + (gpsSerialMonitor.isAttached() ? "已绑定" : "未绑定")
+                    + "\n- GPS 监听 -> " + (isGpsMonitorAttached() ? "已绑定" : "未绑定")
                     + "\n- GPS periodic report -> " + describePeriodicGpsReport()
                     + "\n- GPS auto report -> " + describeAutoGpsReport()
                     + "\n- " + stationState.describe()
@@ -247,10 +247,13 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
     private ModuleRunResult advanceStation(String traceId) {
         try {
             ShellConfig shellConfig = requireShellConfig();
-            ShellConfig.SerialChannel gpsChannel =
-                    shellConfig.requireSerialChannel(shellConfig.getDebugReplay().getGpsSerialKey());
-            ensureGpsReady(gpsChannel, traceId);
             LegacyGpsRouteResource route = resolveRequiredRoute();
+            syncManualGpsSnapshotIfAvailable(traceId);
+            if (isCurrentStationOverlappedByGps(route, getLatestGpsSnapshot(), traceId)) {
+                return failureText("当前位置已在当前站范围内", "GPS 已定位到 "
+                        + stationState.getCurrentStation()
+                        + " 范围内，手动推进已拦截，避免重复报站");
+            }
             if (stationState.getReportCount() == 0) {
                 stationDisplayUseCase.syncRoute(shellConfig, route, stationState, traceId + "-display-route");
             }
@@ -282,17 +285,6 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
             AppLogCenter.log(LogCategory.BIZ, LogLevel.WARN, TAG, "JHY query skipped on manual arrival: monitor unavailable", traceId);
             return;
         }
-        if (stationState.getCurrentStationType() != 0) {
-            AppLogCenter.log(
-                    LogCategory.BIZ,
-                    LogLevel.DEBUG,
-                    TAG,
-                    "JHY query skipped on manual arrival: stationType=" + stationState.getCurrentStationType()
-                            + " station=" + stationState.getCurrentStation(),
-                    traceId
-            );
-            return;
-        }
         AppLogCenter.log(
                 LogCategory.BIZ,
                 LogLevel.INFO,
@@ -309,22 +301,12 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
             AppLogCenter.log(LogCategory.BIZ, LogLevel.WARN, TAG, "JHY query skipped on auto-station: monitor unavailable", traceId);
             return;
         }
-        if (stationType != LegacyGpsAutoReportEngine.STATION_TYPE_ENTER) {
-            AppLogCenter.log(
-                    LogCategory.BIZ,
-                    LogLevel.DEBUG,
-                    TAG,
-                    "JHY query skipped on auto-station: stationType=" + stationType
-                            + " station=" + stationState.getCurrentStation(),
-                    traceId
-            );
-            return;
-        }
         AppLogCenter.log(
                 LogCategory.BIZ,
                 LogLevel.INFO,
                 TAG,
-                "JHY query scheduled on auto-station enter: station=" + stationState.getCurrentStation()
+                "JHY query scheduled on auto-station: stationType=" + stationType
+                        + " station=" + stationState.getCurrentStation()
                         + " stationNo=" + stationState.getCurrentStationNo(),
                 traceId
         );
@@ -337,10 +319,8 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
     private ModuleRunResult retreatStation(String traceId) {
         try {
             ShellConfig shellConfig = requireShellConfig();
-            ShellConfig.SerialChannel gpsChannel =
-                    shellConfig.requireSerialChannel(shellConfig.getDebugReplay().getGpsSerialKey());
-            ensureGpsReady(gpsChannel, traceId);
             LegacyGpsRouteResource route = resolveRequiredRoute();
+            syncManualGpsSnapshotIfAvailable(traceId);
             if (stationState.getReportCount() == 0) {
                 stationDisplayUseCase.syncRoute(shellConfig, route, stationState, traceId + "-display-route");
             }
@@ -383,10 +363,8 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
     private ModuleRunResult repeatStation(String traceId) {
         try {
             ShellConfig shellConfig = requireShellConfig();
-            ShellConfig.SerialChannel gpsChannel =
-                    shellConfig.requireSerialChannel(shellConfig.getDebugReplay().getGpsSerialKey());
-            ensureGpsReady(gpsChannel, traceId);
             LegacyGpsRouteResource route = resolveRequiredRoute();
+            syncManualGpsSnapshotIfAvailable(traceId);
             if (stationState.getReportCount() == 0) {
                 stationDisplayUseCase.syncRoute(shellConfig, route, stationState, traceId + "-display-route");
             }
@@ -441,12 +419,94 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
         if (!serialPortAdapter.isOpen(gpsChannel.getPortName())) {
             serialPortAdapter.open(gpsChannel.toSerialPortConfig(), traceId + "-gps-open");
         }
-        if (!gpsSerialMonitor.isAttached()) {
+        if (!isGpsMonitorAttached()) {
             gpsSerialMonitor.attach(serialPortAdapter, gpsChannel, traceId + "-gps-monitor");
         }
         stationState.bindGps(gpsChannel.getKey());
-        stationState.updateGps(gpsSerialMonitor.getLatestSnapshot());
+        stationState.updateGps(getLatestGpsSnapshot());
         syncRouteProfileIfNeeded();
+    }
+
+    private void syncManualGpsSnapshotIfAvailable(String traceId) {
+        GpsFixSnapshot snapshot = getLatestGpsSnapshot();
+        if (snapshot != null) {
+            stationState.updateGps(snapshot);
+        }
+        syncRouteProfileIfNeeded();
+        safeBusinessLog(
+                LogCategory.BIZ,
+                LogLevel.INFO,
+                TAG,
+                "手动报站 GPS 状态 gpsAttached=" + yesNo(isGpsMonitorAttached())
+                        + " / valid=" + yesNo(snapshot != null && snapshot.isValid()),
+                traceId
+        );
+    }
+
+    private boolean isCurrentStationOverlappedByGps(
+            LegacyGpsRouteResource route,
+            GpsFixSnapshot snapshot,
+            String traceId
+    ) {
+        LegacyGpsRouteResource.StationPoint station = resolveCurrentStation(route);
+        if (station == null || snapshot == null || !snapshot.isValid()) {
+            return false;
+        }
+        if (!hasStationCoordinate(station) || !hasText(snapshot.getLatitudeDecimal()) || !hasText(snapshot.getLongitudeDecimal())) {
+            return false;
+        }
+        double gpsLongitude = parseDouble(snapshot.getLongitudeDecimal(), 0d);
+        double gpsLatitude = parseDouble(snapshot.getLatitudeDecimal(), 0d);
+        if (gpsLongitude == 0d && gpsLatitude == 0d) {
+            return false;
+        }
+        double distance = distanceMeters(
+                gpsLongitude,
+                gpsLatitude,
+                station.getLongitudeDecimal(),
+                station.getLatitudeDecimal()
+        );
+        double triggerDistance = station.getMileage() + 20d;
+        boolean overlapped = distance <= triggerDistance;
+        safeBusinessLog(
+                LogCategory.BIZ,
+                overlapped ? LogLevel.WARN : LogLevel.INFO,
+                TAG,
+                "手动报站站点范围检查 stationNo=" + station.getStationNo()
+                        + " / station=" + station.getStationName()
+                        + " / distanceMeters=" + Math.round(distance)
+                        + " / triggerMeters=" + Math.round(triggerDistance)
+                        + " / overlapped=" + yesNo(overlapped),
+                traceId
+        );
+        return overlapped;
+    }
+
+    private void safeBusinessLog(LogCategory category, LogLevel level, String tag, String message, String traceId) {
+        try {
+            AppLogCenter.log(category, level, tag, message, traceId);
+        } catch (RuntimeException ignore) {
+            // Local JVM unit tests do not mock every Android SDK method used by the log center.
+        }
+    }
+
+    private boolean hasStationCoordinate(LegacyGpsRouteResource.StationPoint station) {
+        return station != null
+                && hasText(station.getLongitudeRaw())
+                && hasText(station.getLatitudeRaw())
+                && station.getLongitudeDecimal() != 0d
+                && station.getLatitudeDecimal() != 0d;
+    }
+
+    private boolean isGpsMonitorAttached() {
+        return gpsSerialMonitor != null && gpsSerialMonitor.isAttached();
+    }
+
+    private GpsFixSnapshot getLatestGpsSnapshot() {
+        if (gpsSerialMonitor == null) {
+            return null;
+        }
+        return gpsSerialMonitor.getLatestSnapshot();
     }
 
     /**
@@ -462,7 +522,7 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
             dvrSerialDispatchUseCase.sendSiteInfo(
                     shellConfig,
                     stationState,
-                    gpsSerialMonitor.getLatestSnapshot(),
+                    getLatestGpsSnapshot(),
                     traceId + "-site"
             );
         } catch (Exception ignore) {
@@ -471,7 +531,7 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
     }
 
     private void sendSerialGpsReport(ShellConfig shellConfig, String traceId) {
-        GpsFixSnapshot snapshot = gpsSerialMonitor.getLatestSnapshot();
+        GpsFixSnapshot snapshot = getLatestGpsSnapshot();
         stationState.updateGps(snapshot);
         dvrSerialDispatchUseCase.sendGpsReport(shellConfig, stationState, snapshot, traceId);
     }
@@ -479,7 +539,7 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
     private synchronized void startPeriodicGpsReportIfNeeded(String traceId) {
         try {
             ShellConfig shellConfig = requireShellConfig();
-            if (!dvrSerialDispatchUseCase.canUse(shellConfig) || !gpsSerialMonitor.isAttached()) {
+            if (!dvrSerialDispatchUseCase.canUse(shellConfig) || !isGpsMonitorAttached()) {
                 stopPeriodicGpsReport(traceId + "-disabled");
                 return;
             }
@@ -538,7 +598,7 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
     private void sendPeriodicGpsReport(String traceId) {
         try {
             ShellConfig shellConfig = requireShellConfig();
-            if (!dvrSerialDispatchUseCase.canUse(shellConfig) || !gpsSerialMonitor.isAttached()) {
+            if (!dvrSerialDispatchUseCase.canUse(shellConfig) || !isGpsMonitorAttached()) {
                 return;
             }
             periodicGpsReportCount++;
@@ -557,7 +617,7 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
 
     private synchronized void startAutoGpsReportIfNeeded(String traceId) {
         try {
-            if (!gpsSerialMonitor.isAttached()) {
+            if (!isGpsMonitorAttached()) {
                 stopAutoGpsReport(traceId + "-disabled");
                 return;
             }
@@ -616,7 +676,7 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
             if (context == null) {
                 return;
             }
-            GpsFixSnapshot snapshot = gpsSerialMonitor.getLatestSnapshot();
+            GpsFixSnapshot snapshot = getLatestGpsSnapshot();
             if (snapshot == null) {
                 return;
             }
@@ -1058,6 +1118,26 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
         } catch (Exception ignore) {
             return 0;
         }
+    }
+
+    private double parseDouble(String value, double defaultValue) {
+        try {
+            return Double.parseDouble(value.trim());
+        } catch (Exception ignore) {
+            return defaultValue;
+        }
+    }
+
+    private double distanceMeters(double lng1, double lat1, double lng2, double lat2) {
+        double radLat1 = Math.toRadians(lat1);
+        double radLat2 = Math.toRadians(lat2);
+        double deltaLat = radLat1 - radLat2;
+        double deltaLng = Math.toRadians(lng1) - Math.toRadians(lng2);
+        double value = 2 * Math.asin(Math.sqrt(
+                Math.pow(Math.sin(deltaLat / 2), 2)
+                        + Math.cos(radLat1) * Math.cos(radLat2) * Math.pow(Math.sin(deltaLng / 2), 2)
+        ));
+        return value * 6378.137d * 1000d;
     }
 
     private boolean hasText(String value) {

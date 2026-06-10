@@ -34,10 +34,15 @@ public final class JhyPassengerCounterMonitor {
     private volatile JhyPassengerCounterState state = JhyPassengerCounterState.empty();
     private volatile ShellConfig.SerialChannel activeChannel;
     private volatile String activePortName = "";
+    private volatile StateListener stateListener;
     private volatile long lastRequestTimeMs;
     private byte[] pending = new byte[0];
     private long requestSequence;
     private ScheduledFuture<?> pendingRequestFuture;
+
+    public interface StateListener {
+        void onPassengerCounterStateChanged(JhyPassengerCounterState state);
+    }
 
     public JhyPassengerCounterMonitor(SerialPortAdapter serialPortAdapter) {
         this(serialPortAdapter, null, REQUEST_THROTTLE_MS, REQUEST_REOPEN_DELAY_MS);
@@ -97,6 +102,10 @@ public final class JhyPassengerCounterMonitor {
 
     public JhyPassengerCounterState getState() {
         return state;
+    }
+
+    public void setStateListener(StateListener listener) {
+        stateListener = listener;
     }
 
     public void requestCurrentCount(String traceId) {
@@ -191,7 +200,7 @@ public final class JhyPassengerCounterMonitor {
     }
 
     private void parsePending(String portName) {
-        while (pending.length >= JhyPassengerCounterProtocol.CURRENT_COUNT_FRAME_SIZE) {
+        while (pending.length >= JhyPassengerCounterProtocol.MIN_CURRENT_COUNT_FRAME_SIZE) {
             int start = findFrameStart(pending);
             if (start < 0) {
                 log(
@@ -214,10 +223,21 @@ public final class JhyPassengerCounterMonitor {
                 );
                 pending = Arrays.copyOfRange(pending, start, pending.length);
             }
-            if (pending.length < JhyPassengerCounterProtocol.CURRENT_COUNT_FRAME_SIZE) {
+            int frameSize = JhyPassengerCounterProtocol.currentCountFrameSize(pending, 0);
+            if (frameSize < 0) {
+                log(
+                        LogCategory.PROTOCOL_RX,
+                        LogLevel.WARN,
+                        "JHY RX unknown current-count head " + summarizeHex(pending),
+                        "jhy-passenger-rx-unknown-" + normalizePortName(portName)
+                );
+                pending = Arrays.copyOfRange(pending, 1, pending.length);
+                continue;
+            }
+            if (pending.length < frameSize) {
                 return;
             }
-            byte[] frame = Arrays.copyOfRange(pending, 0, JhyPassengerCounterProtocol.CURRENT_COUNT_FRAME_SIZE);
+            byte[] frame = Arrays.copyOfRange(pending, 0, frameSize);
             JhyPassengerCounterState parsed = JhyPassengerCounterProtocol.parseCurrentCountFrame(frame);
             if (parsed == null) {
                 log(
@@ -231,6 +251,7 @@ public final class JhyPassengerCounterMonitor {
             }
             cancelPendingRequest();
             state = parsed;
+            notifyStateChanged(parsed);
             log(
                     LogCategory.PROTOCOL_RX,
                     LogLevel.DEBUG,
@@ -242,16 +263,13 @@ public final class JhyPassengerCounterMonitor {
                             + " ALL=" + parsed.getTotal(),
                     "jhy-passenger-rx-" + portName
             );
-            pending = Arrays.copyOfRange(pending, JhyPassengerCounterProtocol.CURRENT_COUNT_FRAME_SIZE, pending.length);
+            pending = Arrays.copyOfRange(pending, frameSize, pending.length);
         }
     }
 
     private int findFrameStart(byte[] buffer) {
         for (int i = 0; i + 3 < buffer.length; i++) {
-            if ((buffer[i] & 0xFF) == 0x63
-                    && (buffer[i + 1] & 0xFF) == 0x00
-                    && (buffer[i + 2] & 0xFF) == 0x11
-                    && (buffer[i + 3] & 0xFF) == 0x28) {
+            if (JhyPassengerCounterProtocol.currentCountFrameSize(buffer, i) > 0) {
                 return i;
             }
         }
@@ -451,6 +469,18 @@ public final class JhyPassengerCounterMonitor {
             return hex;
         }
         return hex + "...(" + payload.length + " bytes)";
+    }
+
+    private void notifyStateChanged(JhyPassengerCounterState parsed) {
+        StateListener listener = stateListener;
+        if (listener == null) {
+            return;
+        }
+        try {
+            listener.onPassengerCounterStateChanged(parsed);
+        } catch (RuntimeException e) {
+            log(LogCategory.ERROR, LogLevel.WARN, "JHY state listener failed: " + e.getMessage(), "jhy-passenger-state-listener");
+        }
     }
 
     private void log(LogCategory category, LogLevel level, String message, String traceId) {

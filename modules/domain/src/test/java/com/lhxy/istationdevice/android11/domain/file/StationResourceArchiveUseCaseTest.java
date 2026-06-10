@@ -1,6 +1,7 @@
 package com.lhxy.istationdevice.android11.domain.file;
 
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
@@ -145,6 +146,68 @@ public class StationResourceArchiveUseCaseTest {
 
         assertFalse(hasFailure);
         assertTrue(hasLineInfoOk);
+    }
+
+    @Test
+    public void parseResourceConfigOverrides_mapsOnsiteEnglishConfig() throws Exception {
+        File extractedDir = Files.createTempDirectory("station-archive-config-overrides").toFile();
+        File busDir = new File(extractedDir, "SourceFile/Bus");
+        if (!busDir.mkdirs() && !busDir.isDirectory()) {
+            throw new IllegalStateException("无法创建测试目录");
+        }
+        Files.write(new File(busDir, "config.csv").toPath(), (
+                "CONFIGKEY,CONFIGVALUE,ACCOUNT\n"
+                        + "RS232-1Protocol,DVR,RS232-1Protocol\n"
+                        + "RS232-2Protocol,NONE,RS232-2Protocol\n"
+                        + "RS485Protocol,TD,RS485Protocol\n"
+                        + "RS485-2Protocol,JHY,RS485-2Protocol\n"
+                        + "RS232-1Baud,9600,RS232-1Baud\n"
+                        + "RS232-2Baud,9600,RS232-2Baud\n"
+                        + "RS485Baud,38400,RS485Baud\n"
+                        + "RS485-2Baud,9600,RS485-2Baud\n"
+                        + "LanguageSettings,3,LanguageSettings"
+        ).getBytes(StandardCharsets.UTF_8));
+
+        StationResourceArchiveUseCase.ResourceConfigOverrides overrides =
+                new StationResourceArchiveUseCase().parseResourceConfigOverrides(new File(extractedDir, "SourceFile"));
+
+        assertEquals("DVR", overrides.getRs2321Protocol());
+        assertEquals("NONE", overrides.getRs2322Protocol());
+        assertEquals("TD", overrides.getRs485Protocol());
+        assertEquals("JHY", overrides.getRs4852Protocol());
+        assertEquals(Integer.valueOf(9600), overrides.getRs2321Baud());
+        assertEquals(Integer.valueOf(9600), overrides.getRs2322Baud());
+        assertEquals(Integer.valueOf(38400), overrides.getRs485Baud());
+        assertEquals(Integer.valueOf(9600), overrides.getRs4852Baud());
+        assertEquals("en", overrides.getLanguageCode());
+    }
+
+    @Test
+    public void buildImportDiagnostics_allowsEmptyStationAngularLikeM90() throws Exception {
+        File extractedDir = Files.createTempDirectory("station-archive-empty-angular").toFile();
+        File lineDir = new File(extractedDir, "SourceFile/Bus/A1");
+        if (!lineDir.mkdirs() && !lineDir.isDirectory()) {
+            throw new IllegalStateException("无法创建测试目录");
+        }
+        Files.write(new File(extractedDir, "SourceFile/Bus/lineInfo.csv").toPath(), "id,lineName,flag,attr\n1,A1,Y,1".getBytes(StandardCharsets.UTF_8));
+        Files.write(new File(extractedDir, "SourceFile/Bus/config.csv").toPath(), "key,value\nDispatch,1".getBytes(StandardCharsets.UTF_8));
+        Files.write(new File(lineDir, "A1S.csv").toPath(), (
+                "Stop No.,Play,Stop name,Longitude,Latitude,Angular\n"
+                        + "1,STA,Test Station,104.1,30.6,"
+        ).getBytes(StandardCharsets.UTF_8));
+
+        StationResourceArchiveUseCase useCase = new StationResourceArchiveUseCase();
+        List<StationResourceArchiveUseCase.DiagnosticItem> diagnostics =
+                useCase.buildImportDiagnostics(new File(extractedDir, "SourceFile"), collectFiles(extractedDir));
+
+        boolean hasFailure = false;
+        for (StationResourceArchiveUseCase.DiagnosticItem item : diagnostics) {
+            if (StationResourceArchiveUseCase.DiagnosticItem.LEVEL_FAIL.equals(item.getLevel())) {
+                hasFailure = true;
+                break;
+            }
+        }
+        assertFalse(hasFailure);
     }
 
     @Test

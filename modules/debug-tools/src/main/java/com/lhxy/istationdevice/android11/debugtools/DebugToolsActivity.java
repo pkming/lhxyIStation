@@ -1,5 +1,7 @@
 package com.lhxy.istationdevice.android11.debugtools;
 
+import android.content.Intent;
+import android.content.Context;
 import android.os.Bundle;
 import android.widget.ArrayAdapter;
 
@@ -29,12 +31,21 @@ import com.lhxy.istationdevice.android11.domain.gps.GpsSerialMonitor;
 import com.lhxy.istationdevice.android11.domain.module.ModuleRunResult;
 import com.lhxy.istationdevice.android11.domain.module.TerminalBusinessModule;
 import com.lhxy.istationdevice.android11.domain.module.TerminalModuleHub;
+import com.lhxy.istationdevice.android11.domain.passenger.JhyPassengerCounterState;
 import com.lhxy.istationdevice.android11.domain.socket.Jt808SocketMonitor;
 import com.lhxy.istationdevice.android11.runtime.ShellRuntime;
 
 import java.util.ArrayList;
+import java.io.File;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 /**
  * 调试工具页
@@ -45,6 +56,9 @@ import java.util.Map;
  */
 public class DebugToolsActivity extends AppCompatActivity {
     private static final String TAG = "DebugToolsActivity";
+    public static final String EXTRA_AUTO_RUN_FIELD_DIAGNOSTIC = "auto_run_field_diagnostic";
+    private static final long FIELD_DIAGNOSTIC_WAIT_MS = 10000L;
+    private static final long JHY_NATIVE_PROBE_WAIT_MS = 12000L;
 
     private final ProtocolReplayUseCase protocolReplayUseCase = new ProtocolReplayUseCase();
     private final DeviceFoundationUseCase deviceFoundationUseCase = new DeviceFoundationUseCase();
@@ -59,6 +73,11 @@ public class DebugToolsActivity extends AppCompatActivity {
     private final RfidAdapter rfidAdapter = shellRuntime.getRfidAdapter();
     private final SystemOps systemOps = shellRuntime.getSystemOps();
     private final TerminalModuleHub moduleHub = shellRuntime.getModuleHub();
+    private final ExecutorService fieldDiagnosticExecutor = Executors.newSingleThreadExecutor(r -> {
+        Thread thread = new Thread(r, "debug-field-diagnostic");
+        thread.setDaemon(true);
+        return thread;
+    });
 
     private ActivityDebugToolsBinding binding;
     private ShellConfig shellConfig;
@@ -68,6 +87,14 @@ public class DebugToolsActivity extends AppCompatActivity {
     private final List<ChannelOption> cameraOptions = new ArrayList<>();
     private final List<ChannelOption> moduleOptions = new ArrayList<>();
     private String latestModuleRunSummary = "";
+    private final StringBuilder fieldDiagnosticUiLog = new StringBuilder();
+    private boolean fieldDiagnosticRunning;
+
+    public static Intent createFieldDiagnosticIntent(Context context) {
+        Intent intent = new Intent(context, DebugToolsActivity.class);
+        intent.putExtra(EXTRA_AUTO_RUN_FIELD_DIAGNOSTIC, true);
+        return intent;
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -88,7 +115,17 @@ public class DebugToolsActivity extends AppCompatActivity {
         renderSelfCheck();
         renderDeviceStatus();
         renderGpsMonitorStatus();
+        resetFieldDiagnosticProgress();
         renderLogs();
+        if (getIntent() != null && getIntent().getBooleanExtra(EXTRA_AUTO_RUN_FIELD_DIAGNOSTIC, false)) {
+            binding.getRoot().post(this::runFieldDiagnosticAndUpload);
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        fieldDiagnosticExecutor.shutdownNow();
+        super.onDestroy();
     }
 
     /**
@@ -99,6 +136,7 @@ public class DebugToolsActivity extends AppCompatActivity {
         binding.btnResetRuntimeConfig.setOnClickListener(v -> resetRuntimeConfig());
         binding.btnClear.setOnClickListener(v -> clearLogs());
         binding.btnExportLogs.setOnClickListener(v -> exportLogs());
+        binding.btnRunFieldDiagnostic.setOnClickListener(v -> runFieldDiagnosticAndUpload());
         binding.btnReplayDisplay.setOnClickListener(v -> replayDisplay());
         binding.btnReplayJt808.setOnClickListener(v -> replayJt808());
         binding.btnReplayAll.setOnClickListener(v -> replayAll());
@@ -141,6 +179,431 @@ public class DebugToolsActivity extends AppCompatActivity {
         renderModuleStatus();
         renderLogs();
         renderChannelStatus();
+    }
+
+    /**
+     * 现场一键 A/B 诊断：先跑 shared 基线，再用独立进程探测 JHY native，最后导出上传。
+     */
+    private void runFieldDiagnosticAndUpload() {
+        if (fieldDiagnosticRunning) {
+            renderStatus("状态：现场 A/B 自检正在执行，请等待当前流程结束。");
+            return;
+        }
+        String traceId = TraceIds.next("field-diagnostic");
+        fieldDiagnosticRunning = true;
+        fieldDiagnosticUiLog.setLength(0);
+        binding.btnRunFieldDiagnostic.setEnabled(false);
+        updateFieldDiagnosticProgress(1, "准备开始现场 A/B 自检", traceId);
+        renderStatus("状态：现场 A/B 自检开始。");
+        logFieldDiagnosticStep(traceId, "FIELD_DIAGNOSTIC_START traceId=" + traceId);
+        logFieldDiagnosticStep(traceId, "AB_DIAGNOSTIC_START");
+
+        fieldDiagnosticExecutor.execute(() -> {
+            FieldDiagnosticResult result = performFieldDiagnostic(traceId);
+            runOnUiThread(() -> finishFieldDiagnosticUi(result));
+        });
+    }
+
+    private FieldDiagnosticResult performFieldDiagnostic(String traceId) {
+        ShellConfig diagnosticConfig = shellConfig;
+        String moduleSummary = "";
+        String icardSummary = "";
+        String nativeProbeSummary = "";
+        try {
+            diagnosticConfig = runDiagnosticStep(
+                    traceId,
+                    8,
+                    "加载运行配置",
+                    "FIELD_DIAGNOSTIC_CONFIG_READY",
+                    () -> {
+                        ShellConfig config = ShellConfigRepository.reload(getApplicationContext());
+                        shellRuntime.applyConfig(getApplicationContext(), config);
+                        jt808SocketMonitor.syncDefaultChannels(socketClientAdapter, config, traceId + "-socket-monitor");
+                        return config;
+                    }
+            );
+            final ShellConfig configForSteps = diagnosticConfig;
+
+            logFieldDiagnosticStep(traceId, "AB_PHASE_SHARED_START");
+            String gpsBindSummary = runDiagnosticStep(
+                    traceId,
+                    18,
+                    "绑定 GPS 监听",
+                    "FIELD_DIAGNOSTIC_GPS_BOUND_DONE",
+                    () -> bindGpsMonitorForDiagnostic(configForSteps, traceId + "-gps")
+            );
+            logFieldDiagnosticStep(traceId, gpsBindSummary);
+
+            String selfCheckReport = runDiagnosticStep(
+                    traceId,
+                    28,
+                    "生成终端自检报告",
+                    "FIELD_DIAGNOSTIC_SELF_CHECK_DONE",
+                    () -> terminalSelfCheckUseCase.buildReport(
+                            getApplicationContext(),
+                            configForSteps,
+                            shellRuntime.describeFoundationStatus(),
+                            shellRuntime.describeModuleStatus()
+                    )
+            );
+            logFieldDiagnosticStep(traceId, "FIELD_DIAGNOSTIC_SELF_CHECK\n" + selfCheckReport);
+
+            icardSummary = runDiagnosticStep(
+                    traceId,
+                    36,
+                    "检测 iCard/RFID 读卡链路",
+                    "FIELD_DIAGNOSTIC_ICARD_DONE",
+                    () -> runIcardDiagnostic(configForSteps, traceId + "-icard")
+            );
+            logFieldDiagnosticStep(traceId, "FIELD_DIAGNOSTIC_ICARD\n" + icardSummary);
+
+            moduleSummary = runDiagnosticStep(
+                    traceId,
+                    46,
+                    "执行全部业务模块",
+                    "FIELD_DIAGNOSTIC_MODULES_DONE",
+                    () -> runAllModulesForDiagnostic(traceId + "-modules")
+            );
+            runDiagnosticStep(
+                    traceId,
+                    56,
+                    "请求 RS485-2/JHY 当前客流",
+                    "FIELD_DIAGNOSTIC_JHY_REQUEST_DONE",
+                    () -> {
+                        requestJhyCurrentCountForDiagnostic(traceId + "-jhy-current-count");
+                        return "requested";
+                    }
+            );
+            runDiagnosticStep(
+                    traceId,
+                    66,
+                    "等待 GPS/RS485 回包 " + FIELD_DIAGNOSTIC_WAIT_MS + "ms",
+                    "FIELD_DIAGNOSTIC_WAIT_RX_DONE",
+                    () -> {
+                        waitForDiagnosticSignals(traceId);
+                        return "waited";
+                    }
+            );
+
+            updateFieldDiagnosticProgress(76, "采集 shared 基线快照", traceId);
+            logFieldDiagnosticStep(traceId, "STEP_START 采集 shared 基线快照 progress=76");
+            long snapshotStart = System.currentTimeMillis();
+            String snapshot = buildFieldDiagnosticSnapshot(icardSummary);
+            logFieldDiagnosticStep(traceId, "FIELD_DIAGNOSTIC_SNAPSHOT_DONE costMs=" + (System.currentTimeMillis() - snapshotStart));
+            updateFieldDiagnosticProgress(76, "采集 shared 基线快照完成，耗时 " + (System.currentTimeMillis() - snapshotStart) + "ms", traceId);
+            logFieldDiagnosticStep(traceId, "FIELD_DIAGNOSTIC_SNAPSHOT\n" + snapshot);
+            logFieldDiagnosticStep(traceId, "AB_PHASE_SHARED_DONE\n" + snapshot);
+
+            nativeProbeSummary = runDiagnosticStep(
+                    traceId,
+                    88,
+                    "启动独立进程 JHY native 探测",
+                    "AB_PHASE_NATIVE_DONE",
+                    () -> runJhyNativeProbeForDiagnostic(configForSteps, traceId + "-native-probe")
+            );
+            logFieldDiagnosticStep(traceId, "AB_DIAGNOSTIC_SUMMARY\nshared:\n" + snapshot + "\n\nnative:\n" + nativeProbeSummary);
+
+            DebugBundleExporter.ExportResult exportResult = runDiagnosticStep(
+                    traceId,
+                    96,
+                    "导出并上传调试包",
+                    "FIELD_DIAGNOSTIC_EXPORT_DONE",
+                    () -> DebugBundleExporter.exportDetailed(
+                            getApplicationContext(),
+                            configForSteps,
+                            gpsSerialMonitor,
+                            jt808SocketMonitor,
+                            shellRuntime.describeFoundationStatus(),
+                            shellRuntime.describeModuleStatus()
+                    )
+            );
+            logFieldDiagnosticStep(traceId, "FIELD_DIAGNOSTIC_EXPORT_RESULT\n" + exportResult.describeForUser());
+            return FieldDiagnosticResult.success(
+                    diagnosticConfig,
+                    appendModuleSummary(moduleSummary, icardSummary, nativeProbeSummary),
+                    "状态：现场 A/B 自检完成，调试包已生成/上传。\n" + exportResult.describeForUser()
+            );
+        } catch (Exception e) {
+            logFieldDiagnosticStep(traceId, "FIELD_DIAGNOSTIC_FAILED: " + safeMessage(e), LogCategory.ERROR, LogLevel.ERROR);
+            return FieldDiagnosticResult.failure(
+                    diagnosticConfig,
+                    appendModuleSummary(moduleSummary, icardSummary, nativeProbeSummary),
+                    "状态：现场 A/B 自检失败，" + safeMessage(e)
+            );
+        }
+    }
+
+    private String runIcardDiagnostic(ShellConfig diagnosticConfig, String traceId) {
+        StringBuilder builder = new StringBuilder("iCard/RFID 自检:");
+        ShellConfig.RfidConfig rfidConfig = diagnosticConfig == null ? null : diagnosticConfig.getRfidConfig();
+        if (rfidConfig != null) {
+            builder.append("\n- mode=").append(rfidConfig.getMode().toConfigValue())
+                    .append(" i2c=").append(emptyAsDash(rfidConfig.getI2cDevicePath()))
+                    .append("@").append(emptyAsDash(rfidConfig.getI2cAddress()))
+                    .append(" inputFile=").append(emptyAsDash(rfidConfig.getInputFilePath()))
+                    .append(" readCommand=").append(emptyAsDash(rfidConfig.getReadCommand()));
+        }
+        boolean available = false;
+        try {
+            available = rfidAdapter.isAvailable();
+            builder.append("\n- adapterAvailable=").append(available);
+        } catch (RuntimeException e) {
+            builder.append("\n- adapterAvailable=检查异常: ").append(safeMessage(e));
+            AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, TAG, "FIELD_DIAGNOSTIC_ICARD_AVAILABLE_FAILED " + safeMessage(e), traceId);
+        }
+        if (!available) {
+            builder.append("\n- readCard=跳过，iCard/RFID 当前不可用");
+            return builder.toString();
+        }
+        try {
+            String cardNo = rfidAdapter.readCard(traceId + "-read-card");
+            if (cardNo == null || cardNo.trim().isEmpty()) {
+                builder.append("\n- readCard=未读到卡号，请贴卡后复测");
+            } else {
+                builder.append("\n- readCard=成功 cardNo=").append(cardNo.trim());
+            }
+        } catch (RuntimeException e) {
+            builder.append("\n- readCard=失败: ").append(safeMessage(e));
+            AppLogCenter.log(LogCategory.ERROR, LogLevel.ERROR, TAG, "FIELD_DIAGNOSTIC_ICARD_READ_FAILED " + safeMessage(e), traceId);
+        }
+        return builder.toString();
+    }
+
+    private String bindGpsMonitorForDiagnostic(ShellConfig diagnosticConfig, String traceId) {
+        try {
+            ShellConfig.SerialChannel serialChannel = resolveGpsSerialChannel(diagnosticConfig);
+            if (!serialPortAdapter.isOpen(serialChannel.getPortName())) {
+                serialPortAdapter.open(serialChannel.toSerialPortConfig(), traceId);
+            }
+            gpsSerialMonitor.attach(serialPortAdapter, serialChannel, traceId);
+            return "FIELD_DIAGNOSTIC_GPS_BOUND key=" + serialChannel.getKey()
+                    + " port=" + serialChannel.getPortName()
+                    + " baud=" + serialChannel.getBaudRate();
+        } catch (Exception e) {
+            AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, TAG, "FIELD_DIAGNOSTIC_GPS_BIND_FAILED: " + safeMessage(e), traceId);
+            return "FIELD_DIAGNOSTIC_GPS_BIND_FAILED " + safeMessage(e);
+        }
+    }
+
+    private String runAllModulesForDiagnostic(String traceId) {
+        try {
+            List<ModuleRunResult> results = moduleHub.runAll(traceId);
+            return moduleHub.describeResults(results);
+        } catch (RuntimeException e) {
+            String summary = "模块执行结果:\n- 现场自检批量模块执行异常: " + safeMessage(e);
+            AppLogCenter.log(LogCategory.ERROR, LogLevel.ERROR, TAG, "FIELD_DIAGNOSTIC_MODULES_FAILED: " + safeMessage(e), traceId);
+            return summary;
+        }
+    }
+
+    private void requestJhyCurrentCountForDiagnostic(String traceId) {
+        try {
+            shellRuntime.getPassengerCounterMonitor().requestCurrentCount(traceId);
+            AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, TAG, "FIELD_DIAGNOSTIC_JHY_REQUESTED", traceId);
+        } catch (RuntimeException e) {
+            AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, TAG, "FIELD_DIAGNOSTIC_JHY_REQUEST_FAILED: " + safeMessage(e), traceId);
+        }
+    }
+
+    private void waitForDiagnosticSignals(String traceId) {
+        AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, TAG, "FIELD_DIAGNOSTIC_WAIT_RX " + FIELD_DIAGNOSTIC_WAIT_MS + "ms", traceId);
+        try {
+            TimeUnit.MILLISECONDS.sleep(FIELD_DIAGNOSTIC_WAIT_MS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, TAG, "FIELD_DIAGNOSTIC_WAIT_INTERRUPTED", traceId);
+        }
+    }
+
+    private String runJhyNativeProbeForDiagnostic(ShellConfig diagnosticConfig, String traceId) {
+        try {
+            ShellConfig.SerialChannel jhyChannel = resolveJhySerialChannel(diagnosticConfig);
+            File resultFile = createJhyNativeProbeResultFile(traceId);
+            if (resultFile.exists() && !resultFile.delete()) {
+                AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, TAG, "AB_PHASE_NATIVE_RESULT_DELETE_FAILED " + resultFile.getAbsolutePath(), traceId);
+            }
+            Intent intent = DebugJhyNativeProbeService.createIntent(
+                    getApplicationContext(),
+                    traceId,
+                    jhyChannel.getPortName(),
+                    jhyChannel.getBaudRate(),
+                    resultFile
+            );
+            AppLogCenter.log(
+                    LogCategory.BIZ,
+                    LogLevel.INFO,
+                    TAG,
+                    "AB_PHASE_NATIVE_START_REQUEST port=" + jhyChannel.getPortName()
+                            + " baud=" + jhyChannel.getBaudRate()
+                            + " resultFile=" + resultFile.getAbsolutePath(),
+                    traceId
+            );
+            getApplicationContext().startService(intent);
+            String resultText = waitForJhyNativeProbeResult(resultFile, traceId);
+            AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, TAG, "AB_PHASE_NATIVE_RESULT\n" + resultText, traceId);
+            return resultText;
+        } catch (Exception e) {
+            String resultText = "JHY native probe:\n- error=" + safeMessage(e);
+            AppLogCenter.log(LogCategory.ERROR, LogLevel.ERROR, TAG, "AB_PHASE_NATIVE_FAILED " + safeMessage(e), traceId);
+            return resultText;
+        }
+    }
+
+    private File createJhyNativeProbeResultFile(String traceId) {
+        File baseDir = getApplicationContext().getExternalFilesDir("diagnostics");
+        if (baseDir == null) {
+            baseDir = new File(getApplicationContext().getFilesDir(), "diagnostics");
+        }
+        if (!baseDir.exists() && !baseDir.mkdirs()) {
+            AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, TAG, "诊断目录创建失败: " + baseDir.getAbsolutePath(), traceId);
+        }
+        return new File(baseDir, "jhy-native-probe-" + sanitizeFileName(traceId) + ".txt");
+    }
+
+    private String waitForJhyNativeProbeResult(File resultFile, String traceId) throws Exception {
+        long deadline = System.currentTimeMillis() + JHY_NATIVE_PROBE_WAIT_MS;
+        while (System.currentTimeMillis() < deadline) {
+            if (resultFile.exists() && resultFile.length() > 0L) {
+                return new String(Files.readAllBytes(resultFile.toPath()), StandardCharsets.UTF_8);
+            }
+            TimeUnit.MILLISECONDS.sleep(250L);
+        }
+        return "JHY native probe:"
+                + "\n- resultFile=" + resultFile.getAbsolutePath()
+                + "\n- error=main process wait timeout " + JHY_NATIVE_PROBE_WAIT_MS + "ms"
+                + "\n- hint=probe process may be blocked or killed before writing result"
+                + "\n- traceId=" + traceId;
+    }
+
+    private String buildFieldDiagnosticSnapshot(String icardSummary) {
+        JhyPassengerCounterState passengerState = shellRuntime.getPassengerCounterMonitor().getState();
+        return shellRuntime.describeFoundationStatus()
+                + "\n\n" + shellRuntime.describeModuleStatus()
+                + "\n\n" + gpsSerialMonitor.describeStatus()
+                + "\n\n" + jt808SocketMonitor.describeStatus()
+                + "\n\nJHY 当前客流: " + describePassengerState(passengerState)
+                + "\n\n" + (icardSummary == null || icardSummary.trim().isEmpty() ? "iCard/RFID 自检: 未执行" : icardSummary.trim());
+    }
+
+    private String describePassengerState(JhyPassengerCounterState state) {
+        if (state == null || !state.isAvailable()) {
+            return "未收到有效数据";
+        }
+        return "FIN=" + state.getFrontIn()
+                + " FOUT=" + state.getFrontOut()
+                + " BIN=" + state.getBackIn()
+                + " BOUT=" + state.getBackOut()
+                + " ALL=" + state.getTotal();
+    }
+
+    private String appendModuleSummary(String moduleSummary, String icardSummary, String nativeProbeSummary) {
+        StringBuilder builder = new StringBuilder(moduleSummary == null ? "" : moduleSummary.trim());
+        if (icardSummary != null && !icardSummary.trim().isEmpty()) {
+            if (builder.length() > 0) {
+                builder.append("\n\n");
+            }
+            builder.append(icardSummary.trim());
+        }
+        if (nativeProbeSummary != null && !nativeProbeSummary.trim().isEmpty()) {
+            if (builder.length() > 0) {
+                builder.append("\n\n");
+            }
+            builder.append("JHY native 独立进程探测:\n").append(nativeProbeSummary.trim());
+        }
+        return builder.toString();
+    }
+
+    private String sanitizeFileName(String value) {
+        if (value == null || value.trim().isEmpty()) {
+            return "unknown";
+        }
+        return value.trim().replaceAll("[^0-9A-Za-z._-]", "_");
+    }
+
+    private void finishFieldDiagnosticUi(FieldDiagnosticResult result) {
+        fieldDiagnosticRunning = false;
+        binding.btnRunFieldDiagnostic.setEnabled(true);
+        updateFieldDiagnosticProgress(result.success ? 100 : 100, result.success ? "现场 A/B 自检完成" : "现场 A/B 自检失败", null);
+        appendFieldDiagnosticUiLog(result.success ? "RESULT_SUCCESS " + result.userMessage : "RESULT_FAILED " + result.userMessage);
+        if (result.shellConfig != null) {
+            shellConfig = result.shellConfig;
+        }
+        latestModuleRunSummary = result.moduleSummary;
+        renderStatus(result.userMessage);
+        bindChannelSelectors();
+        renderSummary();
+        renderSelfCheck();
+        renderDeviceStatus();
+        renderGpsMonitorStatus();
+        renderModuleStatus();
+        renderLogs();
+        renderChannelStatus();
+    }
+
+    private <T> T runDiagnosticStep(
+            String traceId,
+            int progress,
+            String title,
+            String doneEvent,
+            Callable<T> callable
+    ) throws Exception {
+        updateFieldDiagnosticProgress(progress, title, traceId);
+        long start = System.currentTimeMillis();
+        logFieldDiagnosticStep(traceId, "STEP_START " + title + " progress=" + progress);
+        try {
+            T result = callable.call();
+            long elapsed = System.currentTimeMillis() - start;
+            logFieldDiagnosticStep(traceId, doneEvent + " costMs=" + elapsed);
+            updateFieldDiagnosticProgress(progress, title + "完成，耗时 " + elapsed + "ms", traceId);
+            return result;
+        } catch (Exception e) {
+            long elapsed = System.currentTimeMillis() - start;
+            logFieldDiagnosticStep(traceId, "STEP_FAILED " + title + " costMs=" + elapsed + " error=" + safeMessage(e), LogCategory.ERROR, LogLevel.ERROR);
+            throw e;
+        }
+    }
+
+    private void updateFieldDiagnosticProgress(int progress, String message, String traceId) {
+        runOnUiThread(() -> {
+            binding.progressFieldDiagnostic.setProgress(Math.max(0, Math.min(100, progress)));
+            binding.tvFieldDiagnosticProgress.setText("进度 " + progress + "%：" + message
+                    + (traceId == null || traceId.trim().isEmpty() ? "" : "\ntraceId=" + traceId));
+        });
+    }
+
+    private void logFieldDiagnosticStep(String traceId, String message) {
+        logFieldDiagnosticStep(traceId, message, LogCategory.BIZ, LogLevel.INFO);
+    }
+
+    private void logFieldDiagnosticStep(String traceId, String message, LogCategory category, LogLevel level) {
+        AppLogCenter.log(category, level, TAG, message, traceId);
+        appendFieldDiagnosticUiLog(message);
+    }
+
+    private void appendFieldDiagnosticUiLog(String message) {
+        String line = "[" + new java.text.SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(new java.util.Date()) + "] "
+                + compactForFieldDiagnosticUi(message);
+        runOnUiThread(() -> {
+            if (fieldDiagnosticUiLog.length() > 0) {
+                fieldDiagnosticUiLog.append("\n");
+            }
+            fieldDiagnosticUiLog.append(line);
+            binding.tvFieldDiagnosticLog.setText(fieldDiagnosticUiLog.toString());
+            binding.scrollFieldDiagnosticLog.post(() -> binding.scrollFieldDiagnosticLog.fullScroll(android.view.View.FOCUS_DOWN));
+        });
+    }
+
+    private String compactForFieldDiagnosticUi(String message) {
+        if (message == null || message.trim().isEmpty()) {
+            return "-";
+        }
+        return message.trim().replace("\r\n", "\n").replace('\r', '\n');
+    }
+
+    private void resetFieldDiagnosticProgress() {
+        binding.progressFieldDiagnostic.setProgress(0);
+        binding.tvFieldDiagnosticProgress.setText(R.string.debug_field_diagnostic_idle);
+        binding.tvFieldDiagnosticLog.setText(R.string.debug_field_diagnostic_log_idle);
     }
 
     /**
@@ -764,6 +1227,10 @@ public class DebugToolsActivity extends AppCompatActivity {
                 : exception.getMessage();
     }
 
+    private String emptyAsDash(String value) {
+        return value == null || value.trim().isEmpty() ? "-" : value.trim();
+    }
+
     /**
      * 绑定当前配置下的串口、Socket、GPIO 和 Camera 选项。
      */
@@ -957,11 +1424,47 @@ public class DebugToolsActivity extends AppCompatActivity {
      * 解析当前配置里默认的 GPS 串口。
      */
     private ShellConfig.SerialChannel resolveGpsSerialChannel() {
-        String gpsSerialKey = shellConfig.getDebugReplay().getGpsSerialKey();
-        if (gpsSerialKey == null || gpsSerialKey.trim().isEmpty()) {
-            return resolveSelectedSerialChannel();
+        return resolveGpsSerialChannel(shellConfig);
+    }
+
+    /**
+     * 解析指定配置里默认的 GPS 串口。
+     */
+    private ShellConfig.SerialChannel resolveGpsSerialChannel(ShellConfig sourceConfig) {
+        if (sourceConfig == null) {
+            throw new IllegalStateException("当前没有可用配置");
         }
-        return shellConfig.requireSerialChannel(gpsSerialKey);
+        String gpsSerialKey = sourceConfig.getDebugReplay().getGpsSerialKey();
+        if (gpsSerialKey == null || gpsSerialKey.trim().isEmpty()) {
+            for (ShellConfig.SerialChannel channel : sourceConfig.getSerialChannels().values()) {
+                return channel;
+            }
+            throw new IllegalStateException("当前没有可用 GPS 串口配置");
+        }
+        return sourceConfig.requireSerialChannel(gpsSerialKey);
+    }
+
+    /**
+     * 解析 JHY 客流默认串口。
+     */
+    private ShellConfig.SerialChannel resolveJhySerialChannel(ShellConfig sourceConfig) {
+        if (sourceConfig == null) {
+            throw new IllegalStateException("当前没有可用配置");
+        }
+        try {
+            return sourceConfig.requireSerialChannel("rs485_2");
+        } catch (IllegalArgumentException e) {
+            for (ShellConfig.SerialChannel channel : sourceConfig.getSerialChannels().values()) {
+                String key = channel.getKey() == null ? "" : channel.getKey();
+                String note = channel.getNote() == null ? "" : channel.getNote();
+                if (key.toLowerCase(Locale.ROOT).contains("jhy")
+                        || note.toLowerCase(Locale.ROOT).contains("jhy")
+                        || note.contains("客流")) {
+                    return channel;
+                }
+            }
+            throw e;
+        }
     }
 
     /**
@@ -1034,6 +1537,30 @@ public class DebugToolsActivity extends AppCompatActivity {
         @Override
         public String toString() {
             return label;
+        }
+    }
+
+    private static final class FieldDiagnosticResult {
+        private final ShellConfig shellConfig;
+        private final String moduleSummary;
+        private final String userMessage;
+        private final boolean success;
+
+        private FieldDiagnosticResult(ShellConfig shellConfig, String moduleSummary, String userMessage, boolean success) {
+            this.shellConfig = shellConfig;
+            this.moduleSummary = moduleSummary == null ? "" : moduleSummary;
+            this.userMessage = userMessage == null || userMessage.trim().isEmpty()
+                    ? "状态：现场自检已结束。"
+                    : userMessage;
+            this.success = success;
+        }
+
+        private static FieldDiagnosticResult success(ShellConfig shellConfig, String moduleSummary, String userMessage) {
+            return new FieldDiagnosticResult(shellConfig, moduleSummary, userMessage, true);
+        }
+
+        private static FieldDiagnosticResult failure(ShellConfig shellConfig, String moduleSummary, String userMessage) {
+            return new FieldDiagnosticResult(shellConfig, moduleSummary, userMessage, false);
         }
     }
 

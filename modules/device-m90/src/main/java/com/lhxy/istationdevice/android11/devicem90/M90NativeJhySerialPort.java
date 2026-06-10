@@ -12,11 +12,21 @@ final class M90NativeJhySerialPort {
         }
     }
 
-    native int open(String portName, int baudRate);
+    private final com.lianhexinye.jhyserialport.JHYSerialPort delegate = new com.lianhexinye.jhyserialport.JHYSerialPort();
 
-    native byte[] read();
+    int open(String portName, int baudRate) {
+        return delegate.open(portName, baudRate);
+    }
 
-    native int write(byte[] payload);
+    byte[] read() {
+        return delegate.read();
+    }
 
-    native int close();
+    int write(byte[] payload) {
+        return delegate.write(payload);
+    }
+
+    int close() {
+        return delegate.close();
+    }
 }

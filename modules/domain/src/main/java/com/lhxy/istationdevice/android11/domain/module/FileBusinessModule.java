@@ -10,6 +10,7 @@ import com.lhxy.istationdevice.android11.domain.config.ShellConfigLoader;
 import com.lhxy.istationdevice.android11.domain.config.ShellConfigRepository;
 import com.lhxy.istationdevice.android11.domain.debug.DebugBundleExporter;
 import com.lhxy.istationdevice.android11.domain.file.StationResourceArchiveUseCase;
+import com.lhxy.istationdevice.android11.domain.file.StationResourceConfigApplier;
 import com.lhxy.istationdevice.android11.domain.gps.GpsSerialMonitor;
 import com.lhxy.istationdevice.android11.domain.socket.Jt808SocketMonitor;
 
@@ -227,7 +228,15 @@ public final class FileBusinessModule extends AbstractTerminalBusinessModule {
             ShellConfig updated = buildShellConfigWithImportedResources(requireShellConfig(), result);
             ShellConfigRepository.save(context, updated);
             updateContext(context, updated);
-            AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, "FileBusinessModule", result.getSummary() + ": " + result.getDetail(), traceId);
+            AppLogCenter.log(
+                    LogCategory.BIZ,
+                    LogLevel.INFO,
+                    "FileBusinessModule",
+                    result.getSummary()
+                            + ": " + result.getDetail()
+                            + "\n- appliedConfig=" + StationResourceConfigApplier.describeAppliedConfig(updated),
+                    traceId
+            );
             return success(result.getSummary(), result.getDetail(), toDiagnostics(result));
         } catch (Exception e) {
             AppLogCenter.log(LogCategory.ERROR, LogLevel.ERROR, "FileBusinessModule", "导入报站资源失败: " + emptyAsDash(e.getMessage()), traceId);
@@ -279,35 +288,7 @@ public final class FileBusinessModule extends AbstractTerminalBusinessModule {
      * 把导入后的资源信息合并回当前运行时配置。
      */
     private ShellConfig buildShellConfigWithImportedResources(ShellConfig current, StationResourceArchiveUseCase.OperationResult result) {
-        ShellConfig.BasicSetupConfig basicSetup = current.getBasicSetupConfig();
-        return new ShellConfig(
-                current.getDeviceProfile(),
-                current.getConfigVersion(),
-                "runtime:" + ShellConfigRepository.getRuntimeConfigFile(getContext()).getAbsolutePath(),
-                current.getSerialChannels(),
-                current.getSocketChannels(),
-                current.getGpioConfig(),
-                current.getCameraConfig(),
-                current.getRfidConfig(),
-                current.getSystemConfig(),
-                current.getDebugReplay(),
-                new ShellConfig.BasicSetupConfig(
-                        basicSetup.getNewspaperSettings(),
-                        basicSetup.getNetworkSettings(),
-                        basicSetup.getSerialSettings(),
-                        basicSetup.getTtsSettings(),
-                        basicSetup.getLanguageSettings(),
-                        basicSetup.getOtherSettings(),
-                        basicSetup.getWirelessSettings(),
-                        new ShellConfig.ResourceImportSettings(
-                                true,
-                                result.getArchiveFile() == null ? "-" : result.getArchiveFile().getAbsolutePath(),
-                                result.getLineName(),
-                                System.currentTimeMillis()
-                        ),
-                        basicSetup.getProtocolLinkageSettings()
-                )
-        );
+        return StationResourceConfigApplier.applyImportResult(getContext(), current, result);
     }
 
     private List<ModuleRunResult.DiagnosticItem> toDiagnostics(StationResourceArchiveUseCase.OperationResult result) {

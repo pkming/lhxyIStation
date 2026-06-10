@@ -173,10 +173,13 @@ public final class LegacyBasicSetupSectionFragment extends Fragment {
         Map<String, ShellConfig.SerialChannel> channels = config == null ? null : config.getSerialChannels();
         List<String> baudOptions = Arrays.asList("9600", "19200", "38400", "51200", "57600", "115200");
         List<String> gpsBaudOptions = Arrays.asList("9600", "115200");
-        List<String> protocol232Options = Arrays.asList("无", "DVR", "POS");
-        List<String> protocol485Options = Arrays.asList("无", "通达", "TD", "恒舞", "武汉乐的", "海梁", "LED导程牌", "LHXY", "HW3", "JHY");
+        List<String> protocol232Values = Arrays.asList("无", "DVR", "POS");
+        List<String> protocol232Labels = Arrays.asList(getResources().getStringArray(R.array.arrayprotocol232));
+        List<String> protocol485Values = Arrays.asList("无", "通达", "TD", "恒舞", "武汉乐的", "海梁", "LED导程牌", "LHXY", "HW3", "JHY");
+        List<String> protocol485Labels = Arrays.asList(getResources().getStringArray(R.array.arrayprotocoltype));
         List<String> dvrChannelOptions = Arrays.asList("VIN1-AHD", "VIN4-AUTO");
-        List<String> portOptions = Arrays.asList("RS232-1", "RS232-2", "RS485");
+        List<String> portValues = Arrays.asList("RS232-1", "RS232-2", "RS485");
+        List<String> portLabels = Arrays.asList(getResources().getStringArray(R.array.arrayport));
 
         ShellConfig.SerialChannel serial2321 = channels == null ? null : channels.get("rs232_1");
         ShellConfig.SerialChannel serial2322 = channels == null ? null : channels.get("rs232_2");
@@ -190,13 +193,13 @@ public final class LegacyBasicSetupSectionFragment extends Fragment {
         bindSpinner(view, R.id.spPortBaud4852, baudOptions, serial4852 == null ? "9600" : String.valueOf(serial4852.getBaudRate()));
         bindSpinner(view, R.id.gpsChannel, gpsBaudOptions, gpsSerial == null ? "115200" : String.valueOf(gpsSerial.getBaudRate()));
         ShellConfig.SerialSettings settings = requireConfig().getBasicSetupConfig().getSerialSettings();
-        bindSpinner(view, R.id.spPortProtocol2321, protocol232Options, settings.getRs2321Protocol());
-        bindSpinner(view, R.id.spPortProtocol2322, protocol232Options, settings.getRs2322Protocol());
-        bindSpinner(view, R.id.spPortProtocol485, protocol485Options, settings.getRs485Protocol());
-        bindSpinner(view, R.id.spPortProtocol4852, protocol485Options, settings.getRs4852Protocol());
+        bindMappedSpinner(view, R.id.spPortProtocol2321, protocol232Labels, protocol232Values, settings.getRs2321Protocol());
+        bindMappedSpinner(view, R.id.spPortProtocol2322, protocol232Labels, protocol232Values, settings.getRs2322Protocol());
+        bindMappedSpinner(view, R.id.spPortProtocol485, protocol485Labels, protocol485Values, settings.getRs485Protocol());
+        bindMappedSpinner(view, R.id.spPortProtocol4852, protocol485Labels, protocol485Values, settings.getRs4852Protocol());
         bindSpinner(view, R.id.spChannel, dvrChannelOptions, mapDvrCameraKeyToOption(requireConfig().getDebugReplay().getCameraChannelKey()));
-        bindSpinner(view, R.id.spPortProtocol, protocol485Options, "无");
-        bindSpinner(view, R.id.spPortNumber1, portOptions, "RS485");
+        bindMappedSpinner(view, R.id.spPortProtocol, protocol485Labels, protocol485Values, "无");
+        bindMappedSpinner(view, R.id.spPortNumber1, portLabels, portValues, "RS485");
         checkRadio(view, R.id.rgDataType, R.id.rbTxtType);
         bindText(view, R.id.etPortData, "TEST-485");
 
@@ -281,6 +284,38 @@ public final class LegacyBasicSetupSectionFragment extends Fragment {
             return;
         }
         int index = values.indexOf(selectedValue);
+        if (index >= 0) {
+            spinner.setSelection(index);
+        }
+    }
+
+    private void bindMappedSpinner(
+            View root,
+            int spinnerId,
+            List<String> labels,
+            List<String> values,
+            @Nullable String selectedValue
+    ) {
+        Spinner spinner = root.findViewById(spinnerId);
+        if (spinner == null || getContext() == null) {
+            return;
+        }
+        if (labels.size() != values.size()) {
+            AppLogCenter.log(
+                    LogCategory.UI,
+                    LogLevel.WARN,
+                    "LegacyBasicSetupSection",
+                    "Spinner label/value size mismatch id=" + spinnerId + " labels=" + labels.size() + " values=" + values.size(),
+                    TraceIds.next("legacy-basic-spinner-map")
+            );
+            bindSpinner(root, spinnerId, values, selectedValue);
+            return;
+        }
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(requireContext(), R.layout.spinner_item, labels);
+        adapter.setDropDownViewResource(R.layout.dropdown_stytle);
+        spinner.setAdapter(adapter);
+        spinner.setTag(R.id.tag_spinner_values, new ArrayList<>(values));
+        int index = selectedValue == null ? -1 : values.indexOf(selectedValue);
         if (index >= 0) {
             spinner.setSelection(index);
         }
@@ -823,6 +858,17 @@ public final class LegacyBasicSetupSectionFragment extends Fragment {
         Spinner spinner = root.findViewById(spinnerId);
         if (spinner == null || spinner.getSelectedItem() == null) {
             return defaultValue;
+        }
+        Object mappedValues = spinner.getTag(R.id.tag_spinner_values);
+        if (mappedValues instanceof List<?>) {
+            List<?> values = (List<?>) mappedValues;
+            int position = spinner.getSelectedItemPosition();
+            if (position >= 0 && position < values.size()) {
+                Object value = values.get(position);
+                if (value != null) {
+                    return String.valueOf(value).trim();
+                }
+            }
         }
         return String.valueOf(spinner.getSelectedItem()).trim();
     }

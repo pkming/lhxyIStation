@@ -8,7 +8,7 @@ import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CaptureRequest;
 import android.os.Handler;
-import android.os.Looper;
+import android.os.HandlerThread;
 import android.view.Surface;
 
 import com.lhxy.istationdevice.android11.core.AppLogCenter;
@@ -37,7 +37,15 @@ public final class M90RealCameraAdapter implements CameraAdapter {
     private final Map<String, String> previewOwners = new ConcurrentHashMap<>();
     private final Map<String, Long> previewGenerations = new ConcurrentHashMap<>();
     private final AtomicLong previewRequestCounter = new AtomicLong();
+    private final HandlerThread cameraThread;
+    private final Handler cameraHandler;
     private volatile Context appContext;
+
+    public M90RealCameraAdapter() {
+        cameraThread = new HandlerThread("m90-camera");
+        cameraThread.start();
+        cameraHandler = new Handler(cameraThread.getLooper());
+    }
 
     /**
      * 更新 Context 和 Camera 配置。
@@ -62,41 +70,43 @@ public final class M90RealCameraAdapter implements CameraAdapter {
         }
 
         ShellConfig.CameraChannel cameraChannel = requireChannel(cameraId);
-        if (openedDevices.containsKey(cameraChannel.getKey())) {
-            AppLogCenter.log(LogCategory.DEVICE, LogLevel.DEBUG, TAG, "camera already open: " + cameraChannel.getKey(), traceId);
-            return;
-        }
-
         CameraManager cameraManager = context.getSystemService(CameraManager.class);
         if (cameraManager == null) {
             throw new IllegalStateException("拿不到 CameraManager");
         }
+        cameraHandler.post(() -> openInternal(cameraManager, cameraChannel, traceId));
+    }
 
+    private void openInternal(CameraManager cameraManager, ShellConfig.CameraChannel cameraChannel, String traceId) {
+        String channelKey = cameraChannel.getKey();
+        if (openedDevices.containsKey(channelKey)) {
+            AppLogCenter.log(LogCategory.DEVICE, LogLevel.DEBUG, TAG, "camera already open: " + channelKey, traceId);
+            return;
+        }
         try {
-            cameraManager.openCamera(cameraChannel.getCameraId(), context.getMainExecutor(), new CameraDevice.StateCallback() {
+            cameraManager.openCamera(cameraChannel.getCameraId(), new CameraDevice.StateCallback() {
                 @Override
                 public void onOpened(CameraDevice cameraDevice) {
-                    openedDevices.put(cameraChannel.getKey(), cameraDevice);
-                    AppLogCenter.log(LogCategory.DEVICE, LogLevel.INFO, TAG, "camera opened: " + cameraChannel.getKey() + " -> " + cameraChannel.getCameraId(), traceId);
+                    openedDevices.put(channelKey, cameraDevice);
+                    AppLogCenter.log(LogCategory.DEVICE, LogLevel.INFO, TAG, "camera opened: " + channelKey + " -> " + cameraChannel.getCameraId(), traceId);
                 }
 
                 @Override
                 public void onDisconnected(CameraDevice cameraDevice) {
-                    openedDevices.remove(cameraChannel.getKey());
-                    cameraDevice.close();
-                    AppLogCenter.log(LogCategory.DEVICE, LogLevel.WARN, TAG, "camera disconnected: " + cameraChannel.getKey(), traceId);
+                    openedDevices.remove(channelKey);
+                    closeCameraQuietly(cameraDevice);
+                    AppLogCenter.log(LogCategory.DEVICE, LogLevel.WARN, TAG, "camera disconnected: " + channelKey, traceId);
                 }
 
                 @Override
                 public void onError(CameraDevice cameraDevice, int error) {
-                    openedDevices.remove(cameraChannel.getKey());
-                    cameraDevice.close();
-                    AppLogCenter.log(LogCategory.ERROR, LogLevel.ERROR, TAG, "camera open failed " + cameraChannel.getKey() + " / error=" + error, traceId);
+                    openedDevices.remove(channelKey);
+                    closeCameraQuietly(cameraDevice);
+                    AppLogCenter.log(LogCategory.ERROR, LogLevel.ERROR, TAG, "camera open failed " + channelKey + " / error=" + error, traceId);
                 }
-            });
+            }, cameraHandler);
         } catch (Exception e) {
-            AppLogCenter.log(LogCategory.ERROR, LogLevel.ERROR, TAG, "camera open failed " + cameraChannel.getKey() + ": " + e.getMessage(), traceId);
-            throw new IllegalStateException("打开 Camera 失败: " + cameraChannel.getKey() + " / " + e.getMessage(), e);
+            AppLogCenter.log(LogCategory.ERROR, LogLevel.ERROR, TAG, "camera open failed " + channelKey + ": " + e.getMessage(), traceId);
         }
     }
 
@@ -122,31 +132,53 @@ public final class M90RealCameraAdapter implements CameraAdapter {
         String channelKey = cameraChannel.getKey();
         String normalizedOwnerToken = normalizeOwnerToken(ownerToken);
         long generation = registerPreviewRequest(channelKey, normalizedOwnerToken);
-        closeCurrentCamera(channelKey, traceId + "-restart");
 
         CameraManager cameraManager = context.getSystemService(CameraManager.class);
         if (cameraManager == null) {
             throw new IllegalStateException("鎷夸笉鍒?CameraManager");
         }
+        cameraHandler.post(() -> openPreviewInternal(
+                cameraManager,
+                cameraChannel,
+                surface,
+                width,
+                height,
+                normalizedOwnerToken,
+                generation,
+                traceId
+        ));
+    }
 
+    private void openPreviewInternal(
+            CameraManager cameraManager,
+            ShellConfig.CameraChannel cameraChannel,
+            Surface surface,
+            int width,
+            int height,
+            String ownerToken,
+            long generation,
+            String traceId
+    ) {
+        String channelKey = cameraChannel.getKey();
+        closeCurrentCamera(channelKey, traceId + "-restart");
         try {
-            cameraManager.openCamera(cameraChannel.getCameraId(), context.getMainExecutor(), new CameraDevice.StateCallback() {
+            cameraManager.openCamera(cameraChannel.getCameraId(), new CameraDevice.StateCallback() {
                 @Override
                 public void onOpened(CameraDevice cameraDevice) {
-                    if (!isPreviewRequestCurrent(channelKey, normalizedOwnerToken, generation)) {
-                        cameraDevice.close();
+                    if (!isPreviewRequestCurrent(channelKey, ownerToken, generation)) {
+                        closeCameraQuietly(cameraDevice);
                         AppLogCenter.log(LogCategory.DEVICE, LogLevel.DEBUG, TAG, "ignore stale camera open: " + channelKey, traceId);
                         return;
                     }
                     replaceOpenedDevice(channelKey, cameraDevice);
-                    createPreviewSession(cameraChannel, cameraDevice, surface, width, height, normalizedOwnerToken, generation, traceId);
+                    createPreviewSession(cameraChannel, cameraDevice, surface, width, height, ownerToken, generation, traceId);
                 }
 
                 @Override
                 public void onDisconnected(CameraDevice cameraDevice) {
                     removeOpenedDeviceIfSame(channelKey, cameraDevice);
                     closeSession(channelKey);
-                    cameraDevice.close();
+                    closeCameraQuietly(cameraDevice);
                     AppLogCenter.log(LogCategory.DEVICE, LogLevel.WARN, TAG, "camera disconnected: " + channelKey, traceId);
                 }
 
@@ -154,13 +186,12 @@ public final class M90RealCameraAdapter implements CameraAdapter {
                 public void onError(CameraDevice cameraDevice, int error) {
                     removeOpenedDeviceIfSame(channelKey, cameraDevice);
                     closeSession(channelKey);
-                    cameraDevice.close();
+                    closeCameraQuietly(cameraDevice);
                     AppLogCenter.log(LogCategory.ERROR, LogLevel.ERROR, TAG, "camera preview open failed " + channelKey + " / error=" + error, traceId);
                 }
-            });
+            }, cameraHandler);
         } catch (Exception e) {
-            AppLogCenter.log(LogCategory.ERROR, LogLevel.ERROR, TAG, "camera preview open failed " + cameraChannel.getKey() + ": " + e.getMessage(), traceId);
-            throw new IllegalStateException("鎵撳紑 Camera 棰勮澶辫触: " + cameraChannel.getKey() + " / " + e.getMessage(), e);
+            AppLogCenter.log(LogCategory.ERROR, LogLevel.ERROR, TAG, "camera preview open failed " + channelKey + ": " + e.getMessage(), traceId);
         }
     }
 
@@ -173,6 +204,11 @@ public final class M90RealCameraAdapter implements CameraAdapter {
     public void close(String cameraId, String ownerToken, String traceId) {
         ShellConfig.CameraChannel cameraChannel = requireChannel(cameraId);
         String channelKey = cameraChannel.getKey();
+        String normalizedOwnerToken = normalizeOwnerToken(ownerToken);
+        cameraHandler.post(() -> closeInternal(channelKey, normalizedOwnerToken, traceId));
+    }
+
+    private void closeInternal(String channelKey, String ownerToken, String traceId) {
         String normalizedOwnerToken = normalizeOwnerToken(ownerToken);
         if (!isCloseAllowed(channelKey, normalizedOwnerToken)) {
             AppLogCenter.log(LogCategory.DEVICE, LogLevel.DEBUG, TAG, "ignore stale camera close: " + channelKey + " / owner=" + normalizedOwnerToken, traceId);
@@ -208,7 +244,6 @@ public final class M90RealCameraAdapter implements CameraAdapter {
             CaptureRequest.Builder requestBuilder = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
             requestBuilder.addTarget(surface);
             requestBuilder.set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO);
-            Handler mainHandler = new Handler(Looper.getMainLooper());
             cameraDevice.createCaptureSession(
                     Collections.singletonList(surface),
                     new CameraCaptureSession.StateCallback() {
@@ -217,13 +252,13 @@ public final class M90RealCameraAdapter implements CameraAdapter {
                             if (!isPreviewRequestCurrent(channelKey, ownerToken, generation)) {
                                 session.close();
                                 removeOpenedDeviceIfSame(channelKey, cameraDevice);
-                                cameraDevice.close();
+                                closeCameraQuietly(cameraDevice);
                                 AppLogCenter.log(LogCategory.DEVICE, LogLevel.DEBUG, TAG, "ignore stale preview session: " + channelKey, traceId);
                                 return;
                             }
                             try {
                                 replacePreviewSession(channelKey, session);
-                                session.setRepeatingRequest(requestBuilder.build(), null, mainHandler);
+                                session.setRepeatingRequest(requestBuilder.build(), null, cameraHandler);
                                 AppLogCenter.log(
                                         LogCategory.DEVICE,
                                         LogLevel.INFO,
@@ -243,7 +278,7 @@ public final class M90RealCameraAdapter implements CameraAdapter {
                             AppLogCenter.log(LogCategory.ERROR, LogLevel.ERROR, TAG, "camera preview configure failed: " + channelKey, traceId);
                         }
                     },
-                    mainHandler
+                    cameraHandler
             );
         } catch (Exception e) {
             AppLogCenter.log(LogCategory.ERROR, LogLevel.ERROR, TAG, "camera preview session failed " + channelKey + ": " + e.getMessage(), traceId);
@@ -268,7 +303,7 @@ public final class M90RealCameraAdapter implements CameraAdapter {
             AppLogCenter.log(LogCategory.DEVICE, LogLevel.DEBUG, TAG, "camera already closed: " + channelKey, traceId);
             return null;
         }
-        cameraDevice.close();
+        closeCameraQuietly(cameraDevice);
         return cameraDevice;
     }
 
@@ -311,7 +346,7 @@ public final class M90RealCameraAdapter implements CameraAdapter {
     private void replaceOpenedDevice(String channelKey, CameraDevice nextDevice) {
         CameraDevice previousDevice = openedDevices.put(channelKey, nextDevice);
         if (previousDevice != null && previousDevice != nextDevice) {
-            previousDevice.close();
+            closeCameraQuietly(previousDevice);
         }
     }
 
@@ -330,6 +365,16 @@ public final class M90RealCameraAdapter implements CameraAdapter {
             } catch (Exception ignore) {
             }
             previousSession.close();
+        }
+    }
+
+    private void closeCameraQuietly(CameraDevice cameraDevice) {
+        if (cameraDevice == null) {
+            return;
+        }
+        try {
+            cameraDevice.close();
+        } catch (Exception ignore) {
         }
     }
 

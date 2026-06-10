@@ -3,7 +3,7 @@ plugins {
 }
 
 def appVersionCode = 2
-def appVersionName = "0.1.1"
+def appVersionName = "0.1.2"
 def tinkerId = appVersionName
 def buildTimestamp = new Date().format("yyyyMMddHHmm")
 def runtimeConfigDir = new File(rootProject.projectDir, "config")
@@ -13,7 +13,8 @@ def templateConfigFile = new File(runtimeConfigDir, "terminal-config.template.js
 def localConfigFile = new File(runtimeConfigDir, "terminal-config.local.json")
 def ossTemplateConfigFile = new File(runtimeConfigDir, "oss-config.template.properties")
 def ossLocalConfigFile = new File(runtimeConfigDir, "oss-config.local.properties")
-def bundledStationResourceFile = new File(rootProject.projectDir, "docs/SourceFile.zip")
+def onsiteEnglishStationResourceFile = new File(rootProject.projectDir, "docs/最新现场文件/BusRes/BusImport/SourceFile.zip")
+def fallbackStationResourceFile = new File(rootProject.projectDir, "docs/SourceFile.zip")
 def sourceStationResourceDir = new File(rootProject.projectDir, "source/SourceFile")
 def generatedStationArchiveDir = new File(buildDir, "generated/station-resource-archive")
 def generatedStationArchiveFile = new File(generatedStationArchiveDir, "SourceFile.zip")
@@ -114,6 +115,13 @@ tasks.register("prepareBundledStationResources") {
         if (targetZip.exists()) {
             targetZip.delete()
         }
+        if (onsiteEnglishStationResourceFile.exists()) {
+            copy {
+                from(onsiteEnglishStationResourceFile)
+                into(targetDir)
+            }
+            return
+        }
         if (sourceStationResourceDir.exists()) {
             if (!generatedStationArchiveDir.exists()) {
                 generatedStationArchiveDir.mkdirs()
@@ -145,9 +153,9 @@ tasks.register("prepareBundledStationResources") {
             }
             return
         }
-        if (bundledStationResourceFile.exists()) {
+        if (fallbackStationResourceFile.exists()) {
             copy {
-                from(bundledStationResourceFile)
+                from(fallbackStationResourceFile)
                 into(targetDir)
             }
         }
