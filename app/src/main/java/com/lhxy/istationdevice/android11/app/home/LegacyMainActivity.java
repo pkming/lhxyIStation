@@ -987,14 +987,26 @@ public final class LegacyMainActivity extends AppCompatActivity {
 
     private String resolveCmsState(@Nullable ShellConfig config, @Nullable DispatchState dispatchState) {
         // Legacy home treats serial dispatch as a distinct top-level state, so prefer that label
-        // over the active protocol text when protocol linkage has already switched ownership.
+        // over the connection status when protocol linkage has already switched ownership.
         if (config != null && config.getBasicSetupConfig().getProtocolLinkageSettings().isSerialDispatchEnabled()) {
             return "串口";
         }
-        if (dispatchState != null && dispatchState.getActiveProtocol() != null && !dispatchState.getActiveProtocol().trim().isEmpty()) {
-            return dispatchState.getActiveProtocol().trim();
+        // CMS 顶栏显示调度平台的实际连接状态（Connected/Disconnected），不再显示协议名。
+        return isDispatchSocketConnected(config)
+                ? getString(R.string.connected)
+                : getString(R.string.unconnected);
+    }
+
+    private boolean isDispatchSocketConnected(@Nullable ShellConfig config) {
+        if (config == null || config.getSocketChannels().isEmpty()) {
+            return false;
         }
-        return getString(R.string.unconnected);
+        try {
+            ShellConfig.SocketChannel channel = config.requireSocketChannel(config.getDebugReplay().getJt808SocketKey());
+            return shellRuntime.getSocketClientAdapter().isConnected(channel.getChannelName());
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     private String resolveGpsState(@Nullable GpsFixSnapshot snapshot) {

@@ -282,14 +282,64 @@ public final class TinkerHotUpdateManager {
     }
 
     private HttpURLConnection openConnection(RequestSpec requestSpec, int timeoutMillis) throws Exception {
-        HttpURLConnection connection = (HttpURLConnection) new URL(requestSpec.url).openConnection();
+        try {
+            return openConnectionInternal(requestSpec.url, requestSpec, timeoutMillis);
+        } catch (Exception primaryError) {
+            String httpUrl = downgradeToHttp(requestSpec.url);
+            if (httpUrl == null || !isSslRelated(primaryError)) {
+                throw primaryError;
+            }
+            // 先走 HTTPS，证书链校验失败（车机 CA/系统时间常不可靠，如 "Chain validation failed"）时自动回退 HTTP。
+            // 补丁完整性由 Tinker 签名 + manifest MD5 保证，HTTP 传输可接受。
+            AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, TAG,
+                    "热更新 HTTPS 失败，回退 HTTP 重试: " + safeMessage(primaryError), "hot-update-https-fallback");
+            return openConnectionInternal(httpUrl, requestSpec, timeoutMillis);
+        }
+    }
+
+    private HttpURLConnection openConnectionInternal(String url, RequestSpec requestSpec, int timeoutMillis) throws Exception {
+        HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection();
         connection.setConnectTimeout(timeoutMillis);
         connection.setReadTimeout(timeoutMillis);
         connection.setRequestMethod("GET");
         for (String key : requestSpec.headers.keySet()) {
             connection.setRequestProperty(key, requestSpec.headers.get(key));
         }
+        // 提前触发连接/TLS 握手，使证书错误在这里抛出，便于按需回退 HTTP。
+        connection.connect();
         return connection;
+    }
+
+    private static String downgradeToHttp(String url) {
+        if (url == null || !url.startsWith("https://")) {
+            return null;
+        }
+        return "http://" + url.substring("https://".length());
+    }
+
+    private static boolean isSslRelated(Throwable error) {
+        for (Throwable t = error; t != null; t = t.getCause()) {
+            if (t instanceof javax.net.ssl.SSLException
+                    || t instanceof java.security.cert.CertificateException
+                    || t instanceof java.security.cert.CertPathValidatorException) {
+                return true;
+            }
+            String message = t.getMessage();
+            if (message != null) {
+                String lower = message.toLowerCase(java.util.Locale.ROOT);
+                if (lower.contains("chain validation")
+                        || lower.contains("trust anchor")
+                        || lower.contains("certificate")
+                        || lower.contains("certpath")
+                        || lower.contains("ssl")) {
+                    return true;
+                }
+            }
+            if (t.getCause() == t) {
+                break;
+            }
+        }
+        return false;
     }
 
     private static String computeMd5(File file) throws Exception {

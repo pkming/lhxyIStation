@@ -131,9 +131,10 @@ public final class LegacyBasicSetupSectionFragment extends Fragment {
 
     private void bindNetwork(View view) {
         ShellConfig config = ShellRuntime.get().getActiveConfig();
-        List<ShellConfig.SocketChannel> channels = config == null
-                ? new ArrayList<>()
-                : new ArrayList<>(config.getSocketChannels().values());
+        Map<String, ShellConfig.SocketChannel> channelMap = config == null
+                ? new LinkedHashMap<>()
+                : config.getSocketChannels();
+        List<ShellConfig.SocketChannel> channels = new ArrayList<>(channelMap.values());
 
         ShellConfig.NetworkSettings settings = requireConfig().getBasicSetupConfig().getNetworkSettings();
         bindText(view, R.id.etDispatchID, settings.getDispatchId());
@@ -145,23 +146,29 @@ public final class LegacyBasicSetupSectionFragment extends Fragment {
         bindText(view, R.id.etAdwordsUser, settings.getAdwordsUser());
         bindText(view, R.id.etAdwordsInterval, String.valueOf(settings.getAdwordsInterval()));
 
-        // 旧页面只有一套网络表单，这里继续复用旧交互，但底层映射到新壳 Socket 配置。
-        if (!channels.isEmpty()) {
-            ShellConfig.SocketChannel first = channels.get(0);
-            bindText(view, R.id.etDispatchIP, first.getHost());
-            bindText(view, R.id.etDispatchPort, String.valueOf(first.getPort()));
+        // 回显必须读“保存时所选的那个通道”，否则换协议保存后会看起来没保存（保存写所选通道，旧逻辑却固定读第 0 个）。
+        // 保存时所选通道 key 存在 DebugReplay.jt808SocketKey，这里据此回显调度 IP/Port 并作为下拉框默认值。
+        String selectedDispatchKey = config == null ? null : config.getDebugReplay().getJt808SocketKey();
+        if (selectedDispatchKey == null || !channelMap.containsKey(selectedDispatchKey)) {
+            selectedDispatchKey = channels.isEmpty() ? null : channels.get(0).getKey();
         }
-        if (channels.size() > 1) {
-            ShellConfig.SocketChannel second = channels.get(1);
-            bindText(view, R.id.etAdwordsIP, second.getHost());
-            bindText(view, R.id.etAdwordsPort, String.valueOf(second.getPort()));
-        } else if (!channels.isEmpty()) {
-            ShellConfig.SocketChannel first = channels.get(0);
-            bindText(view, R.id.etAdwordsIP, first.getHost());
-            bindText(view, R.id.etAdwordsPort, String.valueOf(first.getPort()));
+        ShellConfig.SocketChannel dispatchChannel = selectedDispatchKey == null ? null : channelMap.get(selectedDispatchKey);
+        if (dispatchChannel != null) {
+            bindText(view, R.id.etDispatchIP, dispatchChannel.getHost());
+            bindText(view, R.id.etDispatchPort, String.valueOf(dispatchChannel.getPort()));
         }
 
-        bindSpinner(view, R.id.spDispatch, extractSocketKeys(channels), channels.isEmpty() ? null : channels.get(0).getKey());
+        // File Server 字段保存时固定写进 key "al808"，这里也按 key 取，别按下标取错通道。
+        ShellConfig.SocketChannel fileServerChannel = channelMap.get("al808");
+        if (fileServerChannel == null && !channels.isEmpty()) {
+            fileServerChannel = channels.get(channels.size() > 1 ? 1 : 0);
+        }
+        if (fileServerChannel != null) {
+            bindText(view, R.id.etAdwordsIP, fileServerChannel.getHost());
+            bindText(view, R.id.etAdwordsPort, String.valueOf(fileServerChannel.getPort()));
+        }
+
+        bindSpinner(view, R.id.spDispatch, extractSocketKeys(channels), selectedDispatchKey);
         Button save = view.findViewById(R.id.butNetWorkAffirm);
         if (save != null) {
             save.setOnClickListener(v -> saveNetworkConfig(view));
@@ -395,7 +402,9 @@ public final class LegacyBasicSetupSectionFragment extends Fragment {
                         selectedChannel.getNote()
                 ));
 
-                if (updatedChannels.containsKey("al808")) {
+                // 当调度协议本身就选了 al808 时，调度地址已经写进 al808 通道；这里不能再让
+                // File Server 块覆盖它（否则会把调度平台地址冲成 File Server 地址，导致连错服务器）。
+                if (updatedChannels.containsKey("al808") && !"al808".equals(selectedKey)) {
                     ShellConfig.SocketChannel second = current.requireSocketChannel("al808");
                     updatedChannels.put("al808", new ShellConfig.SocketChannel(
                             second.getKey(),
@@ -1033,8 +1042,14 @@ public final class LegacyBasicSetupSectionFragment extends Fragment {
 
     private int parseNumber(View root, int editTextId, String fieldName, int defaultValue) {
         String value = readOptionalText(root, editTextId, String.valueOf(defaultValue));
+        // CompanyEdittext 会把单位后缀（如“秒/s”）并入文本本身，这里先剥掉非数字字符，
+        // 否则 "60秒"/"60s" 会让 Integer.parseInt 抛异常，导致保存网络配置报“格式不正确”。
+        String digits = value.replaceAll("[^0-9]", "");
+        if (digits.isEmpty()) {
+            return defaultValue;
+        }
         try {
-            return Integer.parseInt(value);
+            return Integer.parseInt(digits);
         } catch (Exception e) {
             throw new IllegalArgumentException(fieldName + "格式不正确");
         }

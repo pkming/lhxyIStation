@@ -14,6 +14,7 @@ import com.lhxy.istationdevice.android11.domain.dispatch.DispatchProfessionReque
 import com.lhxy.istationdevice.android11.domain.dispatch.DvrSerialDispatchUseCase;
 import com.lhxy.istationdevice.android11.domain.dispatch.Jt808CrossInfoPacketFactory;
 import com.lhxy.istationdevice.android11.domain.dispatch.Jt808OverspeedInfoPacketFactory;
+import com.lhxy.istationdevice.android11.domain.gps.GpsSerialMonitor;
 import com.lhxy.istationdevice.android11.domain.gps.LegacyGpsAutoReportEngine;
 import com.lhxy.istationdevice.android11.domain.gps.LegacyGpsRouteResource;
 import com.lhxy.istationdevice.android11.domain.module.state.SignInState;
@@ -22,7 +23,13 @@ import com.lhxy.istationdevice.android11.domain.module.state.DispatchState;
 import com.lhxy.istationdevice.android11.domain.socket.Jt808SocketMonitor;
 import com.lhxy.istationdevice.android11.domain.station.LegacyStationAudioUseCase;
 import com.lhxy.istationdevice.android11.protocol.gps.GpsFixSnapshot;
+import com.lhxy.istationdevice.android11.protocol.jt808.Jt808LegacyMessages;
+import com.lhxy.istationdevice.android11.protocol.jt808.Jt808PositionSnapshot;
+import com.lhxy.istationdevice.android11.protocol.jt808.Jt808ReportStationSnapshot;
+import com.lhxy.istationdevice.android11.protocol.jt808.Jt808TerminalProfile;
+import com.lhxy.istationdevice.android11.protocol.jt808.Jt808Variant;
 
+import java.time.LocalDateTime;
 import java.util.Calendar;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -42,12 +49,22 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
     private final SocketClientAdapter socketClientAdapter;
     private final Jt808SocketMonitor jt808SocketMonitor;
     private final DvrSerialDispatchUseCase dvrSerialDispatchUseCase;
+    private final GpsSerialMonitor gpsSerialMonitor;
     private final DispatchProfessionRequestPacketFactory professionRequestPacketFactory = new DispatchProfessionRequestPacketFactory();
     private final Jt808CrossInfoPacketFactory crossInfoPacketFactory = new Jt808CrossInfoPacketFactory();
     private final Jt808OverspeedInfoPacketFactory overspeedInfoPacketFactory = new Jt808OverspeedInfoPacketFactory();
+    private final Jt808LegacyMessages jt808Messages = new Jt808LegacyMessages();
     private final DispatchState dispatchState = new DispatchState();
     private final LegacyStationAudioUseCase stationAudioUseCase;
     private ScheduledExecutorService departureReminderExecutor;
+    private ScheduledExecutorService socketReportExecutor;
+    private int socketReportIntervalSeconds;
+    private long socketReportCount;
+    private long lastSocketReportTimeMs;
+    // 已成功注册过的 socket 通道名；断开/换通道时复位，避免重复发注册帧。
+    private String registeredSocketChannel = "";
+    // 上次已上报的报站 key（stationNo:type）；站点变化时才发 0x0b02，断开/重连时复位以重报当前站。
+    private String lastReportedStationKey = "";
     private String lastDepartureReminderKey = "-";
     private long lastDepartureMillisUntil = Long.MIN_VALUE;
     private Supplier<SignInState> signInStateSupplier;
@@ -58,12 +75,14 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
             SocketClientAdapter socketClientAdapter,
             GpioAdapter gpioAdapter,
             Jt808SocketMonitor jt808SocketMonitor,
-            DvrSerialDispatchUseCase dvrSerialDispatchUseCase
+            DvrSerialDispatchUseCase dvrSerialDispatchUseCase,
+            GpsSerialMonitor gpsSerialMonitor
     ) {
         this.protocolReplayUseCase = protocolReplayUseCase;
         this.socketClientAdapter = socketClientAdapter;
         this.jt808SocketMonitor = jt808SocketMonitor;
         this.dvrSerialDispatchUseCase = dvrSerialDispatchUseCase;
+        this.gpsSerialMonitor = gpsSerialMonitor;
         this.stationAudioUseCase = new LegacyStationAudioUseCase(gpioAdapter);
     }
 
@@ -100,6 +119,7 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
     @Override
     protected void onContextUpdated() {
         startDepartureReminderMonitorIfNeeded();
+        startSocketDispatchReportIfNeeded("dispatch-config-socket-report");
     }
 
     @Override
@@ -122,6 +142,10 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
                     + ", monitor=" + yesNo(jt808SocketMonitor.isAttached(jt808.getChannelName()))
                     + "\n- AL808 -> connected=" + yesNo(socketClientAdapter.isConnected(al808.getChannelName()))
                     + ", monitor=" + yesNo(jt808SocketMonitor.isAttached(al808.getChannelName()))
+                    + "\n- socket周期上报 -> interval=" + socketReportIntervalSeconds + "s"
+                    + " / count=" + socketReportCount
+                    + " / lastTime=" + (lastSocketReportTimeMs <= 0 ? "-" : String.valueOf(lastSocketReportTimeMs))
+                    + " / registered=" + emptyAsDash(registeredSocketChannel)
                     + "\n- " + dispatchState.describe()
                     + "\n- " + describeActionMemory();
         } catch (Exception e) {
@@ -260,6 +284,248 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
         return stationStateSupplier == null || stationStateSupplier.get() == null
                 ? new StationState()
                 : stationStateSupplier.get();
+    }
+
+    // ===== AL808/JT808 调度 socket 周期上报（Phase 1：注册 0x0100 + 心跳 0x0002 + 位置 0x0200）=====
+    // 现场版会持续往调度平台 socket 上报位置；端口此前只走串口，这里补上 socket 链路。报站 0x0b02 待 Phase 2。
+    private synchronized void startSocketDispatchReportIfNeeded(String traceId) {
+        try {
+            ShellConfig shellConfig = requireShellConfig();
+            if (shellConfig.getBasicSetupConfig().getProtocolLinkageSettings().isSerialDispatchEnabled()) {
+                stopSocketDispatchReport(traceId + "-serial-mode");
+                return;
+            }
+            ShellConfig.SocketChannel channel = resolveActiveDispatchChannel(shellConfig);
+            if (!isUsableSocketChannel(channel)) {
+                stopSocketDispatchReport(traceId + "-no-channel");
+                return;
+            }
+            int intervalSeconds = resolveSocketReportIntervalSeconds(shellConfig);
+            boolean alreadyRunning = socketReportExecutor != null && !socketReportExecutor.isShutdown();
+            if (alreadyRunning && socketReportIntervalSeconds == intervalSeconds) {
+                return;
+            }
+            stopSocketDispatchReport(traceId + "-restart");
+            socketReportIntervalSeconds = intervalSeconds;
+            socketReportExecutor = Executors.newSingleThreadScheduledExecutor(runnable -> {
+                Thread thread = new Thread(runnable, "dispatch-socket-report");
+                thread.setDaemon(true);
+                return thread;
+            });
+            socketReportExecutor.scheduleWithFixedDelay(
+                    () -> sendPeriodicSocketReport(traceId),
+                    intervalSeconds,
+                    intervalSeconds,
+                    TimeUnit.SECONDS
+            );
+            AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, TAG,
+                    "调度 socket 周期上报已启动 interval=" + intervalSeconds + "s / channel=" + channel.getKey(), traceId);
+        } catch (Exception e) {
+            AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, TAG,
+                    "启动调度 socket 上报失败: " + emptyAsDash(e.getMessage()), traceId);
+        }
+    }
+
+    private synchronized void stopSocketDispatchReport(String traceId) {
+        if (socketReportExecutor == null) {
+            return;
+        }
+        socketReportExecutor.shutdownNow();
+        socketReportExecutor = null;
+        socketReportIntervalSeconds = 0;
+        registeredSocketChannel = "";
+        lastReportedStationKey = "";
+    }
+
+    private void sendPeriodicSocketReport(String traceId) {
+        try {
+            ShellConfig shellConfig = requireShellConfig();
+            if (shellConfig.getBasicSetupConfig().getProtocolLinkageSettings().isSerialDispatchEnabled()) {
+                return;
+            }
+            ShellConfig.SocketChannel channel = resolveActiveDispatchChannel(shellConfig);
+            if (!isUsableSocketChannel(channel)) {
+                return;
+            }
+            Jt808Variant variant = resolveDispatchVariant(shellConfig, channel);
+            Jt808TerminalProfile profile = buildTerminalProfile(shellConfig, variant);
+            String channelName = channel.getChannelName();
+
+            // 1) 连接（断开则复位注册标记，重连后会重发注册）
+            if (!socketClientAdapter.isConnected(channelName)) {
+                socketClientAdapter.connect(channel.toSocketEndpointConfig(), traceId + "-connect");
+                registeredSocketChannel = "";
+                lastReportedStationKey = ""; // 重连后重报当前站
+            }
+            // 2) 首次注册 0x0100
+            if (!channelName.equals(registeredSocketChannel)) {
+                socketClientAdapter.send(channelName,
+                        jt808Messages.encode(jt808Messages.createRegister(variant, profile)),
+                        traceId + "-register");
+                registeredSocketChannel = channelName;
+                AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, TAG,
+                        "调度 socket 已发送注册 channel=" + channel.getKey()
+                                + " / variant=" + variant.getProtocolName()
+                                + " / terminalId=" + profile.getTerminalId(), traceId);
+            }
+            // 3) 心跳 0x0002
+            socketClientAdapter.send(channelName,
+                    jt808Messages.encode(jt808Messages.createHeartbeat(variant, profile.getTerminalId())),
+                    traceId + "-heartbeat");
+            // 4) 周期位置 0x0200
+            GpsFixSnapshot snapshot = getLatestGpsSnapshot();
+            socketClientAdapter.send(channelName,
+                    jt808Messages.encode(jt808Messages.createPositionReport(variant, profile, buildPositionSnapshot(snapshot))),
+                    traceId + "-position");
+
+            socketReportCount++;
+            lastSocketReportTimeMs = System.currentTimeMillis();
+            AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, TAG,
+                    "调度 socket 已上报心跳+位置 channel=" + channel.getKey()
+                            + " / gpsValid=" + yesNo(snapshot != null && snapshot.isValid())
+                            + " / count=" + socketReportCount, traceId);
+
+            // 5) 报站变化时上报 0x0b02（站点号或进出站类型变了才发，避免每轮重发）
+            StationState station = resolveStationState();
+            int stationNo = station.getCurrentStationNo();
+            int stationType = station.getCurrentStationType();
+            String stationKey = stationNo + ":" + stationType;
+            if (stationNo >= 0 && !stationKey.equals(lastReportedStationKey)) {
+                socketClientAdapter.send(channelName,
+                        jt808Messages.encode(jt808Messages.createReportStation(
+                                variant, profile.getTerminalId(), buildReportStationSnapshot(station, snapshot))),
+                        traceId + "-report-station");
+                lastReportedStationKey = stationKey;
+                AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, TAG,
+                        "调度 socket 已上报报站 channel=" + channel.getKey()
+                                + " / stationNo=" + stationNo + " / type=" + stationType
+                                + " / station=" + emptyAsDash(station.getCurrentStation()), traceId);
+            }
+        } catch (Exception e) {
+            registeredSocketChannel = "";
+            AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, TAG,
+                    "调度 socket 周期上报失败: " + emptyAsDash(e.getMessage()), traceId);
+        }
+    }
+
+    private ShellConfig.SocketChannel resolveActiveDispatchChannel(ShellConfig shellConfig) {
+        try {
+            return shellConfig.requireSocketChannel(shellConfig.getDebugReplay().getJt808SocketKey());
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private boolean isUsableSocketChannel(ShellConfig.SocketChannel channel) {
+        return channel != null
+                && channel.getHost() != null
+                && !channel.getHost().trim().isEmpty()
+                && channel.getPort() > 0;
+    }
+
+    private Jt808Variant resolveDispatchVariant(ShellConfig shellConfig, ShellConfig.SocketChannel channel) {
+        String al808Key = emptyAsDash(shellConfig.getDebugReplay().getAl808SocketKey());
+        String key = channel == null ? "" : emptyAsDash(channel.getKey());
+        if (key.equalsIgnoreCase(al808Key) || key.toLowerCase().contains("al808")) {
+            return Jt808Variant.AL808;
+        }
+        return Jt808Variant.JT808;
+    }
+
+    private Jt808TerminalProfile buildTerminalProfile(ShellConfig shellConfig, Jt808Variant variant) {
+        String dispatchId = emptyAsDash(shellConfig.getBasicSetupConfig().getNetworkSettings().getDispatchId());
+        String terminalId = "-".equals(dispatchId) ? "0" : dispatchId;
+        // 注：车牌/型号/鉴权暂用占位默认值，待对接测试平台回执后按需校准。
+        return new Jt808TerminalProfile(
+                terminalId,
+                variant == Jt808Variant.AL808 ? "M90A1101" : "K80V0101",
+                "粤B00000",
+                "414C31313031",
+                0xABE0,
+                0xAD0C,
+                0x00
+        );
+    }
+
+    private Jt808PositionSnapshot buildPositionSnapshot(GpsFixSnapshot snapshot) {
+        boolean valid = snapshot != null && snapshot.isValid();
+        String latitude = valid ? emptyToZero(snapshot.getLatitudeDecimal()) : "0";
+        String longitude = valid ? emptyToZero(snapshot.getLongitudeDecimal()) : "0";
+        int speed = valid ? knotsToKmh(snapshot.getSpeedKnots()) : 0;
+        int direction = valid ? parseIntSafe(snapshot.getCourse()) : 0;
+        long statusFlag = valid ? 0x02L : 0x00L; // bit1=已定位
+        return new Jt808PositionSnapshot(0L, statusFlag, latitude, longitude, speed, direction, 0, LocalDateTime.now());
+    }
+
+    // 报站帧 0x0b02 取实时线路/站点/方向 + GPS。注：AL808 报站帧不带站点序号字段（平台按线路+进站序列推进）；
+    // status/direction/busNo 的取值约定待对平台日志校准。
+    private Jt808ReportStationSnapshot buildReportStationSnapshot(StationState station, GpsFixSnapshot snapshot) {
+        boolean valid = snapshot != null && snapshot.isValid();
+        String latitude = valid ? emptyToZero(snapshot.getLatitudeDecimal()) : emptyToZero(station.getLatitude());
+        String longitude = valid ? emptyToZero(snapshot.getLongitudeDecimal()) : emptyToZero(station.getLongitude());
+        int speed = valid ? knotsToKmh(snapshot.getSpeedKnots()) : 0;
+        int angle = valid ? parseIntSafe(snapshot.getCourse()) : 0;
+        int lineNumber = parseLineNumber(station.getLineName());
+        int status = station.getCurrentStationType() == 1 ? 0x01 : 0x02; // 出站预报=1 / 到站=2（待校准）
+        int direction = emptyAsDash(station.getDirectionText()).contains("下") ? 0x02 : 0x01; // 上行=1 / 下行=2（待校准）
+        int busNo = 0; // StationState 暂无车号，待校准
+        return new Jt808ReportStationSnapshot(lineNumber, status, direction, busNo, latitude, longitude, speed, angle, LocalDateTime.now());
+    }
+
+    private int parseLineNumber(String lineName) {
+        if (lineName == null) {
+            return 0;
+        }
+        StringBuilder digits = new StringBuilder();
+        for (int i = 0; i < lineName.length(); i++) {
+            char c = lineName.charAt(i);
+            if (c >= '0' && c <= '9') {
+                digits.append(c);
+            }
+        }
+        if (digits.length() == 0) {
+            return 0;
+        }
+        try {
+            return Integer.parseInt(digits.toString());
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+
+    private GpsFixSnapshot getLatestGpsSnapshot() {
+        return gpsSerialMonitor == null ? null : gpsSerialMonitor.getLatestSnapshot();
+    }
+
+    private int resolveSocketReportIntervalSeconds(ShellConfig shellConfig) {
+        int intervalSeconds = shellConfig.getBasicSetupConfig().getNetworkSettings().getInfoInterval();
+        if (intervalSeconds <= 0) {
+            return 10;
+        }
+        return Math.min(intervalSeconds, 3600);
+    }
+
+    private int knotsToKmh(String knots) {
+        return (int) Math.round(parseDoubleSafe(knots) * 1.852d);
+    }
+
+    private int parseIntSafe(String value) {
+        return (int) Math.round(parseDoubleSafe(value));
+    }
+
+    private double parseDoubleSafe(String value) {
+        if (value == null || value.trim().isEmpty() || "-".equals(value.trim())) {
+            return 0d;
+        }
+        try {
+            return Double.parseDouble(value.trim());
+        } catch (Exception e) {
+            return 0d;
+        }
+    }
+
+    private String emptyToZero(String value) {
+        return value == null || value.trim().isEmpty() || "-".equals(value.trim()) ? "0" : value.trim();
     }
 
     /**

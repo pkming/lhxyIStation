@@ -491,7 +491,10 @@ generate_tinker_config() {
         <loader value="com.tencent.tinker.entry.*"/>
         <loader value="com.tencent.tinker.loader.*"/>
         <loader value="com.lhxy.istationdevice.android11.app.ShellTinkerApplication"/>
-        <loader value="com.lhxy.istationdevice.android11.app.ShellApplication"/>
+        <!-- ShellApplication 是 ApplicationLike（可被补丁修改），不是 loader：
+             它引用 com.tencent.tinker.lib.* 与 ShellTinkerResultService，
+             一旦列为 loader 就会触发“loader 引用非 loader”致命校验，使补丁无法生成。
+             ShellTinkerApplication 已改用字符串字面量引用它，故此处不再需要把它当 loader。 -->
     </issue>
 
     <issue id="lib">

@@ -58,7 +58,7 @@ public final class TerminalModuleHub {
         DeviceFoundationUseCase deviceFoundationUseCase = new DeviceFoundationUseCase();
         DvrSerialDispatchUseCase dvrSerialDispatchUseCase = new DvrSerialDispatchUseCase(serialPortAdapter);
         DispatchBusinessModule dispatchModule =
-            new DispatchBusinessModule(protocolReplayUseCase, socketClientAdapter, gpioAdapter, jt808SocketMonitor, dvrSerialDispatchUseCase);
+            new DispatchBusinessModule(protocolReplayUseCase, socketClientAdapter, gpioAdapter, jt808SocketMonitor, dvrSerialDispatchUseCase, gpsSerialMonitor);
         GpsBusinessModule gpsModule =
             new GpsBusinessModule(serialPortAdapter, gpsSerialMonitor, systemOps);
         StationBusinessModule stationModule =
