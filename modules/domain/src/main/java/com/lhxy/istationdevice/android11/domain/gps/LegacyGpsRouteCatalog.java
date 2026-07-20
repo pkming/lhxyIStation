@@ -2,6 +2,9 @@ package com.lhxy.istationdevice.android11.domain.gps;
 
 import android.content.Context;
 
+import com.lhxy.istationdevice.android11.core.AppLogCenter;
+import com.lhxy.istationdevice.android11.core.LogCategory;
+import com.lhxy.istationdevice.android11.core.LogLevel;
 import com.lhxy.istationdevice.android11.domain.file.StationResourceArchiveUseCase;
 
 import java.io.BufferedReader;
@@ -209,7 +212,10 @@ public final class LegacyGpsRouteCatalog {
                 }
                 rows.add(parseCsvRow(normalized));
             }
-        } catch (Exception ignore) {
+        } catch (Exception e) {
+            // 真实读文件/解码异常(非空文件)被吞成空列表 → 线路解析不出来却查不到原因。
+            AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, "LegacyGpsRouteCatalog",
+                    "线路CSV读取失败 file=" + csvFile.getAbsolutePath() + " / err=" + e, "gps-route-csv");
             return Collections.emptyList();
         }
         return rows;

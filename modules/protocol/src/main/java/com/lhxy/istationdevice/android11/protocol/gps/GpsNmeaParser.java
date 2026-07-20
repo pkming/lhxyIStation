@@ -152,10 +152,24 @@ public final class GpsNmeaParser {
         if (coordinate.length() <= degreeDigits) {
             return "";
         }
+        // NMEA 坐标固定为 ddmm.mmmm(纬度)/dddmm.mmmm(经度)：小数点前必须恰好「度位+2位分钟」。
+        // 串口拆包会把多个字段拼在一起(如 "9958422")，若不校验就会算出 lat=1072、lon=192 这种不可能值 → 定位飘移。
+        int dotIndex = coordinate.indexOf('.');
+        int integerLength = dotIndex >= 0 ? dotIndex : coordinate.length();
+        if (integerLength != degreeDigits + 2) {
+            return "";
+        }
         try {
             double degrees = Double.parseDouble(coordinate.substring(0, degreeDigits));
             double minutes = Double.parseDouble(coordinate.substring(degreeDigits));
+            if (minutes >= 60d) {
+                return "";
+            }
             double decimal = degrees + minutes / 60d;
+            double maxDegrees = degreeDigits == 2 ? 90d : 180d;
+            if (decimal > maxDegrees) {
+                return "";
+            }
             if ("S".equalsIgnoreCase(hemisphere) || "W".equalsIgnoreCase(hemisphere)) {
                 decimal = -decimal;
             }

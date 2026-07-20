@@ -69,7 +69,22 @@ public final class LegacyLineCatalog {
             )
     ));
 
+    // 解析缓存：线路选择/站点学习页每次打开会连调 all()/findByName 5+ 次，
+    // 若每次都全量重解析所有线路 CSV(每线 4 个文件) 会把主线程卡住(点菜单半天才跳转)。
+    // 用 lineInfo.csv 的“路径+修改时间+大小”做签名，未变直接返回缓存；导入新资源会重写 lineInfo.csv → 签名变 → 自动失效。
+    private static final Object CACHE_LOCK = new Object();
+    private static List<LineProfile> cachedProfiles;
+    private static String cachedSignature;
+
     private LegacyLineCatalog() {
+    }
+
+    /** 资源变更(导入/站点学习保存)后调用，强制下次重解析。 */
+    public static void clearCache() {
+        synchronized (CACHE_LOCK) {
+            cachedProfiles = null;
+            cachedSignature = null;
+        }
     }
 
     @NonNull
@@ -114,6 +129,12 @@ public final class LegacyLineCatalog {
         }
 
         File lineInfoFile = new File(busDir, "lineInfo.csv");
+        String signature = busDir.getAbsolutePath() + "|" + lineInfoFile.lastModified() + "|" + lineInfoFile.length();
+        synchronized (CACHE_LOCK) {
+            if (cachedProfiles != null && signature.equals(cachedSignature)) {
+                return cachedProfiles;
+            }
+        }
         List<List<String>> rows = readCsvRows(lineInfoFile);
         if (rows.size() <= 1) {
             return Collections.emptyList();
@@ -151,7 +172,12 @@ public final class LegacyLineCatalog {
                     downstreamReminders
             ));
         }
-        return profiles;
+        List<LineProfile> result = Collections.unmodifiableList(profiles);
+        synchronized (CACHE_LOCK) {
+            cachedProfiles = result;
+            cachedSignature = signature;
+        }
+        return result;
     }
 
     @Nullable

@@ -2,6 +2,9 @@ package com.lhxy.istationdevice.android11.domain.config;
 
 import android.content.Context;
 
+import com.lhxy.istationdevice.android11.core.AppLogCenter;
+import com.lhxy.istationdevice.android11.core.LogCategory;
+import com.lhxy.istationdevice.android11.core.LogLevel;
 import com.lhxy.istationdevice.android11.deviceapi.DeviceMode;
 import com.lhxy.istationdevice.android11.deviceapi.SerialMode;
 import com.lhxy.istationdevice.android11.deviceapi.SocketMode;
@@ -46,12 +49,16 @@ public final class ShellConfigLoader {
                     return parse(readText(inputStream), "runtime:" + runtimeConfigFile.getAbsolutePath());
                 }
             }
-        } catch (Exception ignore) {
-            // 运行期覆盖文件异常时继续回退到 assets。
+        } catch (Exception e) {
+            // 运行期覆盖文件损坏/字段异常时回退 assets——但必须记录，否则“保存成功、重启全变默认”查不到原因。
+            AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, "ShellConfigLoader",
+                    "运行期配置解析失败, 已回退到 assets(已保存的配置将不生效): " + e, "shell-config-load");
         }
         try (InputStream inputStream = context.getAssets().open(CONFIG_ASSET_NAME)) {
             return parse(readText(inputStream), "assets:" + CONFIG_ASSET_NAME);
-        } catch (Exception ignore) {
+        } catch (Exception e) {
+            AppLogCenter.log(LogCategory.ERROR, LogLevel.ERROR, "ShellConfigLoader",
+                    "assets 配置解析失败, 使用代码默认配置(设备行为将像 STUB 默认): " + e, "shell-config-load");
             return createDefault();
         }
     }

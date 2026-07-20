@@ -18,6 +18,7 @@ import com.lhxy.istationdevice.android11.protocol.legacy.ProtocolBatchResult;
 import com.lhxy.istationdevice.android11.protocol.legacy.TongDaDisplayProtocol;
 
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.List;
 
 /**
@@ -48,6 +49,8 @@ public final class LegacyStationDisplayUseCase {
         }
         List<DisplayTarget> targets = resolveDisplayTargets(shellConfig, traceId);
         if (targets.isEmpty()) {
+            AppLogCenter.log(LogCategory.BIZ, LogLevel.WARN, "LegacyStationDisplay",
+                    "跳过屏显线路同步(未解析到任何显示目标, 检查 rs485 协议/串口配置)", traceId);
             return;
         }
         DisplayLanguage language = resolveLanguage(shellConfig);
@@ -60,14 +63,28 @@ public final class LegacyStationDisplayUseCase {
                 continue;
             }
             ShellConfig.SerialChannel displayChannel = ensureReady(shellConfig, target.serialKey, traceId + "-display-open-" + target.serialKey);
-            send(displayChannel, generator.createLineState(currentSnapshot), target.protocolName + "_LINE_STATE", traceId + "-line-state-" + target.serialKey);
+            // V23/V24：LINE_STATE(通达 cmd 0x01) 携带校时，只有系统时间可信(年份>=2019)才发，避免把错时间推给 LCD。
+            // 这是独立帧，跳过它不影响线路名/站点等显示帧。
+            if (isSystemTimeTrustworthy()) {
+                send(displayChannel, generator.createLineState(currentSnapshot), target.protocolName + "_LINE_STATE", traceId + "-line-state-" + target.serialKey);
+                AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, "LegacyStationDisplay",
+                        "校时: 已发送 LCD 时间 protocol=" + target.protocolName + " / year=" + currentYear() + " / port=" + displayChannel.getKey(), traceId);
+            } else {
+                AppLogCenter.log(LogCategory.BIZ, LogLevel.WARN, "LegacyStationDisplay",
+                        "校时: 跳过发送 LCD 时间(系统时间不可信 year=" + currentYear() + "<2019) protocol=" + target.protocolName, traceId);
+            }
             send(displayChannel, generator.createLineName(currentSnapshot, language), target.protocolName + "_LINE_NAME", traceId + "-line-" + target.serialKey);
             if (routeSnapshots.isEmpty()) {
+                AppLogCenter.log(LogCategory.BIZ, LogLevel.WARN, "LegacyStationDisplay",
+                        "跳过站点表(SITE_INFO): 线路站点快照为空 protocol=" + target.protocolName, traceId);
                 continue;
             }
             ProtocolBatchResult batchResult = generator.createSiteInfo(routeSnapshots);
             if (batchResult != null) {
                 send(displayChannel, batchResult.getPayload(), target.protocolName + "_SITE_INFO", traceId + "-site-info-" + target.serialKey);
+            } else {
+                AppLogCenter.log(LogCategory.BIZ, LogLevel.WARN, "LegacyStationDisplay",
+                        "站点表(SITE_INFO)生成失败 batchResult=null protocol=" + target.protocolName + " / 站点数=" + routeSnapshots.size(), traceId);
             }
         }
     }
@@ -81,6 +98,8 @@ public final class LegacyStationDisplayUseCase {
         }
         List<DisplayTarget> targets = resolveDisplayTargets(shellConfig, traceId);
         if (targets.isEmpty()) {
+            AppLogCenter.log(LogCategory.BIZ, LogLevel.WARN, "LegacyStationDisplay",
+                    "跳过当前站屏显(未解析到任何显示目标, 检查 rs485 协议/串口配置)", traceId);
             return;
         }
         BusLineSnapshot snapshot = snapshotFactory.createCurrentSnapshot(route, stationState);
@@ -91,6 +110,15 @@ public final class LegacyStationDisplayUseCase {
                 continue;
             }
             ShellConfig.SerialChannel displayChannel = ensureReady(shellConfig, target.serialKey, traceId + "-display-open-" + target.serialKey);
+            // V23：报站时也发一次校时(LINE_STATE cmd 0x01)，同样受系统时间可信门槛约束。
+            if (isSystemTimeTrustworthy()) {
+                send(displayChannel, generator.createLineState(snapshot), target.protocolName + "_LINE_STATE", traceId + "-line-state-" + target.serialKey);
+                AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, "LegacyStationDisplay",
+                        "校时: 报站时已发送 LCD 时间 protocol=" + target.protocolName + " / year=" + currentYear(), traceId);
+            } else {
+                AppLogCenter.log(LogCategory.BIZ, LogLevel.WARN, "LegacyStationDisplay",
+                        "校时: 报站时跳过发送 LCD 时间(系统时间不可信 year=" + currentYear() + ") protocol=" + target.protocolName, traceId);
+            }
             send(displayChannel, generator.createNewspaperStation(snapshot, language), target.protocolName + "_STATION", traceId + "-station-" + target.serialKey);
             send(displayChannel, generator.createInternalScreen(snapshot, language), target.protocolName + "_INTERNAL", traceId + "-internal-" + target.serialKey);
         }
@@ -209,9 +237,14 @@ public final class LegacyStationDisplayUseCase {
 
     private void addDisplayTarget(List<DisplayTarget> targets, ShellConfig shellConfig, String serialKey, String protocolName, String traceId) {
         if (isEmptyProtocol(protocolName) || serialKey == null || serialKey.trim().isEmpty()) {
+            // 例如 RS485-2 协议下拉没选时，这条串口就永远不会有屏显输出——之前是静默的，测试会以为“RS485-2 没作用”。
+            AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, "LegacyStationDisplay",
+                    "屏显目标跳过: " + serialKey + " 未选协议(该串口不会有屏显输出)", traceId);
             return;
         }
         if ("JHY".equalsIgnoreCase(protocolName.trim())) {
+            AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, "LegacyStationDisplay",
+                    "屏显目标跳过: " + serialKey + " 协议=JHY(该口是客流计数器, 非屏显)", traceId);
             return;
         }
         try {
@@ -242,10 +275,61 @@ public final class LegacyStationDisplayUseCase {
      */
     private void send(ShellConfig.SerialChannel channel, byte[] payload, String label, String traceId) {
         if (payload == null || payload.length == 0) {
+            // 屏显帧生成器返回空帧(线路名/站点表/当前站等生成失败)会走到这里被丢弃——之前是静默的，
+            // 导致“屏上线路/站点不显示却查不到原因”。补 WARN。
+            AppLogCenter.log(LogCategory.PROTOCOL_TX, LogLevel.WARN, "LegacyStationDisplay",
+                    "跳过屏显发送(生成器返回空帧) label=" + label, traceId);
+            return;
+        }
+        // V25：发送前判断串口对象/通道是否为空，防止为空写数据闪退（对齐现场版 mSerial485Control!=null 判断）。
+        if (serialPortAdapter == null || channel == null) {
+            AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, "LegacyStationDisplay", "跳过屏显发送(串口对象为空) label=" + label, traceId);
             return;
         }
         AppLogCenter.log(LogCategory.PROTOCOL_TX, LogLevel.DEBUG, "LegacyStationDisplay", label + " via " + channel.getKey() + " -> " + Hexs.toHex(payload), traceId);
         serialPortAdapter.send(channel.getPortName(), payload, traceId);
+    }
+
+    /**
+     * V24：判断 M90 系统时间是否可信（年份 >= 2019）。现场版用 GPS 年份 &lt; 19 作为不可信门槛，这里对齐。
+     * 端口在 GPS 首次有效时会用 GPS 时间校准系统钟，校准后此判断即为真。
+     */
+    private boolean isSystemTimeTrustworthy() {
+        return currentYear() >= 2019;
+    }
+
+    private int currentYear() {
+        return Calendar.getInstance().get(Calendar.YEAR);
+    }
+
+    /**
+     * V24：单独往 LCD 发一次校时(LINE_STATE cmd 0x01)，用于开机/网络首次上线等触发点。
+     * 仍受系统时间可信门槛(年份>=2019)约束；route 可为空(用兜底快照，只取其中的时间)。
+     */
+    public void sendClockSync(ShellConfig shellConfig, LegacyGpsRouteResource route, StationState stationState, String trigger, String traceId) {
+        if (shellConfig == null) {
+            return;
+        }
+        List<DisplayTarget> targets = resolveDisplayTargets(shellConfig, traceId);
+        if (targets.isEmpty()) {
+            return;
+        }
+        if (!isSystemTimeTrustworthy()) {
+            AppLogCenter.log(LogCategory.BIZ, LogLevel.WARN, "LegacyStationDisplay",
+                    "校时: 跳过(" + trigger + " 触发, 系统时间不可信 year=" + currentYear() + "<2019)", traceId);
+            return;
+        }
+        BusLineSnapshot snapshot = snapshotFactory.createCurrentSnapshot(route, stationState);
+        for (DisplayTarget target : targets) {
+            DisplayProtocolGenerator generator = selectGenerator(target.protocolName, traceId);
+            if (generator == null) {
+                continue;
+            }
+            ShellConfig.SerialChannel displayChannel = ensureReady(shellConfig, target.serialKey, traceId + "-display-open-" + target.serialKey);
+            send(displayChannel, generator.createLineState(snapshot), target.protocolName + "_LINE_STATE", traceId + "-clock-" + target.serialKey);
+            AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, "LegacyStationDisplay",
+                    "校时: 已发送(" + trigger + " 触发) protocol=" + target.protocolName + " / year=" + currentYear() + " / port=" + displayChannel.getKey(), traceId);
+        }
     }
 
     private static final class DisplayTarget {

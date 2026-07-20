@@ -103,6 +103,8 @@ public final class LegacyUpgradeDownloadAgent {
     public void handleCommand(String channelName, Jt808UpgradeCommand command, String traceId) {
         Context context = appContext;
         if (context == null || command == null) {
+            AppLogCenter.log(LogCategory.BIZ, LogLevel.WARN, "UpgradeDownloadAgent",
+                    "升级命令已丢弃: " + (context == null ? "上下文未就绪" : "命令为空") + " channel=" + channelName, traceId);
             return;
         }
 

@@ -215,12 +215,20 @@ public final class M90RealSerialPortAdapter implements SerialPortAdapter {
             String currentPortPath = portPath;
             FileInputStream currentInputStream = inputStream;
             if (currentPortPath == null || currentInputStream == null) {
+                // 读线程没起来 → “打开了却一直收不到数据”，之前无日志。
+                AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, TAG,
+                        "读线程未启动: port或inputStream为空 traceId=" + traceId, traceId);
                 return;
             }
 
             Thread thread = new Thread(() -> {
                 byte[] buffer = new byte[2048];
                 String readTraceId = traceId + "-rx";
+                // RX 日志节流：GPS 115200 会每秒收几百个小包，逐包写日志会刷爆会话日志、拖慢整机(菜单卡顿)。
+                // 这里同一端口每秒最多打一条(带被抑制的条数/字节汇总)；数据流不变，listener 照收每个包。
+                long lastRxLogMs = 0;
+                int suppressedRxLogs = 0;
+                long suppressedRxBytes = 0;
                 try {
                     while (isOpen() && currentPortPath.equals(portPath) && currentInputStream == inputStream) {
                         int length = currentInputStream.read(buffer);
@@ -235,17 +243,27 @@ public final class M90RealSerialPortAdapter implements SerialPortAdapter {
                         byte[] payload = new byte[length];
                         System.arraycopy(buffer, 0, payload, 0, length);
                         receiveCount++;
-                        AppLogCenter.log(
-                            LogCategory.PROTOCOL_RX,
-                            LogLevel.DEBUG,
-                            TAG,
-                            "real recv on " + currentPortPath
-                                + " @" + baudRate
-                                + " packet=" + receiveCount
-                                + " bytes=" + payload.length
-                                + ": " + Hexs.toHex(payload),
-                            readTraceId
-                        );
+                        long nowMs = System.currentTimeMillis();
+                        if (nowMs - lastRxLogMs >= 1000) {
+                            AppLogCenter.log(
+                                LogCategory.PROTOCOL_RX,
+                                LogLevel.DEBUG,
+                                TAG,
+                                "real recv on " + currentPortPath
+                                    + " @" + baudRate
+                                    + " packet=" + receiveCount
+                                    + " bytes=" + payload.length
+                                    + (suppressedRxLogs > 0 ? " (近1s抑制" + suppressedRxLogs + "条/" + suppressedRxBytes + "字节)" : "")
+                                    + ": " + Hexs.toHex(payload),
+                                readTraceId
+                            );
+                            lastRxLogMs = nowMs;
+                            suppressedRxLogs = 0;
+                            suppressedRxBytes = 0;
+                        } else {
+                            suppressedRxLogs++;
+                            suppressedRxBytes += payload.length;
+                        }
                         SerialReceiveListener listener = listeners.get(currentPortPath);
                         if (listener != null) {
                             listener.onReceive(currentPortPath, payload.clone());

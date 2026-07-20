@@ -151,7 +151,10 @@ public final class GpsSerialMonitor {
             try {
                 listener.onSnapshot(snapshot);
             } catch (RuntimeException ignored) {
-                // Snapshot side effects should not break GPS serial parsing.
+                // 不中断 GPS 解析，但必须记录：这个监听器很可能就是自动报站的触发回调，
+                // 静默吞掉会造成“有定位却不报站、日志毫无痕迹”的黑洞。
+                AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, "GpsSerialMonitor",
+                        "GPS快照监听器抛异常(自动报站回调可能受影响): " + ignored, "gps-snapshot-listener");
             }
         }
     }

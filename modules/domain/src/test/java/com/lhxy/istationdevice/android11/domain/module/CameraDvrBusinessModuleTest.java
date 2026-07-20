@@ -22,18 +22,21 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 public final class CameraDvrBusinessModuleTest {
+    // GPIO 为低有效(active-low)：primary=io1=gpio1d0=倒车线、secondary=io2=gpio1d1=中门线，0=有效。
+    // 与现场版 M90 + 实际接线一致：(1,0)=倒车灭/中门亮→middle_door；(0,1)=倒车亮/中门灭→reverse；
+    // (0,0)=都亮→倒车优先；(1,1)=都灭→DVR。此前这两个用例按高有效写反了期望，长期 failing，非实现错。
     @Test
-    public void resolveMonitorCameraKey_prefersReverseWhenPrimaryHighSecondaryLow() {
+    public void resolveMonitorCameraKey_resolvesMiddleDoorWhenPrimaryHighSecondaryLow() {
         CameraDvrBusinessModule module = createModule(createGpioAdapter(1, 0));
 
-        assertEquals("reverse", module.resolveMonitorCameraKey(createShellConfig(), "camera-dvr-test"));
+        assertEquals("middle_door", module.resolveMonitorCameraKey(createShellConfig(), "camera-dvr-test"));
     }
 
     @Test
-    public void resolveMonitorCameraKey_prefersMiddleDoorWhenSecondaryHigh() {
+    public void resolveMonitorCameraKey_resolvesReverseWhenPrimaryLowSecondaryHigh() {
         CameraDvrBusinessModule module = createModule(createGpioAdapter(0, 1));
 
-        assertEquals("middle_door", module.resolveMonitorCameraKey(createShellConfig(), "camera-dvr-test"));
+        assertEquals("reverse", module.resolveMonitorCameraKey(createShellConfig(), "camera-dvr-test"));
     }
 
     @Test

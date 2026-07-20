@@ -1,6 +1,8 @@
 package com.lhxy.istationdevice.android11.domain.module;
 
 import android.content.Context;
+import android.net.ConnectivityManager;
+import android.net.Network;
 
 import java.util.Calendar;
 
@@ -46,6 +48,9 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
     private final LegacyGpsFlowUseCase gpsFlowUseCase = new LegacyGpsFlowUseCase();
     private final LegacyStationDisplayUseCase stationDisplayUseCase;
     private final LegacyStationAudioUseCase stationAudioUseCase;
+    // V24：网络首次上线时触发一次 LCD 校时（GPS 尚未有效时）。只注册一次。
+    private ConnectivityManager.NetworkCallback clockNetworkCallback;
+    private volatile boolean clockNetworkCallbackRegistered;
 
     private ScheduledExecutorService periodicGpsReportExecutor;
     private ScheduledExecutorService autoGpsReportExecutor;
@@ -54,6 +59,8 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
     private long lastPeriodicGpsReportTimeMs;
     private long autoGpsReportCount;
     private long lastAutoGpsReportTimeMs;
+    // 自动报站每秒轮询：跳过原因只在“变化时”打一条，避免刷屏(参考串口 RX 节流)。
+    private String lastAutoReportSkipReason;
     private long speedingStartTimeMs;
     private int speedingPeakKmh;
     private long lastSpeedWarningTimeMs;
@@ -109,12 +116,69 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
     @Override
     protected void onContextUpdated() {
         syncRouteProfileIfNeeded();
+        registerClockNetworkTriggerIfNeeded();
         if (isGpsMonitorAttached()) {
             startPeriodicGpsReportIfNeeded("station-config-gps-report");
             startAutoGpsReportIfNeeded("station-config-auto-report");
         } else {
             stopPeriodicGpsReport("station-config-gps-report-stop");
             stopAutoGpsReport("station-config-auto-report-stop");
+        }
+    }
+
+    /**
+     * V24：注册网络上线触发（只注册一次）。网络首次可用且 GPS 尚未有效时，往 LCD 发一次校时，
+     * 对齐现场版 WiFi/4G 首次上线(UNCON→OK) && !GPS有效 的行为。校时本身仍受"系统时间可信"门槛约束。
+     */
+    private synchronized void registerClockNetworkTriggerIfNeeded() {
+        if (clockNetworkCallbackRegistered) {
+            return;
+        }
+        Context context = getContext();
+        if (context == null) {
+            return;
+        }
+        ConnectivityManager connectivityManager = context.getSystemService(ConnectivityManager.class);
+        if (connectivityManager == null) {
+            return;
+        }
+        clockNetworkCallback = new ConnectivityManager.NetworkCallback() {
+            @Override
+            public void onAvailable(Network network) {
+                onNetworkAvailableForClock();
+            }
+        };
+        try {
+            connectivityManager.registerDefaultNetworkCallback(clockNetworkCallback);
+            clockNetworkCallbackRegistered = true;
+            safeBusinessLog(LogCategory.BIZ, LogLevel.INFO, TAG, "校时: 已注册网络上线触发", "station-clock-net-register");
+        } catch (Exception e) {
+            clockNetworkCallback = null;
+            safeBusinessLog(LogCategory.ERROR, LogLevel.WARN, TAG, "校时: 注册网络上线触发失败: " + emptyAsDash(e.getMessage()), "station-clock-net-register");
+        }
+    }
+
+    private void onNetworkAvailableForClock() {
+        String traceId = "station-clock-net-online";
+        try {
+            GpsFixSnapshot snapshot = getLatestGpsSnapshot();
+            if (snapshot != null && snapshot.isValid()) {
+                // GPS 已有效，走 GPS 时间那条链，网络触发跳过（对齐现场版 !bValidData 条件）。
+                return;
+            }
+            ShellConfig shellConfig = requireShellConfig();
+            LegacyGpsRouteResource route = resolveRouteOrNull();
+            stationDisplayUseCase.sendClockSync(shellConfig, route, stationState, "网络上线", traceId);
+        } catch (Exception e) {
+            safeBusinessLog(LogCategory.ERROR, LogLevel.WARN, TAG, "校时: 网络上线发送失败: " + emptyAsDash(e.getMessage()), traceId);
+        }
+    }
+
+    private LegacyGpsRouteResource resolveRouteOrNull() {
+        try {
+            return resolveRequiredRoute();
+        } catch (Exception e) {
+            return null;
         }
     }
 
@@ -249,11 +313,8 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
             ShellConfig shellConfig = requireShellConfig();
             LegacyGpsRouteResource route = resolveRequiredRoute();
             syncManualGpsSnapshotIfAvailable(traceId);
-            if (isCurrentStationOverlappedByGps(route, getLatestGpsSnapshot(), traceId)) {
-                return failureText("当前位置已在当前站范围内", "GPS 已定位到 "
-                        + stationState.getCurrentStation()
-                        + " 范围内，手动推进已拦截，避免重复报站");
-            }
+            // 对齐 V32 现场版：手动报站(forwardNewspaper)不做任何 GPS 判断，直接按两段式推进。
+            // 端口原先加的“GPS 重合拦截”既非 V32 行为，坐标换算又不可靠(实测 distance 达 254 万米、overlapped 恒否)，已移除。
             if (stationState.getReportCount() == 0) {
                 stationDisplayUseCase.syncRoute(shellConfig, route, stationState, traceId + "-display-route");
             }
@@ -443,59 +504,12 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
         );
     }
 
-    private boolean isCurrentStationOverlappedByGps(
-            LegacyGpsRouteResource route,
-            GpsFixSnapshot snapshot,
-            String traceId
-    ) {
-        LegacyGpsRouteResource.StationPoint station = resolveCurrentStation(route);
-        if (station == null || snapshot == null || !snapshot.isValid()) {
-            return false;
-        }
-        if (!hasStationCoordinate(station) || !hasText(snapshot.getLatitudeDecimal()) || !hasText(snapshot.getLongitudeDecimal())) {
-            return false;
-        }
-        double gpsLongitude = parseDouble(snapshot.getLongitudeDecimal(), 0d);
-        double gpsLatitude = parseDouble(snapshot.getLatitudeDecimal(), 0d);
-        if (gpsLongitude == 0d && gpsLatitude == 0d) {
-            return false;
-        }
-        double distance = distanceMeters(
-                gpsLongitude,
-                gpsLatitude,
-                station.getLongitudeDecimal(),
-                station.getLatitudeDecimal()
-        );
-        double triggerDistance = station.getMileage() + 20d;
-        boolean overlapped = distance <= triggerDistance;
-        safeBusinessLog(
-                LogCategory.BIZ,
-                overlapped ? LogLevel.WARN : LogLevel.INFO,
-                TAG,
-                "手动报站站点范围检查 stationNo=" + station.getStationNo()
-                        + " / station=" + station.getStationName()
-                        + " / distanceMeters=" + Math.round(distance)
-                        + " / triggerMeters=" + Math.round(triggerDistance)
-                        + " / overlapped=" + yesNo(overlapped),
-                traceId
-        );
-        return overlapped;
-    }
-
     private void safeBusinessLog(LogCategory category, LogLevel level, String tag, String message, String traceId) {
         try {
             AppLogCenter.log(category, level, tag, message, traceId);
         } catch (RuntimeException ignore) {
             // Local JVM unit tests do not mock every Android SDK method used by the log center.
         }
-    }
-
-    private boolean hasStationCoordinate(LegacyGpsRouteResource.StationPoint station) {
-        return station != null
-                && hasText(station.getLongitudeRaw())
-                && hasText(station.getLatitudeRaw())
-                && station.getLongitudeDecimal() != 0d
-                && station.getLatitudeDecimal() != 0d;
     }
 
     private boolean isGpsMonitorAttached() {
@@ -670,14 +684,33 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
         );
     }
 
+    // 自动报站跳过：仅在原因变化时打一条 WARN，避免每秒刷屏；恢复正常时打一条 INFO。
+    private void logAutoReportSkipIfChanged(String reason, String traceId) {
+        if (reason.equals(lastAutoReportSkipReason)) {
+            return;
+        }
+        lastAutoReportSkipReason = reason;
+        AppLogCenter.log(LogCategory.BIZ, LogLevel.WARN, TAG, "自动报站跳过: " + reason, traceId + "-auto-gps");
+    }
+
+    private void clearAutoReportSkip(String traceId) {
+        if (lastAutoReportSkipReason != null) {
+            AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, TAG,
+                    "自动报站恢复正常(此前跳过原因: " + lastAutoReportSkipReason + ")", traceId + "-auto-gps");
+            lastAutoReportSkipReason = null;
+        }
+    }
+
     private void evaluateAutoGpsReport(String traceId) {
         try {
             Context context = getContext();
             if (context == null) {
+                logAutoReportSkipIfChanged("上下文为空", traceId);
                 return;
             }
             GpsFixSnapshot snapshot = getLatestGpsSnapshot();
             if (snapshot == null) {
+                logAutoReportSkipIfChanged("无GPS快照(gpsAttached=" + yesNo(isGpsMonitorAttached()) + ")", traceId);
                 return;
             }
             stationState.updateGps(snapshot);
@@ -691,8 +724,12 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
             );
             LegacyGpsRouteResource route = flowResult.getRoute();
             if (!flowResult.hasRoute()) {
+                logAutoReportSkipIfChanged("未解析到线路(line=" + stationState.getLineName()
+                        + " dir=" + stationState.getDirectionText()
+                        + " validFix=" + yesNo(snapshot.isValid()) + ")", traceId);
                 return;
             }
+            clearAutoReportSkip(traceId);
             stationState.setLineAttribute(route.getAttributeLabel());
             syncRouteProfileIfNeeded(route);
             handleAuxiliaryAudio(context, shellConfig, route, snapshot, traceId);
@@ -798,6 +835,9 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
     private void handleDirectionSwitch(Context context, LegacyGpsRouteResource currentRoute, String traceId) {
         LegacyGpsRouteResource switchedRoute = gpsFlowUseCase.resolveSwitchedRoute(context, currentRoute);
         if (switchedRoute == null) {
+            AppLogCenter.log(LogCategory.BIZ, LogLevel.WARN, TAG,
+                    "切换方向失败: 未解析到反向线路 line=" + stationState.getLineName()
+                            + " / 当前方向=" + stationState.getDirectionText(), traceId + "-switch-direction");
             return;
         }
         stationState.recordDirectionSwitch(switchedRoute.getDirectionText(), switchedRoute.stationNames());
@@ -908,6 +948,9 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
     private void playCurrentStationAudio(Context context, ShellConfig shellConfig, LegacyGpsRouteResource route) {
         LegacyGpsRouteResource.StationPoint currentStation = resolveCurrentStation(route);
         if (currentStation == null) {
+            AppLogCenter.log(LogCategory.BIZ, LogLevel.WARN, TAG,
+                    "手动报站无声: 当前站解析失败 stationNo=" + stationState.getCurrentStationNo()
+                            + " / 站点数=" + (route == null ? -1 : route.getStations().size()), "station-audio-nostation");
             return;
         }
         stationAudioUseCase.playManualStation(
@@ -1126,18 +1169,6 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
         } catch (Exception ignore) {
             return defaultValue;
         }
-    }
-
-    private double distanceMeters(double lng1, double lat1, double lng2, double lat2) {
-        double radLat1 = Math.toRadians(lat1);
-        double radLat2 = Math.toRadians(lat2);
-        double deltaLat = radLat1 - radLat2;
-        double deltaLng = Math.toRadians(lng1) - Math.toRadians(lng2);
-        double value = 2 * Math.asin(Math.sqrt(
-                Math.pow(Math.sin(deltaLat / 2), 2)
-                        + Math.cos(radLat1) * Math.cos(radLat2) * Math.pow(Math.sin(deltaLng / 2), 2)
-        ));
-        return value * 6378.137d * 1000d;
     }
 
     private boolean hasText(String value) {

@@ -297,6 +297,9 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
             }
             ShellConfig.SocketChannel channel = resolveActiveDispatchChannel(shellConfig);
             if (!isUsableSocketChannel(channel)) {
+                AppLogCenter.log(LogCategory.BIZ, LogLevel.WARN, TAG,
+                        "调度 socket 周期上报未启动: 通道不可用(host/port 未配置或 key 错) channel="
+                                + (channel == null ? "null" : channel.getHost() + ":" + channel.getPort()), traceId);
                 stopSocketDispatchReport(traceId + "-no-channel");
                 return;
             }
@@ -412,6 +415,9 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
         try {
             return shellConfig.requireSocketChannel(shellConfig.getDebugReplay().getJt808SocketKey());
         } catch (Exception e) {
+            // socket key 配错/通道缺失时返回 null 会让调度整链静默不上报，必须记录。
+            AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, TAG,
+                    "调度 socket 通道解析失败 key=" + shellConfig.getDebugReplay().getJt808SocketKey() + " / err=" + e, "dispatch-channel");
             return null;
         }
     }
@@ -463,12 +469,21 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
         boolean valid = snapshot != null && snapshot.isValid();
         String latitude = valid ? emptyToZero(snapshot.getLatitudeDecimal()) : emptyToZero(station.getLatitude());
         String longitude = valid ? emptyToZero(snapshot.getLongitudeDecimal()) : emptyToZero(station.getLongitude());
-        int speed = valid ? knotsToKmh(snapshot.getSpeedKnots()) : 0;
+        // 以下取值全部对齐 V32 现场版 MainActivity(2541-2588) + GenerateJQ808ReqPackage.generateReportStation：
+        // - speed：0x0b02 这条路 V32 用 toNumberFormat(节速*1.852, 1)*10 → 即 0.1km/h 单位(km/h×10)，
+        //   与 DVR/siteInfo 路径(纯 km/h)不同，别混。
+        int speed = valid ? knotsToKmhTenths(snapshot.getSpeedKnots()) : 0;
         int angle = valid ? parseIntSafe(snapshot.getCourse()) : 0;
         int lineNumber = parseLineNumber(station.getLineName());
-        int status = station.getCurrentStationType() == 1 ? 0x01 : 0x02; // 出站预报=1 / 到站=2（待校准）
-        int direction = emptyAsDash(station.getDirectionText()).contains("下") ? 0x02 : 0x01; // 上行=1 / 下行=2（待校准）
-        int busNo = 0; // StationState 暂无车号，待校准
+        // - status：V32 是 !isNextStation(到站)→0 / isNextStation(下一站预报)→1。
+        //   我们的 currentStationType：1=预报、0=到站。
+        boolean previewingNext = station.getCurrentStationType() == 1;
+        int status = previewingNext ? 0x01 : 0x00;
+        int direction = emptyAsDash(station.getDirectionText()).contains("下") ? 0x02 : 0x01; // 上行=1 / 下行=2
+        // - busNo：V32 的 ReportInfoModel 同时有 busNo(int) 与 carNumber(String)，busNo 是"站序号"不是车号。
+        //   V32：预报时 = 站号；到站时 = 站号+1。
+        int stationNo = Math.max(0, station.getCurrentStationNo());
+        int busNo = previewingNext ? stationNo : stationNo + 1;
         return new Jt808ReportStationSnapshot(lineNumber, status, direction, busNo, latitude, longitude, speed, angle, LocalDateTime.now());
     }
 
@@ -507,6 +522,11 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
 
     private int knotsToKmh(String knots) {
         return (int) Math.round(parseDoubleSafe(knots) * 1.852d);
+    }
+
+    /** 0.1km/h 单位(km/h×10)——0x0b02 报站上报专用，对齐 V32(i==3 分支)。 */
+    private int knotsToKmhTenths(String knots) {
+        return (int) Math.round(parseDoubleSafe(knots) * 1.852d * 10d);
     }
 
     private int parseIntSafe(String value) {
@@ -829,8 +849,9 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
                 playDepartureReminder(context, "发车时间到了,请确认", "dispatch-reminder-due");
             }
             lastDepartureMillisUntil = millisUntil;
-        } catch (Exception ignore) {
-            // 发车提醒不阻断调度主链。
+        } catch (Exception e) {
+            // 不阻断调度主链，但记录：否则“发车倒计时提醒不响”查不到是时间解析还是音频异常。
+            AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, TAG, "发车提醒评估异常: " + e, "dispatch-reminder");
         }
     }
 

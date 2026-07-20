@@ -986,12 +986,8 @@ public final class LegacyMainActivity extends AppCompatActivity {
     }
 
     private String resolveCmsState(@Nullable ShellConfig config, @Nullable DispatchState dispatchState) {
-        // Legacy home treats serial dispatch as a distinct top-level state, so prefer that label
-        // over the connection status when protocol linkage has already switched ownership.
-        if (config != null && config.getBasicSetupConfig().getProtocolLinkageSettings().isSerialDispatchEnabled()) {
-            return "串口";
-        }
-        // CMS 顶栏显示调度平台的实际连接状态（Connected/Disconnected），不再显示协议名。
+        // 对齐 V32：CMS 顶栏只显示调度平台 socket 的实际连接状态(Connected/Disconnected)，
+        // 不再有"串口"等特殊分支。串口调度模式下没有 CMS socket，自然显示 Disconnected（与 V32 行为一致）。
         return isDispatchSocketConnected(config)
                 ? getString(R.string.connected)
                 : getString(R.string.unconnected);
@@ -1010,9 +1006,8 @@ public final class LegacyMainActivity extends AppCompatActivity {
     }
 
     private String resolveGpsState(@Nullable GpsFixSnapshot snapshot) {
-        return snapshot != null && snapshot.isValid()
-                ? getString(R.string.effective)
-                : getString(R.string.invalid);
+        // 首页 GPS 状态只显示 Y/N(定位有效=Y)，不再用 有效/无效 文案。
+        return snapshot != null && snapshot.isValid() ? "Y" : "N";
     }
 
     private String resolveLineName(@NonNull StationState stationState, @NonNull LegacyStationResourceStateRepository.StationResourceState resourceState) {

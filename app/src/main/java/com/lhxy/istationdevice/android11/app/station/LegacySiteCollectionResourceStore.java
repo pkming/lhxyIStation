@@ -4,6 +4,10 @@ import android.content.Context;
 
 import androidx.annotation.NonNull;
 
+import com.lhxy.istationdevice.android11.app.line.LegacyLineCatalog;
+import com.lhxy.istationdevice.android11.core.AppLogCenter;
+import com.lhxy.istationdevice.android11.core.LogCategory;
+import com.lhxy.istationdevice.android11.core.LogLevel;
 import com.lhxy.istationdevice.android11.domain.file.StationResourceArchiveUseCase;
 import com.lhxy.istationdevice.android11.protocol.gps.GpsFixSnapshot;
 
@@ -241,7 +245,10 @@ final class LegacySiteCollectionResourceStore {
             if (normalize(cell(row, 1)).equals(normalize(lineName))) {
                 try {
                     return Integer.parseInt(cell(row, 3));
-                } catch (Exception ignore) {
+                } catch (Exception e) {
+                    // 线路属性列解析失败会静默按“单向”，导致学习点漏写另一方向 CSV。
+                    AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, "SiteCollectionStore",
+                            "线路属性解析失败, 按单向处理 line=" + lineName + " raw=" + cell(row, 3), "site-learn-save");
                     return 1;
                 }
             }
@@ -306,6 +313,9 @@ final class LegacySiteCollectionResourceStore {
         } catch (Exception e) {
             throw new IllegalStateException("写入资源文件失败: " + csvFile.getName(), e);
         }
+        // 站点学习改的是站点 CSV(不动 lineInfo.csv)，主动让线路目录缓存失效，
+        // 否则线路选择页可能仍显示旧的站点数据(资源导入因会重写 lineInfo.csv 而自动失效，无需处理)。
+        LegacyLineCatalog.clearCache();
     }
 
     @NonNull

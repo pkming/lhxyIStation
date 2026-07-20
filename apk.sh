@@ -15,19 +15,20 @@ LEGACY_LATEST_BASELINE_APK="$LEGACY_BASELINE_DIR/latest-base.apk"
 usage() {
     cat <<'EOF'
 用法:
+    sh apk.sh newbase [版本号] [--force-pin-base]
     sh apk.sh rebuild [--pin-base] [--force-pin-base]
   sh apk.sh update [create_tinker_patch.sh 的参数]
 
 命令:
-    rebuild   执行 ./gradlew assembleRelease，并把 APK 复制到 apk/release/
+    newbase   一键升级新基线：自动升版本号(versionCode+1, versionName patch+1 或用传入版本) -> 编全量 -> 固定为新基线
+    rebuild   执行 ./gradlew assembleRelease，并把 APK 复制到 apk/release/（加 --pin-base 固定为基线，不升版本号）
     update    执行热更新补丁生成；如果没传 --old-apk，默认使用 apk/base/latest-base.apk
 
 常用示例:
-  sh apk.sh rebuild
-  sh apk.sh rebuild --pin-base
-    sh apk.sh rebuild --pin-base --force-pin-base
-  sh apk.sh update --skip-upload
-  sh apk.sh update --old-apk /path/to/base.apk --skip-upload
+  sh apk.sh newbase                 # 自动 patch+1(如 0.1.4 -> 0.1.5) 出新基线
+  sh apk.sh newbase 0.2.0           # 指定版本号出新基线
+  sh apk.sh rebuild --pin-base      # 用当前版本号出基线(不升号)
+  sh apk.sh update --skip-upload    # 基于最新基线出热更补丁
 
 说明:
   1. 第一次立基线，建议执行 sh apk.sh rebuild --pin-base
@@ -56,6 +57,40 @@ detect_release_apk() {
 
 detect_version_name() {
     sed -nE 's/^[[:space:]]*def[[:space:]]+appVersionName[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/p' "$ROOT_DIR/app/build.gradle" | head -n 1
+}
+
+detect_version_code() {
+    sed -nE 's/^[[:space:]]*def[[:space:]]+appVersionCode[[:space:]]*=[[:space:]]*([0-9]+).*/\1/p' "$ROOT_DIR/app/build.gradle" | head -n 1
+}
+
+# 升级 app/build.gradle 里的版本号：versionCode +1；versionName 用传入值或自动 patch +1。
+bump_version() {
+    target_name="$1"
+    gradle_file="$ROOT_DIR/app/build.gradle"
+    cur_code=$(detect_version_code)
+    cur_name=$(detect_version_name)
+    [ -n "$cur_code" ] || fail "读不到 appVersionCode"
+    [ -n "$cur_name" ] || fail "读不到 appVersionName"
+    new_code=$((cur_code + 1))
+    if [ -n "$target_name" ]; then
+        new_name="$target_name"
+    else
+        major=$(printf '%s' "$cur_name" | cut -d. -f1)
+        minor=$(printf '%s' "$cur_name" | cut -d. -f2)
+        patch=$(printf '%s' "$cur_name" | cut -d. -f3)
+        [ -n "$patch" ] || patch=0
+        new_name="$major.$minor.$((patch + 1))"
+    fi
+    tmp_gradle=$(mktemp)
+    sed -E \
+        -e "s/^([[:space:]]*def[[:space:]]+appVersionCode[[:space:]]*=[[:space:]]*)[0-9]+/\1$new_code/" \
+        -e "s/^([[:space:]]*def[[:space:]]+appVersionName[[:space:]]*=[[:space:]]*\")[^\"]+(\")/\1$new_name\2/" \
+        "$gradle_file" > "$tmp_gradle"
+    mv "$tmp_gradle" "$gradle_file"
+    if [ "$(detect_version_name)" != "$new_name" ] || [ "$(detect_version_code)" != "$new_code" ]; then
+        fail "版本号写回失败，请检查 app/build.gradle"
+    fi
+    echo "版本号已升级: versionCode $cur_code -> $new_code / versionName $cur_name -> $new_name"
 }
 
 archive_release_apk() {
@@ -149,6 +184,48 @@ run_rebuild() {
     fi
 }
 
+# 一键升级新基线：升版本号 -> 编全量 -> 固定为新基线。
+run_newbase() {
+    target_name=""
+    force_pin_base=0
+    while [ "$#" -gt 0 ]; do
+        case "$1" in
+            --version)
+                shift
+                target_name="${1:-}"
+                [ -n "$target_name" ] || fail "--version 需要一个版本号，例如 --version 0.2.0"
+                ;;
+            --force-pin-base)
+                force_pin_base=1
+                ;;
+            --help|-h)
+                usage
+                exit 0
+                ;;
+            [0-9]*.[0-9]*)
+                target_name="$1"
+                ;;
+            *)
+                fail "newbase 不支持参数: $1"
+                ;;
+        esac
+        shift
+    done
+
+    bump_version "$target_name"
+    if [ "$force_pin_base" -eq 1 ]; then
+        run_rebuild --pin-base --force-pin-base
+    else
+        run_rebuild --pin-base
+    fi
+    new_name=$(detect_version_name)
+    echo ""
+    echo "新基线完成 ✅ 版本 $new_name"
+    echo "  - 把上面的 baseline/archive 全量包装到设备（一次）。"
+    echo "  - 之后小改用: sh apk.sh update  出热更补丁。"
+    echo "  - 提醒: 建议把这次版本号改动 + 代码改动一起提交，让基线对应一个确定的 git commit。"
+}
+
 run_update() {
     if has_old_apk_arg "$@"; then
         :
@@ -178,6 +255,9 @@ case "$command_name" in
         ;;
     update)
         run_update "$@"
+        ;;
+    newbase)
+        run_newbase "$@"
         ;;
     help|--help|-h)
         usage

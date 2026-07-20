@@ -1,5 +1,8 @@
 package com.lhxy.istationdevice.android11.domain.module;
 
+import com.lhxy.istationdevice.android11.core.AppLogCenter;
+import com.lhxy.istationdevice.android11.core.LogCategory;
+import com.lhxy.istationdevice.android11.core.LogLevel;
 import com.lhxy.istationdevice.android11.deviceapi.CameraAdapter;
 import com.lhxy.istationdevice.android11.deviceapi.DeviceMode;
 import com.lhxy.istationdevice.android11.deviceapi.GpioAdapter;
@@ -52,8 +55,18 @@ public final class CameraDvrBusinessModule extends AbstractTerminalBusinessModul
     protected void onContextUpdated() {
         try {
             dvrSerialMonitor.sync(serialPortAdapter, requireShellConfig(), "camera-dvr-context");
-        } catch (Exception ignore) {
-            // 保持页面动作可用，联调阶段通过状态和日志继续看。
+        } catch (Exception e) {
+            // 保持页面动作可用，但要记录：否则 DVR 串口监听没挂上却查不到原因。
+            safeLog("DVR 串口监听同步失败: " + e, "camera-dvr-context");
+        }
+    }
+
+    // 本地 JVM 单测未 mock 全部 Android SDK 方法(如 TextUtils)，包一层避免日志调用把被测路径打挂。
+    private void safeLog(String message, String traceId) {
+        try {
+            AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, "CameraDvr", message, traceId);
+        } catch (RuntimeException ignore) {
+            // 忽略单测环境下的日志异常。
         }
     }
 
@@ -300,8 +313,9 @@ public final class CameraDvrBusinessModule extends AbstractTerminalBusinessModul
                 lastAutoCameraKey = "reverse";
                 return lastAutoCameraKey;
             }
-        } catch (Exception ignore) {
-            // GPIO 不可读时回退到配置默认通道，避免视频页联动被硬件异常阻断。
+        } catch (Exception e) {
+            // GPIO 不可读时回退默认通道，但要记录：否则“倒车/中门摄像头不自动切”查不到是 GPIO 读失败还是没配。
+            safeLog("GPIO 读取失败, 监控通道回退默认(" + fallbackCameraKey + "): " + e, "camera-dvr-auto");
         }
         lastAutoCameraKey = fallbackCameraKey;
         return fallbackCameraKey;

@@ -2,7 +2,10 @@ package com.lhxy.istationdevice.android11.domain.file;
 
 import android.content.Context;
 
+import com.lhxy.istationdevice.android11.core.AppLogCenter;
 import com.lhxy.istationdevice.android11.core.LegacyInfoMessageRepository;
+import com.lhxy.istationdevice.android11.core.LogCategory;
+import com.lhxy.istationdevice.android11.core.LogLevel;
 import net.sf.sevenzipjbinding.ArchiveFormat;
 import net.sf.sevenzipjbinding.ExtractOperationResult;
 import net.sf.sevenzipjbinding.IInArchive;
@@ -1817,7 +1820,10 @@ public final class StationResourceArchiveUseCase {
                 }
                 rows.add(parseCsvRow(normalized));
             }
-        } catch (Exception ignore) {
+        } catch (Exception e) {
+            // 表格文件真实存在但读取/解码/解析异常时，之前被吞成“0行”，上层误报“文件为空/格式无法识别”。
+            AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, "StationResourceArchive",
+                    "资源表格读取失败(将当作空表) file=" + (file == null ? "-" : file.getName()) + " / err=" + e, "resource-import-read");
             return new ArrayList<>();
         }
         return rows;
@@ -1891,7 +1897,10 @@ public final class StationResourceArchiveUseCase {
                     }
                 }
             }
-        } catch (Exception ignore) {
+        } catch (Exception e) {
+            // 表格文件真实存在但读取/解码/解析异常时，之前被吞成“0行”，上层误报“文件为空/格式无法识别”。
+            AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, "StationResourceArchive",
+                    "资源表格读取失败(将当作空表) file=" + (file == null ? "-" : file.getName()) + " / err=" + e, "resource-import-read");
             return new ArrayList<>();
         }
         return rows;
@@ -1950,7 +1959,10 @@ public final class StationResourceArchiveUseCase {
                     }
                 }
             }
-        } catch (Exception ignore) {
+        } catch (Exception e) {
+            // 表格文件真实存在但读取/解码/解析异常时，之前被吞成“0行”，上层误报“文件为空/格式无法识别”。
+            AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, "StationResourceArchive",
+                    "资源表格读取失败(将当作空表) file=" + (file == null ? "-" : file.getName()) + " / err=" + e, "resource-import-read");
             return new ArrayList<>();
         }
         return rows;
@@ -2124,7 +2136,10 @@ public final class StationResourceArchiveUseCase {
                     rows.add(values);
                 }
             }
-        } catch (Exception ignore) {
+        } catch (Exception e) {
+            // 表格文件真实存在但读取/解码/解析异常时，之前被吞成“0行”，上层误报“文件为空/格式无法识别”。
+            AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, "StationResourceArchive",
+                    "资源表格读取失败(将当作空表) file=" + (file == null ? "-" : file.getName()) + " / err=" + e, "resource-import-read");
             return new ArrayList<>();
         }
         return rows;

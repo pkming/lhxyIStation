@@ -47,6 +47,10 @@ public final class LegacyStationAudioUseCase {
     private static final int STEP_TYPE_FILE = 1;
     private static final String UTTERANCE_ID_STATION = "station-audio";
     private static final String UTTERANCE_ID_PENDING = "station-audio-pending";
+    // 对齐现场版 SystemTTS：本机 TTS 用三参构造显式指定引擎名 "Test"。
+    // 这台定制机的“默认 TTS 引擎”不可用(两参构造 onInit 返回 -1)，但存在名为 "Test" 的可用引擎。
+    // 若该引擎不存在(如开发机/模拟器)，onInit 失败后会自动回退默认引擎再试一次。
+    private static final String PREFERRED_TTS_ENGINE = "Test";
 
     private static final Object GLOBAL_LOCK = new Object();
     private final GpioAdapter gpioAdapter;
@@ -55,6 +59,7 @@ public final class LegacyStationAudioUseCase {
     private static TextToSpeech textToSpeech;
     private static boolean ttsReady;
     private static boolean ttsInitFailed;
+    private static boolean ttsDefaultEngineTried;
     private static boolean ttsFailureHandledDuringEnsure;
     private static String pendingSpeechText;
     private static PlaybackPlan activePlan;
@@ -269,22 +274,36 @@ public final class LegacyStationAudioUseCase {
                     "station-audio-plan"
                 );
                 plan.appContext = appContext;
+                // 对齐 V32 马来现场版：由 TTS 开关(preferTts=ttsSwitch)决定报站方式——
+                //   TTS 关(马来常态) → disposeVoice 等价路：播“纯 mp3 歌单”(英文 voiceE 为主语言，
+                //     通用音也是 mp3(Start1.mp3 等)，内音播完自动接外音，缺文件的条目自动跳过，不夹中文 TTS)；
+                //   TTS 开 → systemDisposeVoice 等价路：中文混合报站(SystemTTS 合成中文连接词 + voiceD mp3)。
+                // (上一轮把 mixed 改成“永远优先”是误诊；真正的病根是语言优先级反了，见 resolveLanguageFolders。)
                 if (preferTts && !plan.mixedSteps.isEmpty()) {
-                startMixedPlaybackLocked(appContext, shellConfig, plan);
-                return;
+                    plan.mixedTtsAllowed = true;
+                    startMixedPlaybackLocked(appContext, shellConfig, plan);
+                    return;
                 }
-            if (!preferTts && !plan.innerPlaylist.isEmpty()) {
-                enablePinsLocked(shellConfig, true, false, false);
-                applyAudioVolume(appContext, shellConfig, plan.volumeMode, false);
-                playLocked(appContext, shellConfig, plan, false, 0);
-                return;
-            }
-            if (!preferTts && !plan.outerPlaylist.isEmpty()) {
-                enablePinsLocked(shellConfig, false, true, false);
-                applyAudioVolume(appContext, shellConfig, plan.volumeMode, true);
-                playLocked(appContext, shellConfig, plan, true, 0);
-                return;
-            }
+                if (!plan.innerPlaylist.isEmpty() || !plan.outerPlaylist.isEmpty()) {
+                    if (!plan.innerPlaylist.isEmpty()) {
+                        enablePinsLocked(shellConfig, true, false, false);
+                        applyAudioVolume(appContext, shellConfig, plan.volumeMode, false);
+                        playLocked(appContext, shellConfig, plan, false, 0);
+                    } else {
+                        enablePinsLocked(shellConfig, false, true, false);
+                        applyAudioVolume(appContext, shellConfig, plan.volumeMode, true);
+                        playLocked(appContext, shellConfig, plan, true, 0);
+                    }
+                    return;
+                }
+                // TTS 关、但该语言的纯 mp3 歌单也空(语音文件缺失) → 回退混合报站(TTS 关时只播其中 mp3、跳过 TTS 步骤)，
+                // 再退纯 TTS，保证至少有反馈；配合 station-audio-inventory 日志定位缺哪种文件。
+                if (!plan.mixedSteps.isEmpty()) {
+                    logPlanMessage(LogCategory.BIZ, LogLevel.WARN, plan, "无纯 mp3 歌单，回退混合报站(检查 voiceE 语音是否齐全)", "station-audio-plan");
+                    plan.mixedTtsAllowed = preferTts;
+                    startMixedPlaybackLocked(appContext, shellConfig, plan);
+                    return;
+                }
             boolean externalEnabled = shellConfig.getBasicSetupConfig().getNewspaperSettings().isExternalSoundEnabled();
             enablePinsLocked(shellConfig, true, externalEnabled, false);
             applyAudioVolume(appContext, shellConfig, plan.volumeMode == VOLUME_MODE_DISPATCH ? VOLUME_MODE_DISPATCH : VOLUME_MODE_TTS, externalEnabled);
@@ -316,8 +335,12 @@ public final class LegacyStationAudioUseCase {
             + " exists=" + lineVoiceRoot.exists();
         LegacyGpsRouteResource.StationPoint firstStation = route.getStations().isEmpty() ? null : route.getStations().get(0);
         LegacyGpsRouteResource.StationPoint terminalStation = route.lastStation();
+        // 验收诊断：把线路语音目录(voiceD/E/F)实际有哪些文件、当前站要找的 mp3 文件名直接打进日志，
+        // 一眼看清 mp3 是在哪个语言文件夹、按什么命名(编码 KL1005 还是站名)、到底在不在。
+        logVoiceInventory(plan, lineVoiceRoot, station);
 
-        for (String languageFolder : resolveLanguageFolders(shellConfig)) {
+        // 报站用“英文优先”的语言顺序(对齐 V32 disposeVoice)；服务音/报时/提醒仍走中文优先的 resolveLanguageFolders。
+        for (String languageFolder : resolveStationLanguageFolders(shellConfig)) {
             switch (broadcastType) {
                 case BROADCAST_TYPE_START:
                     addCommonVoiceIfExists(plan.innerPlaylist, commonSoundsRoot, languageFolder, "起点音1", "Start1");
@@ -374,6 +397,54 @@ public final class LegacyStationAudioUseCase {
         buildStationMixedSteps(plan, route, station, broadcastType, commonSoundsRoot, lineVoiceRoot);
         plan.ttsText = buildStationTtsText(route, station, broadcastType);
         return plan;
+    }
+
+    /**
+     * 验收诊断：盘点线路语音目录(voiceD/voiceE/voiceF)实际文件，并打印当前站在各语言文件夹里要找的 mp3 路径与是否存在。
+     * 目的：仅凭一份日志即可判断 mp3 是缺文件、放错语言文件夹、还是命名不匹配(编码 KL1005 vs 站名)。
+     */
+    private void logVoiceInventory(
+            PlaybackPlan plan,
+            File lineVoiceRoot,
+            LegacyGpsRouteResource.StationPoint station
+    ) {
+        try {
+            StringBuilder sb = new StringBuilder();
+            sb.append("语音资源盘点 lineVoiceRoot=").append(lineVoiceRoot.getAbsolutePath())
+                .append(" exists=").append(lineVoiceRoot.exists());
+            String sound = station == null || station.getStationSound() == null ? "-" : station.getStationSound().trim();
+            String name = station == null || station.getStationName() == null ? "-" : station.getStationName().trim();
+            sb.append(" / 当前站 报站语音=").append(sound).append(" 站名=").append(name);
+            for (String folder : new String[]{LANGUAGE_MANDARIN, LANGUAGE_ENGLISH, LANGUAGE_DIALECT}) {
+                File dir = new File(lineVoiceRoot, folder);
+                sb.append(" / ").append(folder).append("=");
+                if (!dir.isDirectory()) {
+                    sb.append("无目录");
+                    continue;
+                }
+                File[] files = dir.listFiles();
+                if (files == null || files.length == 0) {
+                    sb.append("空");
+                    continue;
+                }
+                sb.append(files.length).append("个[");
+                int sample = Math.min(files.length, 6);
+                for (int i = 0; i < sample; i++) {
+                    if (i > 0) {
+                        sb.append(",");
+                    }
+                    sb.append(files[i].getName());
+                }
+                sb.append("]");
+                // 当前站在该文件夹里按 报站语音/站名 各自要找的文件是否存在
+                boolean bySound = !sound.isEmpty() && !"-".equals(sound) && new File(dir, sound + ".mp3").isFile();
+                boolean byName = !name.isEmpty() && !"-".equals(name) && new File(dir, name + ".mp3").isFile();
+                sb.append(" 命中<报站语音>=").append(bySound).append(" 命中<站名>=").append(byName);
+            }
+            logPlanMessage(LogCategory.BIZ, LogLevel.INFO, plan, sb.toString(), "station-audio-inventory");
+        } catch (Exception e) {
+            logPlanMessage(LogCategory.ERROR, LogLevel.WARN, plan, "语音资源盘点失败: " + e.getMessage(), "station-audio-inventory");
+        }
     }
 
     private void buildStationMixedSteps(
@@ -508,6 +579,29 @@ public final class LegacyStationAudioUseCase {
         return plan;
     }
 
+    /**
+     * 报站语音的语言顺序：英文 voiceE 为主(无条件)，中文/方言按开关追加。
+     * <p>
+     * 对齐 V32 马来现场版 disposeVoice(MainActivity:1877)——注意 V32 里<b>只有“报站”是英文优先</b>。
+     */
+    private List<String> resolveStationLanguageFolders(ShellConfig shellConfig) {
+        List<String> folders = new ArrayList<>();
+        folders.add(LANGUAGE_ENGLISH);
+        if (shellConfig.getBasicSetupConfig().getNewspaperSettings().isEnglishEnabled()) {
+            folders.add(LANGUAGE_MANDARIN);
+        }
+        if (shellConfig.getBasicSetupConfig().getNewspaperSettings().isDialectEnabled()) {
+            folders.add(LANGUAGE_DIALECT);
+        }
+        return folders;
+    }
+
+    /**
+     * 服务音 / 报时 / 提醒 的语言顺序：中文 voiceD 为主(无条件)，英文/方言按开关追加。
+     * <p>
+     * 对齐 V32：serviceVoice(2753)、addNowTime(5206)、提醒(5337) 全部是<b>中文优先</b>——
+     * 与报站相反，这是现场版的实际设计，不要跟着报站一起翻成英文优先。
+     */
     private List<String> resolveLanguageFolders(ShellConfig shellConfig) {
         List<String> folders = new ArrayList<>();
         folders.add(LANGUAGE_MANDARIN);
@@ -828,6 +922,8 @@ public final class LegacyStationAudioUseCase {
     private void speakLocked(Context context, String text) {
         String normalized = text == null ? "" : text.trim();
         if (normalized.isEmpty() || "-".equals(normalized)) {
+            logPlanMessage(LogCategory.BIZ, LogLevel.WARN, activePlan,
+                    "音频无声: 无可播 mp3 且 TTS 文本为空(内/外/混合歌单均空)", "station-audio-silent");
             return;
         }
         ttsFailureHandledDuringEnsure = false;
@@ -871,15 +967,25 @@ public final class LegacyStationAudioUseCase {
         if (textToSpeech != null) {
             return;
         }
-        textToSpeech = new TextToSpeech(context.getApplicationContext(), status -> {
+        // 先按现场版方式指定引擎 "Test"；本机默认引擎不可用，指定引擎才能出声。
+        createTextToSpeechLocked(context, PREFERRED_TTS_ENGINE);
+    }
+
+    /**
+     * 创建 TextToSpeech；engine 为空则用系统默认引擎。
+     * 指定引擎初始化失败时，自动回退默认引擎再试一次(避免只在某类机型可用)。
+     */
+    private void createTextToSpeechLocked(Context context, String engine) {
+        Context appContext = context.getApplicationContext();
+        boolean useSpecificEngine = engine != null && !engine.trim().isEmpty();
+        String engineLabel = useSpecificEngine ? engine : "默认";
+        logPlanMessage(LogCategory.BIZ, LogLevel.INFO, activePlan, "初始化 TTS 引擎=" + engineLabel, "station-audio-tts-init");
+        TextToSpeech.OnInitListener listener = status -> {
             synchronized (GLOBAL_LOCK) {
                 ttsReady = status == TextToSpeech.SUCCESS;
                 if (!ttsReady || textToSpeech == null) {
-                    ttsInitFailed = true;
-                    logPlanMessage(LogCategory.ERROR, LogLevel.WARN, activePlan, "TTS 初始化失败 status=" + status, "station-audio-tts-init");
                     TextToSpeech failedTts = textToSpeech;
                     textToSpeech = null;
-                    pendingSpeechText = null;
                     if (failedTts != null) {
                         try {
                             failedTts.shutdown();
@@ -887,11 +993,22 @@ public final class LegacyStationAudioUseCase {
                             logPlanMessage(LogCategory.ERROR, LogLevel.WARN, activePlan, "TTS 释放失败: " + ignore.getMessage(), "station-audio-tts-init");
                         }
                     }
+                    // 指定引擎失败 -> 回退默认引擎重试一次(只回退一次，避免死循环)
+                    if (useSpecificEngine && !ttsDefaultEngineTried) {
+                        ttsDefaultEngineTried = true;
+                        logPlanMessage(LogCategory.ERROR, LogLevel.WARN, activePlan, "TTS 引擎(" + engineLabel + ")初始化失败 status=" + status + "，回退默认引擎重试", "station-audio-tts-init");
+                        createTextToSpeechLocked(appContext, null);
+                        return;
+                    }
+                    ttsInitFailed = true;
+                    pendingSpeechText = null;
+                    logPlanMessage(LogCategory.ERROR, LogLevel.WARN, activePlan, "TTS 初始化失败 status=" + status + " 引擎=" + engineLabel, "station-audio-tts-init");
                     ttsFailureHandledDuringEnsure = true;
-                    handleUnavailableTtsLocked(context.getApplicationContext(), activePlan, "init-status-" + status);
+                    handleUnavailableTtsLocked(appContext, activePlan, "init-status-" + status);
                     return;
                 }
                 ttsInitFailed = false;
+                logPlanMessage(LogCategory.BIZ, LogLevel.INFO, activePlan, "TTS 初始化成功 引擎=" + engineLabel, "station-audio-tts-init");
                 try {
                     textToSpeech.setLanguage(Locale.CHINA);
                 } catch (Exception ignore) {
@@ -926,7 +1043,10 @@ public final class LegacyStationAudioUseCase {
                     pendingSpeechText = null;
                 }
             }
-        });
+        };
+        textToSpeech = useSpecificEngine
+                ? new TextToSpeech(appContext, listener, engine)
+                : new TextToSpeech(appContext, listener);
     }
 
     private void handleUnavailableTtsLocked(Context context, PlaybackPlan plan, String reason) {
@@ -980,6 +1100,12 @@ public final class LegacyStationAudioUseCase {
         plan.mixedStepIndex = nextIndex;
         PlaybackStep step = plan.mixedSteps.get(nextIndex);
         if (step.type == STEP_TYPE_TTS) {
+            if (!plan.mixedTtsAllowed) {
+                // TTS 关闭：跳过纯 TTS 步骤，继续播后面的 MP3，保证关 TTS 时报站仍有 MP3 声音。
+                logPlanMessage(LogCategory.BIZ, LogLevel.INFO, plan, "混合报站 跳过TTS步骤(TTS未启用) step=" + nextIndex, "station-audio-mixed");
+                playNextMixedStepLocked();
+                return;
+            }
             logPlanMessage(LogCategory.BIZ, LogLevel.INFO, plan, "混合报站 TTS step=" + nextIndex + " / text=" + compactText(step.text), "station-audio-mixed");
             speakLocked(plan.appContext, step.text);
             return;
@@ -1238,6 +1364,8 @@ public final class LegacyStationAudioUseCase {
         private int mixedStepIndex = -1;
         private boolean mixedPlaybackActive;
         private boolean mixedFilePlayed;
+        // 混合报站里是否允许 TTS 步骤：TTS 关闭时为 false，只播 MP3 步骤、跳过 TTS，避免关 TTS 就整段没声。
+        private boolean mixedTtsAllowed;
     }
 
     private static final class PlaybackStep {

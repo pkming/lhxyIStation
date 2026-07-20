@@ -113,72 +113,8 @@ public class StationBusinessModuleTest {
                 assertEquals(false, (Boolean) method.invoke(module, gpsSnapshot(true, "10.0", "22.654321", ""), 19));
         }
 
-        @Test
-        public void currentStationOverlap_allowsManualAdvanceWhenGpsInvalid() throws Exception {
-                StationBusinessModule module = new StationBusinessModule(null, null, null, null, null, null, null);
-                module.getStationState().applyLineProfile("101", "上行", Arrays.asList("A站", "B站"));
-                module.getStationState().recordAutoStation(0, "A站", LegacyGpsAutoReportEngine.STATION_TYPE_ENTER);
-
-                Method method = StationBusinessModule.class.getDeclaredMethod(
-                                "isCurrentStationOverlappedByGps",
-                                LegacyGpsRouteResource.class,
-                                GpsFixSnapshot.class,
-                                String.class
-                );
-                method.setAccessible(true);
-
-                assertFalse((Boolean) method.invoke(module, routeWithStationMileage(30d), gpsSnapshot(false, "0.0", "22.000000", "114.000000"), "test"));
-        }
-
-        @Test
-        public void currentStationOverlap_allowsManualAdvanceWhenGpsFarFromStation() throws Exception {
-                StationBusinessModule module = new StationBusinessModule(null, null, null, null, null, null, null);
-                module.getStationState().applyLineProfile("101", "上行", Arrays.asList("A站", "B站"));
-                module.getStationState().recordAutoStation(0, "A站", LegacyGpsAutoReportEngine.STATION_TYPE_ENTER);
-
-                Method method = StationBusinessModule.class.getDeclaredMethod(
-                                "isCurrentStationOverlappedByGps",
-                                LegacyGpsRouteResource.class,
-                                GpsFixSnapshot.class,
-                                String.class
-                );
-                method.setAccessible(true);
-
-                assertFalse((Boolean) method.invoke(module, routeWithStationMileage(30d), gpsSnapshot(true, "0.0", "22.654321", "114.123456"), "test"));
-        }
-
-        @Test
-        public void currentStationOverlap_blocksManualAdvanceWhenGpsInsideCurrentStationRange() throws Exception {
-                StationBusinessModule module = new StationBusinessModule(null, null, null, null, null, null, null);
-                module.getStationState().applyLineProfile("101", "上行", Arrays.asList("A站", "B站"));
-                module.getStationState().recordAutoStation(0, "A站", LegacyGpsAutoReportEngine.STATION_TYPE_ENTER);
-
-                Method method = StationBusinessModule.class.getDeclaredMethod(
-                                "isCurrentStationOverlappedByGps",
-                                LegacyGpsRouteResource.class,
-                                GpsFixSnapshot.class,
-                                String.class
-                );
-                method.setAccessible(true);
-
-                assertTrue((Boolean) method.invoke(module, routeWithStationMileage(30d), gpsSnapshot(true, "0.0", "22.000000", "114.000000"), "test"));
-        }
-
     private LegacyGpsRouteResource.StationPoint station(int stationNo, String stationName, String speedLimit) {
         return station(stationNo, stationName, speedLimit, 0d);
-    }
-
-    private LegacyGpsRouteResource routeWithStationMileage(double mileage) {
-        return new LegacyGpsRouteResource(
-                "101",
-                LegacyGpsRouteResource.ATTRIBUTE_UP_DOWN,
-                "上行",
-                Arrays.asList(
-                        station(0, "A站", "40", mileage),
-                        station(1, "B站", "50", mileage)
-                ),
-                Collections.emptyList()
-        );
     }
 
     private LegacyGpsRouteResource.StationPoint station(int stationNo, String stationName, String speedLimit, double mileage) {
