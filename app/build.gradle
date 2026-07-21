@@ -2,8 +2,8 @@ plugins {
     id 'com.android.application'
 }
 
-def appVersionCode = 6
-def appVersionName = "0.1.6"
+def appVersionCode = 7
+def appVersionName = "0.1.7"
 def tinkerId = appVersionName
 def buildTimestamp = new Date().format("yyyyMMddHHmm")
 def runtimeConfigDir = new File(rootProject.projectDir, "config")
