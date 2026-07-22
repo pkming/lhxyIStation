@@ -10,6 +10,7 @@ import com.lhxy.istationdevice.android11.deviceapi.SocketClientAdapter;
 import com.lhxy.istationdevice.android11.deviceapi.SystemOps;
 import com.lhxy.istationdevice.android11.devicem90.M90ManagedCameraAdapter;
 import com.lhxy.istationdevice.android11.devicem90.M90ManagedGpioAdapter;
+import com.lhxy.istationdevice.android11.devicem90.M90GpsNativeSerialPortAdapter;
 import com.lhxy.istationdevice.android11.devicem90.M90ManagedJhySerialPortAdapter;
 import com.lhxy.istationdevice.android11.devicem90.M90ManagedRfidAdapter;
 import com.lhxy.istationdevice.android11.devicem90.M90ManagedSerialPortAdapter;
@@ -48,6 +49,9 @@ public final class ShellRuntime {
     private final M90ManagedJhySerialPortAdapter jhySerialPortAdapter = new M90ManagedJhySerialPortAdapter();
     private final JhyPassengerCounterMonitor passengerCounterMonitor =
             new JhyPassengerCounterMonitor(serialPortAdapter, jhySerialPortAdapter);
+    // GPS 串口走原生 libgps_serial_port.so（对齐 V32 AppApplication.opd），
+    // 规避 M90RealSerialPortAdapter 用 RandomAccessFile.open() 在 DCD 未就绪时永久阻塞的问题。
+    private final M90GpsNativeSerialPortAdapter gpsSerialPortAdapter = new M90GpsNativeSerialPortAdapter();
     private final TerminalModuleHub moduleHub;
     private volatile ShellConfig activeConfig;
     private volatile Context appContext;
@@ -55,6 +59,7 @@ public final class ShellRuntime {
     private ShellRuntime() {
         moduleHub = new TerminalModuleHub(
                 serialPortAdapter,
+                gpsSerialPortAdapter,
                 socketClientAdapter,
                 gpioAdapter,
                 cameraAdapter,

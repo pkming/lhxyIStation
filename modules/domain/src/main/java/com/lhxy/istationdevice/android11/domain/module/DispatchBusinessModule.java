@@ -291,10 +291,8 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
     private synchronized void startSocketDispatchReportIfNeeded(String traceId) {
         try {
             ShellConfig shellConfig = requireShellConfig();
-            if (shellConfig.getBasicSetupConfig().getProtocolLinkageSettings().isSerialDispatchEnabled()) {
-                stopSocketDispatchReport(traceId + "-serial-mode");
-                return;
-            }
+            // 对齐 V32：socket 调度始终保持连接，无论串口调度是否启用。
+            // V32 的 SocketManage.connect() 没有"串口模式则跳过"的逻辑，两路独立运行。
             ShellConfig.SocketChannel channel = resolveActiveDispatchChannel(shellConfig);
             if (!isUsableSocketChannel(channel)) {
                 AppLogCenter.log(LogCategory.BIZ, LogLevel.WARN, TAG,
@@ -343,9 +341,7 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
     private void sendPeriodicSocketReport(String traceId) {
         try {
             ShellConfig shellConfig = requireShellConfig();
-            if (shellConfig.getBasicSetupConfig().getProtocolLinkageSettings().isSerialDispatchEnabled()) {
-                return;
-            }
+            // 对齐 V32：不因串口调度启用而跳过 socket 上报
             ShellConfig.SocketChannel channel = resolveActiveDispatchChannel(shellConfig);
             if (!isUsableSocketChannel(channel)) {
                 return;

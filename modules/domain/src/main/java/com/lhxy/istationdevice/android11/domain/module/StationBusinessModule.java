@@ -477,10 +477,13 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
      * 确保 GPS 串口和 GPS 监听已经准备好。
      */
     private void ensureGpsReady(ShellConfig.SerialChannel gpsChannel, String traceId) {
-        if (!serialPortAdapter.isOpen(gpsChannel.getPortName())) {
-            serialPortAdapter.open(gpsChannel.toSerialPortConfig(), traceId + "-gps-open");
-        }
+        // GPS 串口由 GpsBusinessModule 通过原生 libgps_serial_port.so 管理。
+        // 若 GpsSerialMonitor 已绑定（正常启动时 GpsBusinessModule 先于本模块初始化），
+        // 跳过 open/attach，避免通过通用 serialPortAdapter（RandomAccessFile）重复打开造成阻塞。
         if (!isGpsMonitorAttached()) {
+            if (!serialPortAdapter.isOpen(gpsChannel.getPortName())) {
+                serialPortAdapter.open(gpsChannel.toSerialPortConfig(), traceId + "-gps-open");
+            }
             gpsSerialMonitor.attach(serialPortAdapter, gpsChannel, traceId + "-gps-monitor");
         }
         stationState.bindGps(gpsChannel.getKey());

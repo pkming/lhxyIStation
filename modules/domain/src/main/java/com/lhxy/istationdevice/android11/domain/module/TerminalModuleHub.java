@@ -42,6 +42,7 @@ public final class TerminalModuleHub {
 
     public TerminalModuleHub(
             SerialPortAdapter serialPortAdapter,
+            SerialPortAdapter gpsSerialPortAdapter,
             SocketClientAdapter socketClientAdapter,
             GpioAdapter gpioAdapter,
             CameraAdapter cameraAdapter,
@@ -59,8 +60,9 @@ public final class TerminalModuleHub {
         DvrSerialDispatchUseCase dvrSerialDispatchUseCase = new DvrSerialDispatchUseCase(serialPortAdapter);
         DispatchBusinessModule dispatchModule =
             new DispatchBusinessModule(protocolReplayUseCase, socketClientAdapter, gpioAdapter, jt808SocketMonitor, dvrSerialDispatchUseCase, gpsSerialMonitor);
+        // GPS 专用串口适配器走原生 libgps_serial_port.so（对齐 V32），规避 RandomAccessFile O_NONBLOCK 阻塞。
         GpsBusinessModule gpsModule =
-            new GpsBusinessModule(serialPortAdapter, gpsSerialMonitor, systemOps);
+            new GpsBusinessModule(gpsSerialPortAdapter, gpsSerialMonitor, systemOps);
         StationBusinessModule stationModule =
             new StationBusinessModule(
                 protocolReplayUseCase,
