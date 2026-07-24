@@ -63,6 +63,7 @@ public final class LegacyStationAudioUseCase {
     private static boolean ttsFailureHandledDuringEnsure;
     private static String pendingSpeechText;
     private static PlaybackPlan activePlan;
+    private static PlaybackPlan lastStationPlaybackPlan;
     private static long requestSerial;
 
     public LegacyStationAudioUseCase(GpioAdapter gpioAdapter) {
@@ -119,8 +120,28 @@ public final class LegacyStationAudioUseCase {
                 ? BROADCAST_TYPE_TERMINAL_ENTER
                 : BROADCAST_TYPE_ENTER;
         PlaybackPlan plan = createStationPlan(context, shellConfig, route, station, broadcastType);
-            plan.trigger = "auto-station";
+        plan.trigger = "auto-station";
         play(context, shellConfig, plan, shellConfig.getBasicSetupConfig().getTtsSettings().isEnabled());
+    }
+
+    /**
+     * 重播上一次真正进入播放链的站点报站。
+     */
+    public boolean replayLastStation(Context context, ShellConfig shellConfig) {
+        if (context == null || shellConfig == null) {
+            return false;
+        }
+        PlaybackPlan repeatPlan;
+        synchronized (GLOBAL_LOCK) {
+            if (lastStationPlaybackPlan == null) {
+                AppLogCenter.log(LogCategory.BIZ, LogLevel.WARN, TAG, "重复报站跳过: 还没有上一条报站音频", "station-audio-repeat");
+                return false;
+            }
+            repeatPlan = lastStationPlaybackPlan.copyForRepeat();
+        }
+        repeatPlan.trigger = "repeat-" + repeatPlan.trigger;
+        play(context, shellConfig, repeatPlan, shellConfig.getBasicSetupConfig().getTtsSettings().isEnabled());
+        return true;
     }
 
     /**
@@ -255,8 +276,9 @@ public final class LegacyStationAudioUseCase {
             }
             plan.shellConfig = shellConfig;
             activePlan = plan;
-                ensureRequestIdLocked(plan);
-                logPlanMessage(
+            rememberStationPlanForRepeat(plan);
+            ensureRequestIdLocked(plan);
+            logPlanMessage(
                     LogCategory.BIZ,
                     LogLevel.INFO,
                     plan,
@@ -271,44 +293,56 @@ public final class LegacyStationAudioUseCase {
                         + " / firstInner=" + firstPath(plan.innerPlaylist)
                         + " / firstOuter=" + firstPath(plan.outerPlaylist)
                         + " / tts=" + compactText(plan.ttsText),
-                    "station-audio-plan"
-                );
-                plan.appContext = appContext;
-                // 对齐 V32 马来现场版：由 TTS 开关(preferTts=ttsSwitch)决定报站方式——
-                //   TTS 关(马来常态) → disposeVoice 等价路：播“纯 mp3 歌单”(英文 voiceE 为主语言，
-                //     通用音也是 mp3(Start1.mp3 等)，内音播完自动接外音，缺文件的条目自动跳过，不夹中文 TTS)；
-                //   TTS 开 → systemDisposeVoice 等价路：中文混合报站(SystemTTS 合成中文连接词 + voiceD mp3)。
-                // (上一轮把 mixed 改成“永远优先”是误诊；真正的病根是语言优先级反了，见 resolveLanguageFolders。)
-                if (preferTts && !plan.mixedSteps.isEmpty()) {
-                    plan.mixedTtsAllowed = true;
-                    startMixedPlaybackLocked(appContext, shellConfig, plan);
-                    return;
+                "station-audio-plan"
+            );
+            plan.appContext = appContext;
+            // 对齐 V32 马来现场版：由 TTS 开关(preferTts=ttsSwitch)决定报站方式——
+            //   TTS 关(马来常态) → disposeVoice 等价路：播“纯 mp3 歌单”(英文 voiceE 为主语言，
+            //     通用音也是 mp3(Start1.mp3 等)，内音播完自动接外音，缺文件的条目自动跳过，不夹中文 TTS)；
+            //   TTS 开 → systemDisposeVoice 等价路：中文混合报站(SystemTTS 合成中文连接词 + voiceD mp3)。
+            // (上一轮把 mixed 改成“永远优先”是误诊；真正的病根是语言优先级反了，见 resolveLanguageFolders。)
+            if (preferTts && !plan.mixedSteps.isEmpty()) {
+                plan.mixedTtsAllowed = true;
+                startMixedPlaybackLocked(appContext, shellConfig, plan);
+                return;
+            }
+            if (!plan.innerPlaylist.isEmpty() || !plan.outerPlaylist.isEmpty()) {
+                if (!plan.innerPlaylist.isEmpty()) {
+                    enablePinsLocked(shellConfig, true, false, false);
+                    applyAudioVolume(appContext, shellConfig, plan.volumeMode, false);
+                    playLocked(appContext, shellConfig, plan, false, 0);
+                } else {
+                    enablePinsLocked(shellConfig, false, true, false);
+                    applyAudioVolume(appContext, shellConfig, plan.volumeMode, true);
+                    playLocked(appContext, shellConfig, plan, true, 0);
                 }
-                if (!plan.innerPlaylist.isEmpty() || !plan.outerPlaylist.isEmpty()) {
-                    if (!plan.innerPlaylist.isEmpty()) {
-                        enablePinsLocked(shellConfig, true, false, false);
-                        applyAudioVolume(appContext, shellConfig, plan.volumeMode, false);
-                        playLocked(appContext, shellConfig, plan, false, 0);
-                    } else {
-                        enablePinsLocked(shellConfig, false, true, false);
-                        applyAudioVolume(appContext, shellConfig, plan.volumeMode, true);
-                        playLocked(appContext, shellConfig, plan, true, 0);
-                    }
-                    return;
-                }
-                // TTS 关、但该语言的纯 mp3 歌单也空(语音文件缺失) → 回退混合报站(TTS 关时只播其中 mp3、跳过 TTS 步骤)，
-                // 再退纯 TTS，保证至少有反馈；配合 station-audio-inventory 日志定位缺哪种文件。
-                if (!plan.mixedSteps.isEmpty()) {
-                    logPlanMessage(LogCategory.BIZ, LogLevel.WARN, plan, "无纯 mp3 歌单，回退混合报站(检查 voiceE 语音是否齐全)", "station-audio-plan");
-                    plan.mixedTtsAllowed = preferTts;
-                    startMixedPlaybackLocked(appContext, shellConfig, plan);
-                    return;
-                }
+                return;
+            }
+            // TTS 关、但该语言的纯 mp3 歌单也空(语音文件缺失) → 回退混合报站(TTS 关时只播其中 mp3、跳过 TTS 步骤)，
+            // 再退纯 TTS，保证至少有反馈；配合 station-audio-inventory 日志定位缺哪种文件。
+            if (!plan.mixedSteps.isEmpty()) {
+                logPlanMessage(LogCategory.BIZ, LogLevel.WARN, plan, "无纯 mp3 歌单，回退混合报站(检查 voiceE 语音是否齐全)", "station-audio-plan");
+                plan.mixedTtsAllowed = preferTts;
+                startMixedPlaybackLocked(appContext, shellConfig, plan);
+                return;
+            }
             boolean externalEnabled = shellConfig.getBasicSetupConfig().getNewspaperSettings().isExternalSoundEnabled();
             enablePinsLocked(shellConfig, true, externalEnabled, false);
             applyAudioVolume(appContext, shellConfig, plan.volumeMode == VOLUME_MODE_DISPATCH ? VOLUME_MODE_DISPATCH : VOLUME_MODE_TTS, externalEnabled);
             speakLocked(appContext, plan.ttsText);
         }
+    }
+
+    private void rememberStationPlanForRepeat(PlaybackPlan plan) {
+        if (plan == null || !isStationPlayback(plan.trigger)) {
+            return;
+        }
+        lastStationPlaybackPlan = plan.copyForRepeat();
+    }
+
+    private boolean isStationPlayback(String trigger) {
+        String value = trigger == null ? "" : trigger.trim();
+        return "manual-station".equals(value) || "auto-station".equals(value);
     }
 
     /**
@@ -1366,6 +1400,21 @@ public final class LegacyStationAudioUseCase {
         private boolean mixedFilePlayed;
         // 混合报站里是否允许 TTS 步骤：TTS 关闭时为 false，只播 MP3 步骤、跳过 TTS，避免关 TTS 就整段没声。
         private boolean mixedTtsAllowed;
+
+        private PlaybackPlan copyForRepeat() {
+            PlaybackPlan copy = new PlaybackPlan();
+            copy.innerPlaylist.addAll(innerPlaylist);
+            copy.outerPlaylist.addAll(outerPlaylist);
+            copy.mixedSteps.addAll(mixedSteps);
+            copy.ttsText = ttsText;
+            copy.trigger = trigger;
+            copy.stationSummary = stationSummary;
+            copy.resourceSummary = resourceSummary;
+            copy.sourceSummary = sourceSummary;
+            copy.volumeMode = volumeMode;
+            copy.mixedTtsAllowed = mixedTtsAllowed;
+            return copy;
+        }
     }
 
     private static final class PlaybackStep {

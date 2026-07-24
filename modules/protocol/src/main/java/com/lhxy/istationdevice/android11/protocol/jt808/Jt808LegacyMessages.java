@@ -54,6 +54,16 @@ public final class Jt808LegacyMessages {
         );
     }
 
+    public Jt808Frame createAuthority(Jt808Variant variant, String terminalId, byte[] authorityCode) {
+        return new Jt808Frame(
+                variant,
+                MSG_AUTHORITY,
+                terminalId,
+                codec.nextSerialNumber(),
+                authorityCode == null ? new byte[0] : authorityCode
+        );
+    }
+
     public Jt808Frame createRegister(Jt808Variant variant, Jt808TerminalProfile profile) {
         ByteArrayOutputStream body = new ByteArrayOutputStream();
         write(body, Jt808CodecSupport.toWord(profile.getProvinceId()));

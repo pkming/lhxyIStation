@@ -423,7 +423,12 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
      */
     private ModuleRunResult repeatStation(String traceId) {
         try {
+            Context context = requireContextOrThrow();
             ShellConfig shellConfig = requireShellConfig();
+            if (stationAudioUseCase.replayLastStation(context, shellConfig)) {
+                logStationSnapshot("手动重复上一条播报", traceId);
+                return success("已重复上一条播报", "重复播放刚才的报站音频");
+            }
             LegacyGpsRouteResource route = resolveRequiredRoute();
             syncManualGpsSnapshotIfAvailable(traceId);
             if (stationState.getReportCount() == 0) {
@@ -433,7 +438,7 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
                 return success("当前处于预报态", "旧版首页预报态不执行重复报站");
             }
             stationDisplayUseCase.sendCurrentStation(shellConfig, route, stationState, traceId + "-display-current");
-            playCurrentStationAudio(requireContextOrThrow(), shellConfig, route);
+            playCurrentStationAudio(context, shellConfig, route);
             sendSerialDispatchFramesIfNeeded(traceId + "-repeat-station");
             startPeriodicGpsReportIfNeeded(traceId + "-periodic-gps");
             startAutoGpsReportIfNeeded(traceId + "-auto-gps");

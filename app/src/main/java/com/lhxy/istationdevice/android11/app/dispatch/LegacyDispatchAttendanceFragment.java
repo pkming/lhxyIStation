@@ -38,6 +38,8 @@ public final class LegacyDispatchAttendanceFragment extends Fragment {
     private RadioButton rbGoToSignIn;
     private RadioButton rbGoOffSignIn;
     private Button butAffirmOperation;
+    private Button butBroadcastAttendance;
+    private LegacyCardSpeechController cardSpeechController;
 
     @Nullable
     @Override
@@ -54,8 +56,20 @@ public final class LegacyDispatchAttendanceFragment extends Fragment {
         rbGoToSignIn = view.findViewById(R.id.rb_radio_goto_signin);
         rbGoOffSignIn = view.findViewById(R.id.rb_radio_gooff_signin);
         butAffirmOperation = view.findViewById(R.id.butAffirmOperation);
+        butBroadcastAttendance = view.findViewById(R.id.butBroadcastAttendance);
+        cardSpeechController = new LegacyCardSpeechController(
+                view.getContext(),
+                "Attendance",
+                "attendance-card-tts",
+                "dispatch-attendance-card",
+                "dispatch-attendance-card"
+        );
+        cardSpeechController.init();
         if (butAffirmOperation != null) {
             butAffirmOperation.setOnClickListener(v -> handleConfirm());
+        }
+        if (butBroadcastAttendance != null) {
+            butBroadcastAttendance.setOnClickListener(v -> handlePlayCard());
         }
         render();
     }
@@ -64,6 +78,15 @@ public final class LegacyDispatchAttendanceFragment extends Fragment {
     public void onResume() {
         super.onResume();
         render();
+    }
+
+    @Override
+    public void onDestroy() {
+        if (cardSpeechController != null) {
+            cardSpeechController.stop();
+            cardSpeechController.shutdown();
+        }
+        super.onDestroy();
     }
 
     private void handleConfirm() {
@@ -75,6 +98,19 @@ public final class LegacyDispatchAttendanceFragment extends Fragment {
         if (getContext() != null) {
             Toast.makeText(getContext(), result.describeInline(), Toast.LENGTH_SHORT).show();
         }
+    }
+
+    private void handlePlayCard() {
+        SignInState state = requireSignInModule().getSignInState();
+        String cardNo = state.getCardNo();
+        if (LegacyCardSpeechController.normalizeCardForDisplay(cardNo).isEmpty()) {
+            toast(getString(R.string.paycard_fail));
+            return;
+        }
+        if (cardSpeechController != null) {
+            cardSpeechController.speakCard(cardNo);
+        }
+        toast(getString(R.string.paycard_suss));
     }
 
     private void render() {
@@ -114,6 +150,12 @@ public final class LegacyDispatchAttendanceFragment extends Fragment {
             return (SignInBusinessModule) module;
         }
         throw new IllegalStateException("签到模块未就绪");
+    }
+
+    private void toast(String message) {
+        if (getContext() != null) {
+            Toast.makeText(getContext(), message, Toast.LENGTH_SHORT).show();
+        }
     }
 
     private String buildTraceId(String actionKey) {

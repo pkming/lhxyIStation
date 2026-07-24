@@ -48,15 +48,15 @@
   "socket": {
     "jt808": {
       "channelName": "JT808_SOCKET",
-      "host": "211.154.159.34",
-      "port": 7000,
+      "host": "47.119.154.255",
+      "port": 7001,
       "mode": "stub",
       "note": "JT808 调度"
     },
     "al808": {
       "channelName": "AL808_SOCKET",
-      "host": "211.154.159.34",
-      "port": 7000,
+      "host": "47.119.154.255",
+      "port": 7001,
       "mode": "stub",
       "note": "AL808 调度"
     }
@@ -227,7 +227,7 @@
       "speedingWarningEnabled": true
     },
     "network": {
-      "dispatchId": "1",
+      "dispatchId": "18612345677",
       "longInterval": 30,
       "infoInterval": 5,
       "speedingInterval": 10,
@@ -259,12 +259,16 @@
     },
     "wireless": {
       "systemEntryEnabled": true
+    },
+    "protocolLinkage": {
+      "dispatchOwner": "network",
+      "updatedAt": 0
     }
   },
   "debugReplay": {
     "displaySerialKey": "rs485_1",
     "gpsSerialKey": "gps",
-    "jt808SocketKey": "jt808",
+    "jt808SocketKey": "al808",
     "al808SocketKey": "al808",
     "gpioPinKey": "inner_audio",
     "monitorPrimaryGpioKey": "io1",

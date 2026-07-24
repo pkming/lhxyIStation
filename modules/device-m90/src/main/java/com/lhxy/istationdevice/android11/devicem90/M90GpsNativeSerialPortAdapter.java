@@ -24,6 +24,9 @@ import java.util.concurrent.Executors;
  */
 public final class M90GpsNativeSerialPortAdapter implements SerialPortAdapter {
     private static final String TAG = "M90GpsNativeSerial";
+    private static final long RAW_LOG_INTERVAL_MS = 10_000L;
+    private static final int INITIAL_RAW_LOG_LIMIT = 3;
+    private static final int RAW_LOG_PREVIEW_LENGTH = 160;
 
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private volatile boolean nativeAvailable = M90NativeGpsSerialPort.LIBRARY_LOADED;
@@ -122,6 +125,8 @@ public final class M90GpsNativeSerialPortAdapter implements SerialPortAdapter {
         log(LogCategory.DEVICE, LogLevel.INFO, "native gps read loop start " + currentPortPath, traceId);
         Thread thread = new Thread(() -> {
             String readTraceId = traceId + "-rx";
+            long rawPacketCount = 0L;
+            long lastRawLogTimeMs = 0L;
             try {
                 while (currentPort == port && currentPortPath.equals(openedPortPath)) {
                     String raw = currentPort.read();
@@ -133,10 +138,17 @@ public final class M90GpsNativeSerialPortAdapter implements SerialPortAdapter {
                     }
                     // NMEA 语句全为 ASCII，ISO-8859-1 转换无损
                     byte[] payload = raw.getBytes(StandardCharsets.ISO_8859_1);
-                    log(LogCategory.PROTOCOL_RX, LogLevel.DEBUG,
-                            "native gps recv on " + currentPortPath + " bytes=" + payload.length
-                                    + " ascii=\"" + raw.replace("\r", "\\r").replace("\n", "\\n") + "\"",
-                            readTraceId);
+                    rawPacketCount++;
+                    long now = System.currentTimeMillis();
+                    if (rawPacketCount <= INITIAL_RAW_LOG_LIMIT || now - lastRawLogTimeMs >= RAW_LOG_INTERVAL_MS) {
+                        lastRawLogTimeMs = now;
+                        log(LogCategory.PROTOCOL_RX, LogLevel.DEBUG,
+                                "native gps recv sample on " + currentPortPath
+                                        + " packet=" + rawPacketCount
+                                        + " bytes=" + payload.length
+                                        + " ascii=\"" + previewAscii(raw) + "\"",
+                                readTraceId);
+                    }
                     SerialReceiveListener listener = receiveListener;
                     if (listener != null) {
                         listener.onReceive(currentPortPath, payload);
@@ -193,6 +205,14 @@ public final class M90GpsNativeSerialPortAdapter implements SerialPortAdapter {
         }
         String trimmed = portName.trim();
         return trimmed.startsWith("/") ? trimmed : "/dev/" + trimmed;
+    }
+
+    private String previewAscii(String raw) {
+        if (raw == null || raw.isEmpty()) {
+            return "";
+        }
+        String text = raw.replace("\r", "\\r").replace("\n", "\\n");
+        return text.length() <= RAW_LOG_PREVIEW_LENGTH ? text : text.substring(0, RAW_LOG_PREVIEW_LENGTH) + "...";
     }
 
     private void log(LogCategory category, LogLevel level, String message, String traceId) {

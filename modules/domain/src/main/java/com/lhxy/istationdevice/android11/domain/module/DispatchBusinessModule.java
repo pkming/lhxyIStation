@@ -23,6 +23,7 @@ import com.lhxy.istationdevice.android11.domain.module.state.DispatchState;
 import com.lhxy.istationdevice.android11.domain.socket.Jt808SocketMonitor;
 import com.lhxy.istationdevice.android11.domain.station.LegacyStationAudioUseCase;
 import com.lhxy.istationdevice.android11.protocol.gps.GpsFixSnapshot;
+import com.lhxy.istationdevice.android11.protocol.jt808.Jt808Frame;
 import com.lhxy.istationdevice.android11.protocol.jt808.Jt808LegacyMessages;
 import com.lhxy.istationdevice.android11.protocol.jt808.Jt808PositionSnapshot;
 import com.lhxy.istationdevice.android11.protocol.jt808.Jt808ReportStationSnapshot;
@@ -45,6 +46,10 @@ import java.util.function.Supplier;
  */
 public final class DispatchBusinessModule extends AbstractTerminalBusinessModule {
     private static final String TAG = "DispatchModule";
+    private static final String FRAME_LISTENER_KEY = "dispatch-platform-state";
+    private static final int MSG_PLATFORM_GENERAL_RESPONSE = 0x8001;
+    private static final int MSG_REGISTER_RESPONSE = 0x8100;
+    private static final int MSG_SET_TERMINAL_PARAMETERS = 0x8103;
     private final ProtocolReplayUseCase protocolReplayUseCase;
     private final SocketClientAdapter socketClientAdapter;
     private final Jt808SocketMonitor jt808SocketMonitor;
@@ -84,6 +89,7 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
         this.dvrSerialDispatchUseCase = dvrSerialDispatchUseCase;
         this.gpsSerialMonitor = gpsSerialMonitor;
         this.stationAudioUseCase = new LegacyStationAudioUseCase(gpioAdapter);
+        this.jt808SocketMonitor.registerFrameListener(FRAME_LISTENER_KEY, this::handleSocketFrame);
     }
 
     @Override
@@ -301,6 +307,7 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
                 stopSocketDispatchReport(traceId + "-no-channel");
                 return;
             }
+            jt808SocketMonitor.syncDefaultChannels(socketClientAdapter, shellConfig, traceId + "-monitor");
             int intervalSeconds = resolveSocketReportIntervalSeconds(shellConfig);
             boolean alreadyRunning = socketReportExecutor != null && !socketReportExecutor.isShutdown();
             if (alreadyRunning && socketReportIntervalSeconds == intervalSeconds) {
@@ -379,6 +386,7 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
 
             socketReportCount++;
             lastSocketReportTimeMs = System.currentTimeMillis();
+            dispatchState.markSocketReportSent(channelName);
             AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, TAG,
                     "调度 socket 已上报心跳+位置 channel=" + channel.getKey()
                             + " / gpsValid=" + yesNo(snapshot != null && snapshot.isValid())
@@ -402,8 +410,82 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
             }
         } catch (Exception e) {
             registeredSocketChannel = "";
+            dispatchState.markSocketReportFailed();
             AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, TAG,
                     "调度 socket 周期上报失败: " + emptyAsDash(e.getMessage()), traceId);
+        }
+    }
+
+    private void handleSocketFrame(String channelName, byte[] rawFrame, Jt808Frame frame) {
+        if (frame == null) {
+            return;
+        }
+        try {
+            ShellConfig shellConfig = requireShellConfig();
+            ShellConfig.SocketChannel channel = resolveActiveDispatchChannel(shellConfig);
+            if (channel == null || !channel.getChannelName().equals(channelName)) {
+                return;
+            }
+            int messageId = frame.getMessageId();
+            if (messageId == MSG_REGISTER_RESPONSE) {
+                boolean accepted = isRegisterAccepted(frame.getBody());
+                if (accepted) {
+                    dispatchState.markPlatformResponse(messageId, true);
+                    sendAuthorityFromRegisterResponse(shellConfig, channel, frame, "dispatch-platform-register-response");
+                } else {
+                    dispatchState.markPlatformResponse(messageId, false);
+                }
+                return;
+            }
+            if (messageId == MSG_PLATFORM_GENERAL_RESPONSE) {
+                dispatchState.markPlatformResponse(messageId, isGeneralResponseAccepted(frame.getBody()));
+                return;
+            }
+            if (messageId == MSG_SET_TERMINAL_PARAMETERS || (messageId & 0x8000) == 0x8000) {
+                dispatchState.markPlatformResponse(messageId, true);
+            }
+        } catch (Exception e) {
+            AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, TAG,
+                    "处理调度平台回包失败: " + emptyAsDash(e.getMessage()), "dispatch-platform-rx");
+        }
+    }
+
+    private boolean isRegisterAccepted(byte[] body) {
+        return body != null && body.length >= 3 && (body[2] & 0xFF) == 0x00;
+    }
+
+    private boolean isGeneralResponseAccepted(byte[] body) {
+        return body != null && body.length >= 5 && (body[4] & 0xFF) == 0x00;
+    }
+
+    private void sendAuthorityFromRegisterResponse(
+            ShellConfig shellConfig,
+            ShellConfig.SocketChannel channel,
+            Jt808Frame registerResponse,
+            String traceId
+    ) {
+        try {
+            Jt808Variant variant = resolveDispatchVariant(shellConfig, channel);
+            Jt808TerminalProfile profile = buildTerminalProfile(shellConfig, variant);
+            byte[] body = registerResponse.getBody();
+            byte[] authorityCode;
+            if (body.length > 3) {
+                authorityCode = new byte[body.length - 3];
+                System.arraycopy(body, 3, authorityCode, 0, authorityCode.length);
+            } else {
+                authorityCode = null;
+            }
+            byte[] payload = authorityCode == null || authorityCode.length == 0
+                    ? jt808Messages.encode(jt808Messages.createAuthority(variant, profile))
+                    : jt808Messages.encode(jt808Messages.createAuthority(variant, profile.getTerminalId(), authorityCode));
+            socketClientAdapter.send(channel.getChannelName(), payload, traceId + "-authority");
+            AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, TAG,
+                    "调度平台注册应答已通过，已补发鉴权 channel=" + channel.getKey()
+                            + " / authorityBytes=" + (authorityCode == null ? 0 : authorityCode.length),
+                    traceId);
+        } catch (Exception e) {
+            AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, TAG,
+                    "调度平台鉴权发送失败: " + emptyAsDash(e.getMessage()), traceId);
         }
     }
 

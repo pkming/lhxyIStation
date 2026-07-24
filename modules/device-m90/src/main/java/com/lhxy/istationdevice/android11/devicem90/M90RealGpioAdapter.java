@@ -20,9 +20,11 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public final class M90RealGpioAdapter implements GpioAdapter {
     private static final String TAG = "M90RealGpio";
+    private static final long READ_LOG_INTERVAL_MS = 30_000L;
 
     private final Map<String, ShellConfig.GpioPin> pinMap = new ConcurrentHashMap<>();
     private final Map<String, Integer> cachedValues = new ConcurrentHashMap<>();
+    private final Map<String, Long> lastReadLogTimes = new ConcurrentHashMap<>();
 
     /**
      * 更新当前 GPIO 配置。
@@ -30,6 +32,7 @@ public final class M90RealGpioAdapter implements GpioAdapter {
     public void updateConfig(ShellConfig.GpioConfig gpioConfig) {
         pinMap.clear();
         cachedValues.clear();
+        lastReadLogTimes.clear();
         if (gpioConfig == null) {
             return;
         }
@@ -62,14 +65,30 @@ public final class M90RealGpioAdapter implements GpioAdapter {
             File valueFile = new File(valuePath);
             String rawValue = M90CommandSupport.readFileText(valueFile);
             int value = Integer.parseInt(rawValue.isEmpty() ? "0" : rawValue.substring(0, 1));
-            cachedValues.put(gpioPin.getKey(), value);
-            AppLogCenter.log(LogCategory.DEVICE, LogLevel.DEBUG, TAG, "real read " + gpioPin.getKey() + "=" + value + " <- " + valuePath, traceId);
+            Integer previousValue = cachedValues.put(gpioPin.getKey(), value);
+            if (shouldLogRead(gpioPin.getKey(), previousValue, value)) {
+                AppLogCenter.log(LogCategory.DEVICE, LogLevel.DEBUG, TAG, "real read " + gpioPin.getKey() + "=" + value + " <- " + valuePath, traceId);
+            }
             return value;
         } catch (Exception e) {
             int fallbackValue = cachedValues.containsKey(gpioPin.getKey()) ? cachedValues.get(gpioPin.getKey()) : gpioPin.getDefaultValue();
             AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, TAG, "real read failed " + gpioPin.getKey() + ": " + e.getMessage() + "，回退到 " + fallbackValue, traceId);
             return fallbackValue;
         }
+    }
+
+    private boolean shouldLogRead(String pinKey, Integer previousValue, int value) {
+        if (previousValue == null || previousValue != value) {
+            lastReadLogTimes.put(pinKey, System.currentTimeMillis());
+            return true;
+        }
+        long now = System.currentTimeMillis();
+        Long lastLogTime = lastReadLogTimes.get(pinKey);
+        if (lastLogTime == null || now - lastLogTime >= READ_LOG_INTERVAL_MS) {
+            lastReadLogTimes.put(pinKey, now);
+            return true;
+        }
+        return false;
     }
 
     private ShellConfig.GpioPin requirePin(String pinKey) {

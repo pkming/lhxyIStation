@@ -21,6 +21,8 @@ public final class StationResourceConfigApplier {
         }
         ShellConfig.BasicSetupConfig basicSetup = current.getBasicSetupConfig();
         StationResourceArchiveUseCase.ResourceConfigOverrides overrides = result.getConfigOverrides();
+        ShellConfig.SerialSettings importedSerialSettings =
+                buildSerialSettingsWithResourceOverrides(basicSetup.getSerialSettings(), overrides);
         return new ShellConfig(
                 current.getDeviceProfile(),
                 current.getConfigVersion(),
@@ -35,7 +37,7 @@ public final class StationResourceConfigApplier {
                 new ShellConfig.BasicSetupConfig(
                         basicSetup.getNewspaperSettings(),
                         basicSetup.getNetworkSettings(),
-                        buildSerialSettingsWithResourceOverrides(basicSetup.getSerialSettings(), overrides),
+                        importedSerialSettings,
                         basicSetup.getTtsSettings(),
                         buildLanguageSettingsWithResourceOverrides(basicSetup.getLanguageSettings(), overrides),
                         basicSetup.getOtherSettings(),
@@ -46,7 +48,11 @@ public final class StationResourceConfigApplier {
                                 result.getLineName(),
                                 System.currentTimeMillis()
                         ),
-                        basicSetup.getProtocolLinkageSettings()
+                        buildProtocolLinkageWithResourceOverrides(
+                                basicSetup.getProtocolLinkageSettings(),
+                                importedSerialSettings,
+                                overrides
+                        )
                 )
         );
     }
@@ -124,6 +130,20 @@ public final class StationResourceConfigApplier {
                 overrideOrCurrent(overrides.getRs485Protocol(), current.getRs485Protocol()),
                 overrideOrCurrent(overrides.getRs4852Protocol(), current.getRs4852Protocol())
         );
+    }
+
+    private static ShellConfig.ProtocolLinkageSettings buildProtocolLinkageWithResourceOverrides(
+            ShellConfig.ProtocolLinkageSettings current,
+            ShellConfig.SerialSettings serialSettings,
+            StationResourceArchiveUseCase.ResourceConfigOverrides overrides
+    ) {
+        if (overrides == null || overrides.getRs2321Protocol() == null) {
+            return current;
+        }
+        String dispatchOwner = "无".equals(serialSettings.getRs2321Protocol())
+                ? ShellConfig.ProtocolLinkageSettings.DISPATCH_OWNER_NETWORK
+                : ShellConfig.ProtocolLinkageSettings.DISPATCH_OWNER_SERIAL_RS2321;
+        return new ShellConfig.ProtocolLinkageSettings(dispatchOwner, System.currentTimeMillis());
     }
 
     private static ShellConfig.LanguageSettings buildLanguageSettingsWithResourceOverrides(

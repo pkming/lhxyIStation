@@ -18,9 +18,11 @@ public final class M90RealRfidAdapter implements RfidAdapter {
     private static final String TAG = "M90RealRfid";
     private static final byte M90_CARD_PRESENT_FLAG = 0x38;
     private static final byte M90_RFID_CHANNEL = 0x01;
+    private static final long EMPTY_READ_LOG_INTERVAL_MS = 30_000L;
 
     private volatile ShellConfig.RfidConfig rfidConfig = ShellConfig.RfidConfig.stub();
     private volatile String lastCardNo = "";
+    private volatile long lastEmptyReadLogMs;
     private final Object nativeLock = new Object();
     private volatile M90I2CPort nativePort;
     private volatile boolean nativeInitAttempted;
@@ -32,6 +34,7 @@ public final class M90RealRfidAdapter implements RfidAdapter {
     public void updateConfig(ShellConfig.RfidConfig rfidConfig) {
         this.rfidConfig = rfidConfig == null ? ShellConfig.RfidConfig.stub() : rfidConfig;
         this.lastCardNo = "";
+        this.lastEmptyReadLogMs = 0L;
         synchronized (nativeLock) {
             if (nativePort != null) {
                 try {
@@ -56,8 +59,9 @@ public final class M90RealRfidAdapter implements RfidAdapter {
     public String readCard(String traceId) {
         try {
             String cardNo = tryReadCard();
+            String previousCardNo = lastCardNo;
             lastCardNo = cardNo == null ? "" : cardNo.trim();
-            AppLogCenter.log(LogCategory.DEVICE, LogLevel.INFO, TAG, "real readCard -> " + (lastCardNo.isEmpty() ? "-" : lastCardNo), traceId);
+            logReadCardIfNeeded(previousCardNo, lastCardNo, traceId);
             return lastCardNo;
         } catch (Exception e) {
             AppLogCenter.log(LogCategory.ERROR, LogLevel.ERROR, TAG, "real readCard failed: " + e.getMessage(), traceId);
@@ -184,6 +188,24 @@ public final class M90RealRfidAdapter implements RfidAdapter {
             return "";
         }
         return toHexString(raw);
+    }
+
+    private void logReadCardIfNeeded(String previousCardNo, String currentCardNo, String traceId) {
+        String safePrevious = previousCardNo == null ? "" : previousCardNo.trim();
+        String safeCurrent = currentCardNo == null ? "" : currentCardNo.trim();
+        if (!safeCurrent.isEmpty()) {
+            AppLogCenter.log(LogCategory.DEVICE, LogLevel.INFO, TAG, "real readCard -> " + safeCurrent, traceId);
+            return;
+        }
+        if (!safePrevious.isEmpty()) {
+            AppLogCenter.log(LogCategory.DEVICE, LogLevel.INFO, TAG, "real readCard -> -", traceId);
+            return;
+        }
+        long now = System.currentTimeMillis();
+        if (now - lastEmptyReadLogMs >= EMPTY_READ_LOG_INTERVAL_MS) {
+            lastEmptyReadLogMs = now;
+            AppLogCenter.log(LogCategory.DEVICE, LogLevel.DEBUG, TAG, "real readCard empty sample", traceId);
+        }
     }
 
     private String toHexString(byte[] value) {

@@ -103,6 +103,7 @@ public final class LegacyLoginActivity extends AppCompatActivity {
                 ShellApplication.isUserPassword = true;
                 Toast.makeText(this, R.string.login_user_success, Toast.LENGTH_SHORT).show();
             }
+            LegacyAuthSession.markAuthenticated(this, ShellApplication.isUserPassword);
             AppLogCenter.log(
                     LogCategory.UI,
                     LogLevel.INFO,

@@ -135,6 +135,19 @@
             android:textStyle="bold"
             android:text="@string/affirm" />
 
+        <Button
+            android:id="@+id/butBroadcastAttendance"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="@dimen/d_30"
+            android:layout_marginTop="@dimen/d_24"
+            android:layout_marginRight="@dimen/d_30"
+            android:background="@drawable/btn_login_bg"
+            android:text="@string/broadcast_test"
+            android:textColor="@color/c_000000"
+            android:textSize="24sp"
+            android:textStyle="bold" />
+
     </LinearLayout>
 
 

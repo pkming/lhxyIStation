@@ -958,26 +958,112 @@ public final class StationResourceArchiveUseCase {
             return ResourceConfigOverrides.empty();
         }
         Map<String, String> values = new LinkedHashMap<>();
-        for (int index = 1; index < rows.size(); index++) {
+        for (int index = 0; index < rows.size(); index++) {
             List<String> row = rows.get(index);
             String key = cell(row, 0);
             String value = cell(row, 1);
-            if (key.isEmpty() || value.isEmpty()) {
+            String normalizedKey = normalizeConfigKey(key);
+            if (normalizedKey.isEmpty() || isConfigHeaderKey(normalizedKey) || value.isEmpty()) {
                 continue;
             }
-            values.put(key, value);
+            values.put(normalizedKey, value);
         }
         return new ResourceConfigOverrides(
-                values.get("RS232-1Protocol"),
-                values.get("RS232-2Protocol"),
-                values.get("RS485Protocol"),
-                values.get("RS485-2Protocol"),
-                parseInteger(values.get("RS232-1Baud")),
-                parseInteger(values.get("RS232-2Baud")),
-                parseInteger(values.get("RS485Baud")),
-                parseInteger(values.get("RS485-2Baud")),
-                mapLanguageSetting(values.get("LanguageSettings"))
+                mapRs232Protocol(values.get("rs2321protocol")),
+                mapRs232Protocol(values.get("rs2322protocol")),
+                mapRs485Protocol(firstNonEmpty(values.get("rs485protocol"), values.get("rs4851protocol"))),
+                mapRs485Protocol(values.get("rs4852protocol")),
+                parseInteger(values.get("rs2321baud")),
+                parseInteger(values.get("rs2322baud")),
+                parseInteger(firstNonEmpty(values.get("rs485baud"), values.get("rs4851baud"))),
+                parseInteger(values.get("rs4852baud")),
+                mapLanguageSetting(values.get("languagesettings"))
         );
+    }
+
+    private String normalizeConfigKey(String value) {
+        String normalized = value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
+        normalized = normalized.replace("protocal", "protocol");
+        StringBuilder builder = new StringBuilder();
+        for (int index = 0; index < normalized.length(); index++) {
+            char ch = normalized.charAt(index);
+            if ((ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9')) {
+                builder.append(ch);
+            }
+        }
+        return builder.toString();
+    }
+
+    private boolean isConfigHeaderKey(String normalizedKey) {
+        return "key".equals(normalizedKey)
+                || "name".equals(normalizedKey)
+                || "item".equals(normalizedKey)
+                || "config".equals(normalizedKey)
+                || "setting".equals(normalizedKey)
+                || "settings".equals(normalizedKey)
+                || "参数".equals(normalizedKey);
+    }
+
+    private String firstNonEmpty(String first, String second) {
+        if (first != null && !first.trim().isEmpty()) {
+            return first;
+        }
+        return second;
+    }
+
+    private String mapRs232Protocol(String value) {
+        String normalized = value == null ? "" : value.trim();
+        if (normalized.isEmpty()) {
+            return null;
+        }
+        if ("0".equals(normalized)) {
+            return "无";
+        }
+        if ("1".equals(normalized)) {
+            return "DVR";
+        }
+        if ("2".equals(normalized)) {
+            return "POS";
+        }
+        if ("none".equalsIgnoreCase(normalized) || "null".equalsIgnoreCase(normalized)) {
+            return "无";
+        }
+        return normalized;
+    }
+
+    private String mapRs485Protocol(String value) {
+        String normalized = value == null ? "" : value.trim();
+        if (normalized.isEmpty()) {
+            return null;
+        }
+        switch (normalized) {
+            case "0":
+                return "无";
+            case "1":
+                return "通达";
+            case "2":
+                return "TD";
+            case "3":
+                return "恒舞";
+            case "4":
+                return "武汉乐的";
+            case "5":
+                return "海梁";
+            case "6":
+                return "LED导程牌";
+            case "7":
+                return "LHXY";
+            case "8":
+                return "HW3";
+            case "9":
+                return "JHY";
+            default:
+                break;
+        }
+        if ("none".equalsIgnoreCase(normalized) || "null".equalsIgnoreCase(normalized)) {
+            return "无";
+        }
+        return normalized;
     }
 
     private String mapLanguageSetting(String value) {

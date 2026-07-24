@@ -60,7 +60,7 @@ public final class TerminalModuleHub {
         DvrSerialDispatchUseCase dvrSerialDispatchUseCase = new DvrSerialDispatchUseCase(serialPortAdapter);
         DispatchBusinessModule dispatchModule =
             new DispatchBusinessModule(protocolReplayUseCase, socketClientAdapter, gpioAdapter, jt808SocketMonitor, dvrSerialDispatchUseCase, gpsSerialMonitor);
-        // GPS 专用串口适配器走原生 libgps_serial_port.so（对齐 V32），规避 RandomAccessFile O_NONBLOCK 阻塞。
+        // GPS 使用 byte[] 串口读取链路；V32 原生 read() 返回 String，遇到脏字节会触发 CheckJNI abort。
         GpsBusinessModule gpsModule =
             new GpsBusinessModule(gpsSerialPortAdapter, gpsSerialMonitor, systemOps);
         StationBusinessModule stationModule =

@@ -318,9 +318,7 @@ public final class ShellConfigLoader {
                     resourceImportObject == null ? 0L : resourceImportObject.optLong("updatedAt", 0L)
                 ),
                 new ShellConfig.ProtocolLinkageSettings(
-                    protocolLinkageObject == null
-                        ? ShellConfig.ProtocolLinkageSettings.DISPATCH_OWNER_NETWORK
-                        : protocolLinkageObject.optString("dispatchOwner", ShellConfig.ProtocolLinkageSettings.DISPATCH_OWNER_NETWORK),
+                    resolveProtocolLinkageDispatchOwner(protocolLinkageObject, serialSettings),
                     protocolLinkageObject == null ? 0L : protocolLinkageObject.optLong("updatedAt", 0L)
                 )
             );
@@ -359,8 +357,8 @@ public final class ShellConfigLoader {
         serialChannels.put("rs485_2", new ShellConfig.SerialChannel("rs485_2", "ttyS9", 9600, SerialMode.STUB, "RS485-2"));
 
         Map<String, ShellConfig.SocketChannel> socketChannels = new LinkedHashMap<>();
-        socketChannels.put("jt808", new ShellConfig.SocketChannel("jt808", "JT808_SOCKET", "211.154.159.34", 7000, SocketMode.STUB, "JT808 调度"));
-        socketChannels.put("al808", new ShellConfig.SocketChannel("al808", "AL808_SOCKET", "211.154.159.34", 7000, SocketMode.STUB, "AL808 调度"));
+        socketChannels.put("jt808", new ShellConfig.SocketChannel("jt808", "JT808_SOCKET", "47.119.154.255", 7001, SocketMode.STUB, "JT808 调度"));
+        socketChannels.put("al808", new ShellConfig.SocketChannel("al808", "AL808_SOCKET", "47.119.154.255", 7001, SocketMode.STUB, "AL808 调度"));
 
         Map<String, ShellConfig.GpioPin> gpioPins = new LinkedHashMap<>();
         gpioPins.put("inner_audio", new ShellConfig.GpioPin("inner_audio", "GPIO1_B1", "/proc/rp_gpio/gpio1b1", 0, "内音"));
@@ -399,7 +397,7 @@ public final class ShellConfigLoader {
                 new ShellConfig.LocationConfig(DeviceMode.STUB, false, "gps", 1000L, 0F, "LocationManager 默认关闭，主链仍走 ttyS5"),
                 new ShellConfig.CanConfig(DeviceMode.STUB, canChannels, "CAN 默认走 stub，支持 can0/can1 配置化自检"),
                 new ShellConfig.KeyboardConfig(DeviceMode.STUB, "keyboard", "serial", "ttyS0 Keyboard 默认关闭"),
-                new ShellConfig.DebugReplay("rs485_1", "gps", "jt808", "al808", "inner_audio", "io1", "io2", "av_out"),
+                new ShellConfig.DebugReplay("rs485_1", "gps", "al808", "al808", "inner_audio", "io1", "io2", "av_out"),
                 ShellConfig.BasicSetupConfig.defaults()
         );
     }
@@ -415,6 +413,22 @@ public final class ShellConfigLoader {
             return ShellConfig.SerialSettings.defaults();
         }
         return serialSettings;
+    }
+
+    private static String resolveProtocolLinkageDispatchOwner(
+            JSONObject protocolLinkageObject,
+            ShellConfig.SerialSettings serialSettings
+    ) {
+        if (protocolLinkageObject != null) {
+            return protocolLinkageObject.optString(
+                    "dispatchOwner",
+                    ShellConfig.ProtocolLinkageSettings.DISPATCH_OWNER_NETWORK
+            );
+        }
+        if (serialSettings != null && !"无".equals(serialSettings.getRs2321Protocol())) {
+            return ShellConfig.ProtocolLinkageSettings.DISPATCH_OWNER_SERIAL_RS2321;
+        }
+        return ShellConfig.ProtocolLinkageSettings.DISPATCH_OWNER_NETWORK;
     }
 
     /**

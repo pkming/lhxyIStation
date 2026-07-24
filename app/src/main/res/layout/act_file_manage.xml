@@ -212,7 +212,7 @@
             android:layout_centerVertical="true"
             android:layout_marginRight="@dimen/d_40"
             android:background="@drawable/btn_basic_setup_bg"
-            android:text="@string/file_export_btn"
+            android:text="@string/del"
             android:textColor="@color/c_000000"
             android:textSize="24sp"
             android:textStyle="bold"

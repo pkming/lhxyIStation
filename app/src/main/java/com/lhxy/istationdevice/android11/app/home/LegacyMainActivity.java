@@ -1,7 +1,14 @@
 package com.lhxy.istationdevice.android11.app.home;
 
+import android.Manifest;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
+import android.media.AudioManager;
+import android.media.AudioFormat;
+import android.media.AudioRecord;
+import android.media.AudioTrack;
+import android.media.MediaRecorder;
 import android.os.Handler;
 import android.net.ConnectivityManager;
 import android.net.Network;
@@ -16,6 +23,7 @@ import android.view.SurfaceView;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -29,8 +37,11 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 
 import com.lhxy.istationdevice.android11.app.R;
+import com.lhxy.istationdevice.android11.app.auth.LegacyAuthSession;
 import com.lhxy.istationdevice.android11.app.auth.LegacyLoginActivity;
 import com.lhxy.istationdevice.android11.app.line.LegacyLineCatalog;
+import com.lhxy.istationdevice.android11.app.line.LegacyLineChoiceActivity;
+import com.lhxy.istationdevice.android11.app.menu.LegacyMenuActivity;
 import com.lhxy.istationdevice.android11.app.media.LegacyVideoMonitorActivity;
 import com.lhxy.istationdevice.android11.core.AppLogCenter;
 import com.lhxy.istationdevice.android11.core.TraceIds;
@@ -76,6 +87,14 @@ public final class LegacyMainActivity extends AppCompatActivity {
     private static final int DVR_TOUCH_WIDTH = 1280;
     private static final int DVR_TOUCH_HEIGHT = 800;
     private static final long HOME_MONITOR_SWITCH_DEBOUNCE_MS = 600L;
+    private static final int SHOUTING_ROUTE_OUTER = 1;
+    private static final int SHOUTING_ROUTE_INNER = 2;
+    private static final int SHOUTING_ROUTE_BOTH = 3;
+    private static final int SHOUTING_ROUTE_IDLE = 4;
+    private static final int HEADPHONE_POWER_ACTIVE = 0;
+    private static final int HEADPHONE_POWER_IDLE = 1;
+    private static final int HOME_SHOUTING_PERMISSION_REQUEST = 810;
+    private static final int HOME_SHOUTING_SAMPLE_RATE = 8000;
 
     private enum HomeMonitorMode {
         MIDDLE_DOOR,
@@ -105,6 +124,14 @@ public final class LegacyMainActivity extends AppCompatActivity {
     private final String homeMonitorOwnerToken = "legacy-home-monitor@" + Integer.toHexString(System.identityHashCode(this));
     private HomeMonitorMode currentHomeMonitorMode = HomeMonitorMode.DVR;
     private HomeMonitorMode lastLoggedHomeMonitorMode;
+    private int lastHomeShoutingRoute = Integer.MIN_VALUE;
+    private AudioRecord homeShoutingRecord;
+    private AudioTrack homeShoutingTrack;
+    private Thread homeShoutingPlaybackThread;
+    private volatile boolean homeShoutingRecording;
+    private int homeShoutingRecordBufferSize;
+    private int homeShoutingTrackBufferSize;
+    private boolean homeShoutingPermissionRequested;
     private SharedPreferences.OnSharedPreferenceChangeListener homeStatusListener;
     private final Runnable clockTicker = new Runnable() {
         @Override
@@ -148,6 +175,7 @@ public final class LegacyMainActivity extends AppCompatActivity {
 
     @Override
     protected void onPause() {
+        applyHomeShoutingIdle();
         closeHomeMonitorPreview(false);
         shellRuntime.getPassengerCounterMonitor().setStateListener(null);
         unregisterHomeStatusListener();
@@ -157,6 +185,8 @@ public final class LegacyMainActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
+        applyHomeShoutingIdle();
+        releaseHomeShoutingAudio();
         shellRuntime.getPassengerCounterMonitor().setStateListener(null);
         unregisterHomeStatusListener();
         homeActionExecutor.shutdownNow();
@@ -223,6 +253,12 @@ public final class LegacyMainActivity extends AppCompatActivity {
         TextView tvInformation = findViewById(R.id.tvInformation);
         if (tvInformation != null) {
             tvInformation.setText("");
+        }
+        ImageView imageInformation = findViewById(R.id.imageInformation);
+        if (imageInformation != null) {
+            imageInformation.setClickable(true);
+            imageInformation.setFocusable(true);
+            imageInformation.setOnClickListener(v -> runDriverAction());
         }
         updateClock();
     }
@@ -706,7 +742,7 @@ public final class LegacyMainActivity extends AppCompatActivity {
     private void bindActions() {
         Button btnKeyboard = findViewById(R.id.butKeyboard);
         Button btnEsc = findViewById(R.id.butESC);
-        Button btnDriverAction = findDriverActionButton();
+        Button btnLineChoice = findViewById(R.id.tvDriver);
         Button btnNewspaperStation = findViewById(R.id.butNewspaperStation);
         Button btnRepeat = findViewById(R.id.butRepeat);
         Button btnSwitch = findViewById(R.id.butSwitch);
@@ -745,8 +781,9 @@ public final class LegacyMainActivity extends AppCompatActivity {
         if (btnNewspaperStation != null) {
             btnNewspaperStation.setOnClickListener(v -> runStationAction("advance_station"));
         }
-        if (btnDriverAction != null) {
-            btnDriverAction.setOnClickListener(v -> runDriverAction());
+        if (btnLineChoice != null) {
+            btnLineChoice.setText(R.string.menu_line_selection);
+            btnLineChoice.setOnClickListener(v -> openLineChoiceFromHome());
         }
         if (btnRepeat != null) {
             btnRepeat.setOnClickListener(v -> runStationAction("repeat_station"));
@@ -758,7 +795,7 @@ public final class LegacyMainActivity extends AppCompatActivity {
             btnCease.setOnClickListener(v -> runStationAction("stop_station"));
         }
         if (btnMenu != null) {
-            btnMenu.setOnClickListener(v -> startActivity(new Intent(this, LegacyLoginActivity.class)));
+            btnMenu.setOnClickListener(v -> openMenuFromHome());
         }
         if (btnLineChoiceShortcut != null) {
             btnLineChoiceShortcut.setEnabled(true);
@@ -803,6 +840,7 @@ public final class LegacyMainActivity extends AppCompatActivity {
     private void runStationAction(String actionKey) {
         homeActionExecutor.execute(() -> {
             ModuleRunResult result = shellRuntime.getModuleHub().runAction("station", actionKey, "legacy-main-" + actionKey);
+            persistStationRouteSelectionIfNeeded(actionKey, result);
             runOnUiThread(() -> {
                 AppLogCenter.log(
                         result.isSuccess() ? LogCategory.UI : LogCategory.ERROR,
@@ -815,6 +853,43 @@ public final class LegacyMainActivity extends AppCompatActivity {
                 refreshHomeState();
             });
         });
+    }
+
+    private void persistStationRouteSelectionIfNeeded(@NonNull String actionKey, @NonNull ModuleRunResult result) {
+        if (!result.isSuccess() || !"switch_direction".equals(actionKey)) {
+            return;
+        }
+        try {
+            StationState stationState = requireStationState();
+            LegacyStationResourceStateRepository.StationResourceState resourceState =
+                    LegacyStationResourceStateRepository.getState(this);
+            String source = valueOrDefault(resourceState.getSource(), "home-switch-direction");
+            String lineName = valueOrDefault(stationState.getLineName(), resourceState.getLineName());
+            String directionText = valueOrDefault(stationState.getDirectionText(), resourceState.getDirectionText());
+            String lineAttribute = valueOrDefault(stationState.getLineAttribute(), resourceState.getLineAttribute());
+            LegacyStationResourceStateRepository.updateRouteSelection(
+                    this,
+                    source,
+                    lineName,
+                    directionText,
+                    lineAttribute
+            );
+            AppLogCenter.log(
+                    LogCategory.UI,
+                    LogLevel.INFO,
+                    "LegacyMainActivity",
+                    "首页切换方向已同步到资源状态: " + lineName + " / " + directionText,
+                    "legacy-main-switch-direction-persist"
+            );
+        } catch (Exception e) {
+            AppLogCenter.log(
+                    LogCategory.ERROR,
+                    LogLevel.WARN,
+                    "LegacyMainActivity",
+                    "首页切换方向同步资源状态失败: " + e.getMessage(),
+                    "legacy-main-switch-direction-persist"
+            );
+        }
     }
 
     private void runDriverAction() {
@@ -836,12 +911,30 @@ public final class LegacyMainActivity extends AppCompatActivity {
         });
     }
 
+    private void openLineChoiceFromHome() {
+        if (LegacyAuthSession.isValid(this)) {
+            LegacyAuthSession.touch(this);
+            startActivity(new Intent(this, LegacyLineChoiceActivity.class));
+            return;
+        }
+        startActivity(LegacyLoginActivity.createIntent(this, LegacyLineChoiceActivity.class));
+    }
+
+    private void openMenuFromHome() {
+        if (LegacyAuthSession.isValid(this)) {
+            LegacyAuthSession.touch(this);
+            startActivity(new Intent(this, LegacyMenuActivity.class));
+            return;
+        }
+        startActivity(LegacyLoginActivity.createIntent(this));
+    }
+
     private void updateDriverActionButton(@Nullable SignInState signInState) {
-        Button button = findDriverActionButton();
+        ImageView button = findViewById(R.id.imageInformation);
         if (button == null) {
             return;
         }
-        button.setText(resolveDriverActionButtonText(signInState));
+        button.setSelected(signInState != null && signInState.isSignedIn());
     }
 
     private void updateLineChoiceShortcutButton() {
@@ -863,11 +956,6 @@ public final class LegacyMainActivity extends AppCompatActivity {
         }
         String driverIdentity = valueOrDefault(signInState.getDriverName(), valueOrDefault(signInState.getCardNo(), "")).trim();
         return getString(R.string.main_driver, driverIdentity);
-    }
-
-    @Nullable
-    private Button findDriverActionButton() {
-        return findViewById(R.id.tvDriver);
     }
 
     private void bindServiceToneButton(@Nullable Button button, int number) {
@@ -986,20 +1074,19 @@ public final class LegacyMainActivity extends AppCompatActivity {
     }
 
     private String resolveCmsState(@Nullable ShellConfig config, @Nullable DispatchState dispatchState) {
-        // 对齐 V32：CMS 顶栏只显示调度平台 socket 的实际连接状态(Connected/Disconnected)，
-        // 不再有"串口"等特殊分支。串口调度模式下没有 CMS socket，自然显示 Disconnected（与 V32 行为一致）。
-        return isDispatchSocketConnected(config)
+        return isDispatchPlatformOnline(config, dispatchState)
                 ? getString(R.string.connected)
                 : getString(R.string.unconnected);
     }
 
-    private boolean isDispatchSocketConnected(@Nullable ShellConfig config) {
-        if (config == null || config.getSocketChannels().isEmpty()) {
+    private boolean isDispatchPlatformOnline(@Nullable ShellConfig config, @Nullable DispatchState dispatchState) {
+        if (config == null || dispatchState == null || config.getSocketChannels().isEmpty()) {
             return false;
         }
         try {
             ShellConfig.SocketChannel channel = config.requireSocketChannel(config.getDebugReplay().getJt808SocketKey());
-            return shellRuntime.getSocketClientAdapter().isConnected(channel.getChannelName());
+            return shellRuntime.getSocketClientAdapter().isConnected(channel.getChannelName())
+                    && dispatchState.isPlatformOnline(120_000L);
         } catch (Exception e) {
             return false;
         }
@@ -1191,19 +1278,335 @@ public final class LegacyMainActivity extends AppCompatActivity {
         try {
             int primary = shellRuntime.getGpioAdapter().read(primaryKey, TraceIds.next("legacy-home-shouting-primary"));
             int secondary = shellRuntime.getGpioAdapter().read(secondaryKey, TraceIds.next("legacy-home-shouting-secondary"));
-            if (primary == 1 && secondary == 0) {
+            int route = resolveHomeShoutingRoute(primary, secondary);
+            applyHomeShoutingRoute(config, route, primary, secondary);
+            if (route == SHOUTING_ROUTE_OUTER) {
                 return "SPK_OUT...";
             }
-            if (primary == 0 && secondary == 1) {
+            if (route == SHOUTING_ROUTE_INNER) {
                 return "SPK_IN...";
             }
-            if (primary == 0 && secondary == 0) {
+            if (route == SHOUTING_ROUTE_BOTH) {
                 return "SPK_IN_OUT...";
             }
         } catch (Exception ignore) {
             // Fall back to the shared voice-call state if shouting GPIOs are not readable.
+            applyHomeShoutingIdle();
         }
         return "";
+    }
+
+    private int resolveHomeShoutingRoute(int primary, int secondary) {
+        if (primary == 1 && secondary == 0) {
+            return SHOUTING_ROUTE_OUTER;
+        }
+        if (primary == 0 && secondary == 1) {
+            return SHOUTING_ROUTE_INNER;
+        }
+        if (primary == 0 && secondary == 0) {
+            return SHOUTING_ROUTE_BOTH;
+        }
+        return SHOUTING_ROUTE_IDLE;
+    }
+
+    private void applyHomeShoutingRoute(@Nullable ShellConfig config, int route, int primary, int secondary) {
+        boolean innerEnabled = route == SHOUTING_ROUTE_INNER || route == SHOUTING_ROUTE_BOTH;
+        boolean outerEnabled = route == SHOUTING_ROUTE_OUTER || route == SHOUTING_ROUTE_BOTH;
+        boolean active = innerEnabled || outerEnabled;
+        if (route == lastHomeShoutingRoute) {
+            if (active) {
+                startHomeShoutingPlayback(config);
+            } else {
+                stopHomeShoutingPlayback();
+            }
+            return;
+        }
+        lastHomeShoutingRoute = route;
+        writeHomeShoutingPin("inner_audio", innerEnabled ? 1 : 0);
+        writeHomeShoutingPin("outer_audio", outerEnabled ? 1 : 0);
+        writeHomeShoutingPin("headphone_detect_power", HEADPHONE_POWER_IDLE);
+        writeHomeShoutingPin("inner_speaker", 0);
+        applyHomeAudioRoute(config, active);
+        if (active) {
+            startHomeShoutingPlayback(config);
+        } else {
+            stopHomeShoutingPlayback();
+        }
+        AppLogCenter.log(
+                LogCategory.DEVICE,
+                LogLevel.INFO,
+                "LegacyMainActivity",
+                "首页喊话开关状态 route=" + describeHomeShoutingRoute(route)
+                        + " / primary=" + primary
+                        + " / secondary=" + secondary
+                        + " / innerAudio=" + (innerEnabled ? 1 : 0)
+                        + " / outerAudio=" + (outerEnabled ? 1 : 0)
+                        + " / headphonePower=" + HEADPHONE_POWER_IDLE
+                        + " / audioMode=LOCAL_RECORD_PLAY",
+                TraceIds.next("legacy-home-shouting-route")
+        );
+    }
+
+    private void applyHomeShoutingIdle() {
+        if (lastHomeShoutingRoute == Integer.MIN_VALUE || lastHomeShoutingRoute == SHOUTING_ROUTE_IDLE) {
+            return;
+        }
+        ShellConfig config = shellRuntime.getActiveConfig();
+        applyHomeShoutingRoute(config, SHOUTING_ROUTE_IDLE, -1, -1);
+    }
+
+    private void applyHomeAudioRoute(@Nullable ShellConfig config, boolean active) {
+        AudioManager audioManager = (AudioManager) getSystemService(AUDIO_SERVICE);
+        if (audioManager == null) {
+            return;
+        }
+        try {
+            if (active) {
+                audioManager.setMode(AudioManager.MODE_NORMAL);
+                audioManager.setSpeakerphoneOn(false);
+                int max = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
+                int percent = config == null ? 100 : config.getBasicSetupConfig().getOtherSettings().getShoutingVolume();
+                int target = Math.max(0, Math.min(Math.round(max * Math.max(0, Math.min(percent, 100)) / 100.0f), max));
+                audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, target, 0);
+            } else {
+                audioManager.setSpeakerphoneOn(false);
+                audioManager.setMode(AudioManager.MODE_NORMAL);
+            }
+        } catch (Exception e) {
+            AppLogCenter.log(
+                    LogCategory.ERROR,
+                    LogLevel.WARN,
+                    "LegacyMainActivity",
+                    "首页喊话音频路由设置失败: " + safeMessage(e),
+                    TraceIds.next("legacy-home-shouting-audio-route-error")
+            );
+        }
+    }
+
+    private void startHomeShoutingPlayback(@Nullable ShellConfig config) {
+        if (homeShoutingPlaybackThread != null && homeShoutingPlaybackThread.isAlive()) {
+            updateHomeShoutingTrackVolume(config);
+            return;
+        }
+        if (!ensureHomeShoutingAudioReady(config)) {
+            return;
+        }
+        homeShoutingRecording = true;
+        homeShoutingPlaybackThread = new Thread(this::runHomeShoutingPlayback, "legacy-home-shouting-audio");
+        homeShoutingPlaybackThread.setDaemon(true);
+        homeShoutingPlaybackThread.start();
+    }
+
+    private boolean ensureHomeShoutingAudioReady(@Nullable ShellConfig config) {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            if (!homeShoutingPermissionRequested) {
+                homeShoutingPermissionRequested = true;
+                requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, HOME_SHOUTING_PERMISSION_REQUEST);
+            }
+            AppLogCenter.log(
+                    LogCategory.ERROR,
+                    LogLevel.WARN,
+                    "LegacyMainActivity",
+                    "首页喊话录音权限未授权，无法启动本地喊话",
+                    TraceIds.next("legacy-home-shouting-record-permission")
+            );
+            return false;
+        }
+        if (homeShoutingRecordBufferSize <= 0) {
+            homeShoutingRecordBufferSize = AudioRecord.getMinBufferSize(
+                    HOME_SHOUTING_SAMPLE_RATE,
+                    AudioFormat.CHANNEL_IN_MONO,
+                    AudioFormat.ENCODING_PCM_16BIT
+            );
+        }
+        if (homeShoutingTrackBufferSize <= 0) {
+            homeShoutingTrackBufferSize = AudioTrack.getMinBufferSize(
+                    HOME_SHOUTING_SAMPLE_RATE,
+                    AudioFormat.CHANNEL_OUT_MONO,
+                    AudioFormat.ENCODING_PCM_16BIT
+            );
+        }
+        int recordBufferSize = Math.max(homeShoutingRecordBufferSize, HOME_SHOUTING_SAMPLE_RATE);
+        int trackBufferSize = Math.max(homeShoutingTrackBufferSize, HOME_SHOUTING_SAMPLE_RATE);
+        try {
+            if (homeShoutingRecord == null) {
+                homeShoutingRecord = new AudioRecord(
+                        MediaRecorder.AudioSource.MIC,
+                        HOME_SHOUTING_SAMPLE_RATE,
+                        AudioFormat.CHANNEL_IN_MONO,
+                        AudioFormat.ENCODING_PCM_16BIT,
+                        recordBufferSize
+                );
+            }
+            if (homeShoutingTrack == null) {
+                homeShoutingTrack = new AudioTrack(
+                        AudioManager.STREAM_MUSIC,
+                        HOME_SHOUTING_SAMPLE_RATE,
+                        AudioFormat.CHANNEL_OUT_MONO,
+                        AudioFormat.ENCODING_PCM_16BIT,
+                        trackBufferSize,
+                        AudioTrack.MODE_STREAM
+                );
+            }
+            updateHomeShoutingTrackVolume(config);
+            boolean initialized = homeShoutingRecord.getState() == AudioRecord.STATE_INITIALIZED
+                    && homeShoutingTrack.getState() == AudioTrack.STATE_INITIALIZED;
+            if (!initialized) {
+                AppLogCenter.log(
+                        LogCategory.ERROR,
+                        LogLevel.WARN,
+                        "LegacyMainActivity",
+                        "首页喊话音频设备未初始化",
+                        TraceIds.next("legacy-home-shouting-audio-uninitialized")
+                );
+                releaseHomeShoutingAudio();
+            }
+            return initialized;
+        } catch (Exception e) {
+            AppLogCenter.log(
+                    LogCategory.ERROR,
+                    LogLevel.WARN,
+                    "LegacyMainActivity",
+                    "首页喊话音频初始化失败: " + safeMessage(e),
+                    TraceIds.next("legacy-home-shouting-audio-init-error")
+            );
+            releaseHomeShoutingAudio();
+            return false;
+        }
+    }
+
+    private void updateHomeShoutingTrackVolume(@Nullable ShellConfig config) {
+        if (homeShoutingTrack == null) {
+            return;
+        }
+        int percent = config == null ? 50 : config.getBasicSetupConfig().getOtherSettings().getShoutingVolume();
+        float volume = Math.max(0.0f, Math.min(percent, 100)) / 100.0f;
+        try {
+            homeShoutingTrack.setStereoVolume(volume, volume);
+        } catch (Exception ignore) {
+            // AudioTrack volume is best-effort on this legacy path.
+        }
+    }
+
+    private void runHomeShoutingPlayback() {
+        AudioRecord record = homeShoutingRecord;
+        AudioTrack track = homeShoutingTrack;
+        if (record == null || track == null) {
+            homeShoutingRecording = false;
+            return;
+        }
+        short[] buffer = new short[Math.max(1, Math.max(homeShoutingRecordBufferSize, HOME_SHOUTING_SAMPLE_RATE) / 2)];
+        try {
+            record.startRecording();
+            track.play();
+            AppLogCenter.log(
+                    LogCategory.DEVICE,
+                    LogLevel.INFO,
+                    "LegacyMainActivity",
+                    "首页喊话录音直放已启动",
+                    TraceIds.next("legacy-home-shouting-audio-start")
+            );
+            while (homeShoutingRecording && !Thread.currentThread().isInterrupted()) {
+                int read = record.read(buffer, 0, buffer.length);
+                if (read > 0) {
+                    track.write(buffer, 0, read);
+                } else if (read < 0) {
+                    throw new IllegalStateException("AudioRecord read failed: " + read);
+                }
+            }
+        } catch (Exception e) {
+            AppLogCenter.log(
+                    LogCategory.ERROR,
+                    LogLevel.WARN,
+                    "LegacyMainActivity",
+                    "首页喊话录音直放异常: " + safeMessage(e),
+                    TraceIds.next("legacy-home-shouting-audio-error")
+            );
+        } finally {
+            stopAudioTrackSafely(track);
+            stopAudioRecordSafely(record);
+            AppLogCenter.log(
+                    LogCategory.DEVICE,
+                    LogLevel.INFO,
+                    "LegacyMainActivity",
+                    "首页喊话录音直放已停止",
+                    TraceIds.next("legacy-home-shouting-audio-stop")
+            );
+        }
+    }
+
+    private void stopHomeShoutingPlayback() {
+        homeShoutingRecording = false;
+        if (homeShoutingRecord != null) {
+            stopAudioRecordSafely(homeShoutingRecord);
+        }
+        if (homeShoutingTrack != null) {
+            stopAudioTrackSafely(homeShoutingTrack);
+        }
+        Thread thread = homeShoutingPlaybackThread;
+        homeShoutingPlaybackThread = null;
+        if (thread != null) {
+            thread.interrupt();
+        }
+    }
+
+    private void releaseHomeShoutingAudio() {
+        stopHomeShoutingPlayback();
+        AudioTrack track = homeShoutingTrack;
+        homeShoutingTrack = null;
+        if (track != null) {
+            stopAudioTrackSafely(track);
+            track.release();
+        }
+        AudioRecord record = homeShoutingRecord;
+        homeShoutingRecord = null;
+        if (record != null) {
+            stopAudioRecordSafely(record);
+            record.release();
+        }
+    }
+
+    private void stopAudioTrackSafely(@NonNull AudioTrack track) {
+        try {
+            if (track.getPlayState() == AudioTrack.PLAYSTATE_PLAYING) {
+                track.stop();
+            }
+        } catch (Exception ignore) {
+            // Already stopped or not initialized.
+        }
+    }
+
+    private void stopAudioRecordSafely(@NonNull AudioRecord record) {
+        try {
+            if (record.getRecordingState() == AudioRecord.RECORDSTATE_RECORDING) {
+                record.stop();
+            }
+        } catch (Exception ignore) {
+            // Already stopped or not initialized.
+        }
+    }
+
+    private void writeHomeShoutingPin(String pinKey, int value) {
+        try {
+            shellRuntime.getGpioAdapter().write(pinKey, value, "legacy-home-shouting-" + pinKey + "-" + value);
+        } catch (Exception ignore) {
+            // Keep the home screen responsive even when a GPIO output is unavailable.
+        }
+    }
+
+    private String describeHomeShoutingRoute(int route) {
+        switch (route) {
+            case SHOUTING_ROUTE_OUTER:
+                return "OUTER";
+            case SHOUTING_ROUTE_INNER:
+                return "INNER";
+            case SHOUTING_ROUTE_BOTH:
+                return "BOTH";
+            case SHOUTING_ROUTE_IDLE:
+                return "IDLE";
+            default:
+                return "UNKNOWN(" + route + ")";
+        }
     }
 
     private String resolveTripNo(@Nullable DispatchState dispatchState) {
@@ -1264,6 +1667,11 @@ public final class LegacyMainActivity extends AppCompatActivity {
 
     private boolean hasText(@Nullable String value) {
         return value != null && !value.trim().isEmpty();
+    }
+
+    private String safeMessage(Exception e) {
+        String message = e == null ? null : e.getMessage();
+        return message == null || message.trim().isEmpty() ? "unknown" : message.trim();
     }
 
     private String formatSpeedKmh(@Nullable GpsFixSnapshot snapshot) {

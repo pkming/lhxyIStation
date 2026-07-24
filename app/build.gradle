@@ -2,8 +2,8 @@ plugins {
     id 'com.android.application'
 }
 
-def appVersionCode = 8
-def appVersionName = "0.1.8"
+def appVersionCode = 10
+def appVersionName = "0.1.10"
 def tinkerId = appVersionName
 def buildTimestamp = new Date().format("yyyyMMddHHmm")
 def runtimeConfigDir = new File(rootProject.projectDir, "config")
@@ -166,6 +166,14 @@ tasks.named("preBuild").configure {
     dependsOn("prepareShellRuntimeConfig")
     dependsOn("prepareOssRuntimeConfig")
     dependsOn("prepareBundledStationResources")
+}
+
+tasks.matching { it.name == "validateSigningRelease" }.configureEach {
+    doFirst {
+        if (!hasReleaseSigning) {
+            throw new GradleException("Release signing is required. Create config/signing.local.properties with a valid storeFile before building release APKs.")
+        }
+    }
 }
 
 dependencies {

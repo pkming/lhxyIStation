@@ -1,5 +1,6 @@
 package com.lhxy.istationdevice.android11.app.media;
 
+import android.media.AudioManager;
 import android.os.Bundle;
 import android.widget.Toast;
 import android.widget.Button;
@@ -37,6 +38,8 @@ public final class LegacyVoiceCallActivity extends LegacyBaseActivity {
     private static final int SHOUTING_ROUTE_INNER = 2;
     private static final int SHOUTING_ROUTE_BOTH = 3;
     private static final int SHOUTING_ROUTE_IDLE = 4;
+    private static final int HEADPHONE_POWER_ACTIVE = 0;
+    private static final int HEADPHONE_POWER_IDLE = 1;
 
     private final ShellRuntime shellRuntime = ShellRuntime.get();
     private final IntercomPacketFactory packetFactory = new IntercomPacketFactory();
@@ -338,10 +341,67 @@ public final class LegacyVoiceCallActivity extends LegacyBaseActivity {
         }
         boolean innerEnabled = shoutingRoute == SHOUTING_ROUTE_INNER || shoutingRoute == SHOUTING_ROUTE_BOTH;
         boolean outerEnabled = shoutingRoute == SHOUTING_ROUTE_OUTER || shoutingRoute == SHOUTING_ROUTE_BOTH;
+        boolean active = innerEnabled || outerEnabled;
         writePin("inner_audio", innerEnabled ? 1 : 0);
         writePin("outer_audio", outerEnabled ? 1 : 0);
-        writePin("headphone_detect_power", 1);
+        writePin("headphone_detect_power", active ? HEADPHONE_POWER_ACTIVE : HEADPHONE_POWER_IDLE);
         writePin("inner_speaker", 0);
+        applyAudioRoute(active);
+        AppLogCenter.log(
+                LogCategory.DEVICE,
+                LogLevel.INFO,
+                "LegacyVoiceCallActivity",
+                "喊话开关状态 route=" + describeShoutingRoute(shoutingRoute)
+                        + " / innerAudio=" + (innerEnabled ? 1 : 0)
+                        + " / outerAudio=" + (outerEnabled ? 1 : 0)
+                        + " / headphonePower=" + (active ? HEADPHONE_POWER_ACTIVE : HEADPHONE_POWER_IDLE)
+                        + " / audioMode=" + (active ? "COMMUNICATION_HEADSET" : "NORMAL"),
+                TraceIds.next("legacy-voice-shouting-route")
+        );
+    }
+
+    private void applyAudioRoute(boolean shoutingActive) {
+        AudioManager audioManager = (AudioManager) getSystemService(AUDIO_SERVICE);
+        if (audioManager == null) {
+            return;
+        }
+        try {
+            if (shoutingActive) {
+                audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);
+                audioManager.setSpeakerphoneOn(false);
+                int max = audioManager.getStreamMaxVolume(AudioManager.STREAM_VOICE_CALL);
+                int target = shellRuntime.getActiveConfig() == null
+                        ? max
+                        : Math.max(0, Math.min(shellRuntime.getActiveConfig().getBasicSetupConfig().getOtherSettings().getShoutingVolume(), max));
+                audioManager.setStreamVolume(AudioManager.STREAM_VOICE_CALL, target, 0);
+            } else {
+                audioManager.setSpeakerphoneOn(false);
+                audioManager.setMode(AudioManager.MODE_NORMAL);
+            }
+        } catch (Exception e) {
+            AppLogCenter.log(
+                    LogCategory.ERROR,
+                    LogLevel.WARN,
+                    "LegacyVoiceCallActivity",
+                    "喊话音频路由设置失败: " + safeMessage(e),
+                    TraceIds.next("legacy-voice-audio-route-error")
+            );
+        }
+    }
+
+    private String describeShoutingRoute(int shoutingRoute) {
+        switch (shoutingRoute) {
+            case SHOUTING_ROUTE_OUTER:
+                return "OUTER";
+            case SHOUTING_ROUTE_INNER:
+                return "INNER";
+            case SHOUTING_ROUTE_BOTH:
+                return "BOTH";
+            case SHOUTING_ROUTE_IDLE:
+                return "IDLE";
+            default:
+                return "UNKNOWN(" + shoutingRoute + ")";
+        }
     }
 
     private String resolveShoutingOuterKey(ShellConfig shellConfig) {

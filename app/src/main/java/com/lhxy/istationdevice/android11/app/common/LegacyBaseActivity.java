@@ -1,9 +1,11 @@
 package com.lhxy.istationdevice.android11.app.common;
 
 import android.os.Bundle;
+import android.view.KeyEvent;
 import android.view.Gravity;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.MotionEvent;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.TextView;
@@ -17,6 +19,7 @@ import androidx.appcompat.widget.Toolbar;
 import androidx.core.content.ContextCompat;
 
 import com.lhxy.istationdevice.android11.app.R;
+import com.lhxy.istationdevice.android11.app.auth.LegacyAuthSession;
 
 /**
  * 旧版页面骨架公共基类。
@@ -33,6 +36,22 @@ public abstract class LegacyBaseActivity extends AppCompatActivity {
         setContentView(getLayoutId());
         initToolbar(getTitleResId());
         onPageReady(savedInstanceState);
+    }
+
+    @Override
+    public boolean dispatchTouchEvent(MotionEvent event) {
+        if (event != null && event.getActionMasked() == MotionEvent.ACTION_DOWN) {
+            touchAuthSessionIfValid();
+        }
+        return super.dispatchTouchEvent(event);
+    }
+
+    @Override
+    public boolean dispatchKeyEvent(KeyEvent event) {
+        if (event != null && event.getAction() == KeyEvent.ACTION_DOWN) {
+            touchAuthSessionIfValid();
+        }
+        return super.dispatchKeyEvent(event);
     }
 
     @LayoutRes
@@ -65,6 +84,12 @@ public abstract class LegacyBaseActivity extends AppCompatActivity {
         if (toolbar != null) {
             toolbar.setNavigationIcon(R.mipmap.icon_back_normal);
             toolbar.setNavigationOnClickListener(v -> finish());
+        }
+    }
+
+    private void touchAuthSessionIfValid() {
+        if (LegacyAuthSession.isValid(this)) {
+            LegacyAuthSession.touch(this);
         }
     }
 

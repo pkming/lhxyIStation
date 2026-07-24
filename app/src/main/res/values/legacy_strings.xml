@@ -138,6 +138,7 @@
     <string name="login_error_hint">输入的账号或密码不对</string>
     <string name="login_notnull_hint1">密码不能为空</string>
     <string name="login_error_hint1">输入的密码不对</string>
+    <string name="login_session_expired">登录已过期，请重新登录</string>
     <string name="login_super_success">Success: Super Password</string>
     <string name="login_user_success">Success: User Password</string>
 

@@ -29,6 +29,11 @@ public final class DispatchState {
     private String pendingNoticeMessage = "-";
     private boolean pendingNoticeAcked = true;
     private long lastUpdateTimeMillis;
+    private String socketReportChannelName = "-";
+    private long lastSocketReportTimeMillis;
+    private long lastPlatformResponseTimeMillis;
+    private int lastPlatformMessageId;
+    private boolean lastPlatformAccepted;
 
     /**
      * 标记收到一轮调度样例。
@@ -223,6 +228,33 @@ public final class DispatchState {
         return lastUpdateTimeMillis;
     }
 
+    public void markSocketReportSent(String channelName) {
+        socketReportChannelName = emptyAsDash(channelName);
+        lastSocketReportTimeMillis = System.currentTimeMillis();
+    }
+
+    public void markSocketReportFailed() {
+        lastPlatformAccepted = false;
+        lastPlatformResponseTimeMillis = 0L;
+    }
+
+    public void markPlatformResponse(int messageId, boolean accepted) {
+        lastPlatformMessageId = messageId;
+        lastPlatformAccepted = accepted;
+        if (accepted) {
+            lastPlatformResponseTimeMillis = System.currentTimeMillis();
+        }
+        lastUpdateTimeMillis = System.currentTimeMillis();
+    }
+
+    public boolean isPlatformOnline(long staleAfterMillis) {
+        if (!lastPlatformAccepted || lastPlatformResponseTimeMillis <= 0L) {
+            return false;
+        }
+        long maxAge = staleAfterMillis <= 0L ? 120_000L : staleAfterMillis;
+        return System.currentTimeMillis() - lastPlatformResponseTimeMillis <= maxAge;
+    }
+
     public String describe() {
         return "protocol=" + emptyAsDash(activeProtocol)
                 + "\n- joinedOperation=" + (joinedOperation ? "是" : "否")
@@ -235,6 +267,11 @@ public final class DispatchState {
                 + "\n- arrival=" + emptyAsDash(plannedArrivalTime)
                 + "\n- pendingNotice=" + emptyAsDash(pendingNoticeMessage)
                 + " / acked=" + (pendingNoticeAcked ? "是" : "否")
+                + "\n- socketReportChannel=" + emptyAsDash(socketReportChannelName)
+                + " / lastReport=" + (lastSocketReportTimeMillis <= 0L ? "-" : String.valueOf(lastSocketReportTimeMillis))
+                + " / platformAck=" + (lastPlatformAccepted ? "是" : "否")
+                + " / lastPlatformMsg=" + (lastPlatformMessageId <= 0 ? "-" : "0x" + Integer.toHexString(lastPlatformMessageId))
+                + " / lastPlatformTime=" + (lastPlatformResponseTimeMillis <= 0L ? "-" : String.valueOf(lastPlatformResponseTimeMillis))
                 + "\n- message=" + emptyAsDash(dispatchMessage);
     }
 
