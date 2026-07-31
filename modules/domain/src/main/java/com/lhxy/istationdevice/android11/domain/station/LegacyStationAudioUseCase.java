@@ -31,6 +31,9 @@ import java.util.Locale;
  */
 public final class LegacyStationAudioUseCase {
     private static final String TAG = "LegacyStationAudio";
+    // 当前 Android 11 车机已验证系统默认媒体输出可正常出声。
+    // GPIO 内/外音切换会把音频导向无声硬件通道，因此本版本统一保留 Android 默认声道。
+    private static final boolean USE_ANDROID_DEFAULT_AUDIO_ROUTE = true;
     private static final int BROADCAST_TYPE_START = 0;
     private static final int BROADCAST_TYPE_ENTER = 1;
     private static final int BROADCAST_TYPE_LEAVE = 2;
@@ -1301,6 +1304,19 @@ public final class LegacyStationAudioUseCase {
     }
 
     private void enablePinsLocked(ShellConfig shellConfig, boolean innerEnabled, boolean outerEnabled, boolean innerSpeakerEnabled) {
+        if (USE_ANDROID_DEFAULT_AUDIO_ROUTE) {
+            AppLogCenter.log(
+                    LogCategory.DEVICE,
+                    LogLevel.INFO,
+                    TAG,
+                    "使用 Android 默认媒体声道，跳过音频 GPIO 切换"
+                            + " / inner=" + innerEnabled
+                            + " / outer=" + outerEnabled
+                            + " / speaker=" + innerSpeakerEnabled,
+                    "station-audio-route"
+            );
+            return;
+        }
         writePinIfPresent(shellConfig, "inner_audio", innerEnabled ? 1 : 0);
         writePinIfPresent(shellConfig, "outer_audio", outerEnabled ? 1 : 0);
         writePinIfPresent(shellConfig, "inner_speaker", innerSpeakerEnabled ? 1 : 0);
@@ -1309,6 +1325,10 @@ public final class LegacyStationAudioUseCase {
     private void disablePinsLocked() {
         PlaybackPlan plan = activePlan;
         if (plan == null || plan.shellConfig == null) {
+            return;
+        }
+        if (USE_ANDROID_DEFAULT_AUDIO_ROUTE) {
+            activePlan = null;
             return;
         }
         writePinIfPresent(plan.shellConfig, "inner_audio", 0);

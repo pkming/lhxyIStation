@@ -7,9 +7,12 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.Process;
+import android.provider.Settings;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -55,6 +58,7 @@ public final class LegacyFileManageActivity extends LegacyBaseActivity {
     private static final long HOT_UPDATE_POLL_INTERVAL_MILLIS = 5_000L;
     private static final int HOT_UPDATE_RESET_RESTART_REQUEST_CODE = 1002;
     private static final long HOT_UPDATE_RESET_RESTART_DELAY_MILLIS = 300L;
+    private boolean pendingImportAfterStorageGrant;
 
     private BroadcastReceiver storageReceiver;
     private SharedPreferences.OnSharedPreferenceChangeListener hotUpdateStateListener;
@@ -99,6 +103,10 @@ public final class LegacyFileManageActivity extends LegacyBaseActivity {
         super.onResume();
         refreshFileActionState();
         scheduleHotUpdateStatePoller();
+        if (pendingImportAfterStorageGrant && hasSharedStorageAccess()) {
+            pendingImportAfterStorageGrant = false;
+            promptImportCandidateSelection();
+        }
     }
 
     @Override
@@ -122,7 +130,45 @@ public final class LegacyFileManageActivity extends LegacyBaseActivity {
         }
         button.setEnabled(true);
         button.setTextColor(ContextCompat.getColor(this, R.color.c_000000));
-        button.setOnClickListener(v -> promptImportCandidateSelection());
+        button.setOnClickListener(v -> {
+            if (ensureSharedStorageAccessForImport()) {
+                promptImportCandidateSelection();
+            }
+        });
+    }
+
+    /**
+     * Android 11 的分区存储会阻止应用直接扫描 U 盘根目录和 BusRes/BusImport。
+     * 导入仍沿用车机既有固定目录，因此在执行扫描前引导用户授予“所有文件访问权限”。
+     */
+    private boolean ensureSharedStorageAccessForImport() {
+        if (hasSharedStorageAccess()) {
+            return true;
+        }
+        pendingImportAfterStorageGrant = true;
+        new AlertDialog.Builder(this)
+                .setMessage(R.string.file_import_storage_permission_tip)
+                .setPositiveButton(R.string.confirm, (dialog, which) -> openSharedStorageSettings())
+                .setNegativeButton(android.R.string.cancel, (dialog, which) -> pendingImportAfterStorageGrant = false)
+                .show();
+        return false;
+    }
+
+    private boolean hasSharedStorageAccess() {
+        return Build.VERSION.SDK_INT < Build.VERSION_CODES.R || Environment.isExternalStorageManager();
+    }
+
+    private void openSharedStorageSettings() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+            return;
+        }
+        try {
+            Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
+            intent.setData(Uri.parse("package:" + getPackageName()));
+            startActivity(intent);
+        } catch (Exception ignored) {
+            startActivity(new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION));
+        }
     }
 
     private void promptImportCandidateSelection() {

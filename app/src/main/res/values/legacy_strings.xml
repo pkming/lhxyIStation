@@ -240,6 +240,7 @@
     <string name="file_reset_hot_update_btn">重置</string>
     <string name="file_field_diagnostic_btn">A/B 自检</string>
     <string name="file_import_tip">确定导入报站文件?</string>
+    <string name="file_import_storage_permission_tip">导入需要读取U盘和 BusRes/BusImport 目录。请在下一页允许本应用访问所有文件，然后返回继续导入。</string>
     <string name="file_import_choose_package_title">选择导入包</string>
     <string name="file_import_choose_package_confirm">开始导入</string>
     <string name="file_export_tip">确定导出报站文件?</string>
