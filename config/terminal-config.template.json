@@ -5,43 +5,43 @@
     "keyboard": {
       "portName": "ttyS0",
       "baudRate": 9600,
-      "mode": "stub",
+      "mode": "real",
       "note": "Keyboard / ttyS0"
     },
     "debug": {
       "portName": "ttyS2",
       "baudRate": 115200,
-      "mode": "stub",
+      "mode": "real",
       "note": "debug / ttyS2"
     },
     "rs232_1": {
       "portName": "ttyS3",
       "baudRate": 9600,
-      "mode": "stub",
+      "mode": "real",
       "note": "DVR / RS232-1"
     },
     "rs232_2": {
       "portName": "ttyS4",
       "baudRate": 9600,
-      "mode": "stub",
+      "mode": "real",
       "note": "RS232-2"
     },
     "gps": {
       "portName": "ttyS5",
       "baudRate": 115200,
-      "mode": "stub",
+      "mode": "real",
       "note": "GPS"
     },
     "rs485_1": {
       "portName": "ttyS7",
       "baudRate": 9600,
-      "mode": "stub",
+      "mode": "real",
       "note": "RS485-1"
     },
     "rs485_2": {
       "portName": "ttyS9",
       "baudRate": 9600,
-      "mode": "stub",
+      "mode": "real",
       "note": "RS485-2"
     }
   },
@@ -50,19 +50,19 @@
       "channelName": "JT808_SOCKET",
       "host": "47.119.154.255",
       "port": 7001,
-      "mode": "stub",
+      "mode": "real",
       "note": "JT808 调度"
     },
     "al808": {
       "channelName": "AL808_SOCKET",
       "host": "47.119.154.255",
       "port": 7001,
-      "mode": "stub",
+      "mode": "real",
       "note": "AL808 调度"
     }
   },
   "gpio": {
-    "mode": "stub",
+    "mode": "real",
     "note": "GPIO 按 M90 /proc/rp_gpio 节点配置；切真机时把 mode 改为 real",
     "pins": {
       "inner_audio": {
@@ -140,7 +140,7 @@
     }
   },
   "camera": {
-    "mode": "stub",
+    "mode": "real",
     "note": "Camera ID 先按 0~3 占位，真机时按 M90 联调结果修正",
     "channels": {
       "av_out": {
@@ -162,8 +162,8 @@
     }
   },
   "rfid": {
-    "mode": "stub",
-    "mockCardNo": "RFID-DEMO-001",
+    "mode": "real",
+    "mockCardNo": "",
     "inputFilePath": "",
     "readCommand": "",
     "i2cDevicePath": "/dev/i2c-3",
@@ -171,7 +171,7 @@
     "note": "真机模式下可以配文件、命令或 I2C-3；I2C 地址待厂商确认"
   },
   "location": {
-    "mode": "stub",
+    "mode": "real",
     "enabled": false,
     "provider": "gps",
     "minTimeMs": 1000,
@@ -179,7 +179,7 @@
     "note": "Android LocationManager 接入面；当前 GPS 主链仍走 ttyS5 NMEA"
   },
   "can": {
-    "mode": "stub",
+    "mode": "real",
     "note": "CAN 接入面；真机可按 JNI、SocketCAN 或命令桥接填充",
     "channels": {
       "can0": {
@@ -199,7 +199,7 @@
     }
   },
   "keyboard": {
-    "mode": "stub",
+    "mode": "real",
     "serialKey": "keyboard",
     "protocol": "serial",
     "note": "ttyS0 按键串口接入面；协议帧待真机确认"
