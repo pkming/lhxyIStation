@@ -8,6 +8,7 @@ import android.view.View;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.lhxy.istationdevice.android11.app.R;
+import com.lhxy.istationdevice.android11.app.audio.LegacyTtsEngine;
 import com.lhxy.istationdevice.android11.app.databinding.ActivityMainBinding;
 import com.lhxy.istationdevice.android11.app.menu.BusinessModulesActivity;
 import com.lhxy.istationdevice.android11.app.menu.ModuleCenterActivity;
@@ -73,6 +74,8 @@ public class MainActivity extends AppCompatActivity {
         bindActions();
         updateDebugVisibility();
         refreshRuntime();
+        // Match the M90 field build: initialize the built-in TTS after the first activity is ready.
+        binding.getRoot().postDelayed(() -> LegacyTtsEngine.preload(getApplicationContext()), 800L);
         AppLogCenter.log(LogCategory.UI, LogLevel.INFO, TAG, "business home opened", TraceIds.next("home"));
     }
 

@@ -47,10 +47,9 @@ public final class LegacyStationAudioUseCase {
     private static final int STEP_TYPE_FILE = 1;
     private static final String UTTERANCE_ID_STATION = "station-audio";
     private static final String UTTERANCE_ID_PENDING = "station-audio-pending";
-    // 对齐现场版 SystemTTS：本机 TTS 用三参构造显式指定引擎名 "Test"。
-    // 这台定制机的“默认 TTS 引擎”不可用(两参构造 onInit 返回 -1)，但存在名为 "Test" 的可用引擎。
-    // 若该引擎不存在(如开发机/模拟器)，onInit 失败后会自动回退默认引擎再试一次。
-    private static final String PREFERRED_TTS_ENGINE = "Test";
+    // The Android 11 M90 firmware exposes its built-in iFlytek TTS service under this package.
+    // If it is absent on another device, initialization falls back to the system default engine.
+    private static final String PREFERRED_TTS_ENGINE = "com.iflytek.speechsuite";
 
     private static final Object GLOBAL_LOCK = new Object();
     private final GpioAdapter gpioAdapter;

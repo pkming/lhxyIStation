@@ -91,7 +91,7 @@ public final class ShellConfigLoader {
                         key,
                         item.optString("portName", ""),
                         item.optInt("baudRate", 9600),
-                        SerialMode.fromConfig(item.optString("mode", "stub")),
+                        SerialMode.fromConfig(item.optString("mode", "real")),
                         item.optString("note", "")
                 ));
             }
@@ -111,7 +111,7 @@ public final class ShellConfigLoader {
                         item.optString("channelName", ""),
                         item.optString("host", ""),
                         item.optInt("port", 0),
-                        SocketMode.fromConfig(item.optString("mode", "stub")),
+                        SocketMode.fromConfig(item.optString("mode", "real")),
                         item.optString("note", "")
                 ));
             }
@@ -147,7 +147,7 @@ public final class ShellConfigLoader {
         );
 
         JSONObject cameraObject = root.optJSONObject("camera");
-        DeviceMode cameraMode = cameraObject == null ? DeviceMode.STUB : DeviceMode.fromConfig(cameraObject.optString("mode", "stub"));
+        DeviceMode cameraMode = cameraObject == null ? DeviceMode.REAL : DeviceMode.fromConfig(cameraObject.optString("mode", "real"));
         Map<String, ShellConfig.CameraChannel> cameraChannels = new LinkedHashMap<>();
         if (cameraObject != null) {
             JSONObject channelObject = cameraObject.optJSONObject("channels");
@@ -174,7 +174,7 @@ public final class ShellConfigLoader {
 
         JSONObject rfidObject = root.optJSONObject("rfid");
         ShellConfig.RfidConfig rfidConfig = new ShellConfig.RfidConfig(
-                rfidObject == null ? DeviceMode.STUB : DeviceMode.fromConfig(rfidObject.optString("mode", "stub")),
+                rfidObject == null ? DeviceMode.REAL : DeviceMode.fromConfig(rfidObject.optString("mode", "real")),
                 rfidObject == null ? "RFID-DEMO-001" : rfidObject.optString("mockCardNo", "RFID-DEMO-001"),
                 rfidObject == null ? "" : rfidObject.optString("inputFilePath", ""),
                 rfidObject == null ? "" : rfidObject.optString("readCommand", ""),
@@ -185,7 +185,7 @@ public final class ShellConfigLoader {
 
         JSONObject systemObject = root.optJSONObject("systemOps");
         ShellConfig.SystemConfig systemConfig = new ShellConfig.SystemConfig(
-                systemObject == null ? DeviceMode.STUB : DeviceMode.fromConfig(systemObject.optString("mode", "stub")),
+                systemObject == null ? DeviceMode.REAL : DeviceMode.fromConfig(systemObject.optString("mode", "real")),
                 systemObject != null && systemObject.optBoolean("supportSilentInstall", false),
                 systemObject != null && systemObject.optBoolean("allowReboot", false),
                 systemObject != null && systemObject.optBoolean("allowSetTime", false),
@@ -197,7 +197,7 @@ public final class ShellConfigLoader {
 
             JSONObject locationObject = root.optJSONObject("location");
             ShellConfig.LocationConfig locationConfig = new ShellConfig.LocationConfig(
-                locationObject == null ? DeviceMode.STUB : DeviceMode.fromConfig(locationObject.optString("mode", "stub")),
+                locationObject == null ? DeviceMode.REAL : DeviceMode.fromConfig(locationObject.optString("mode", "real")),
                 locationObject != null && locationObject.optBoolean("enabled", false),
                 locationObject == null ? "gps" : locationObject.optString("provider", "gps"),
                 locationObject == null ? 1000L : locationObject.optLong("minTimeMs", 1000L),
@@ -206,7 +206,7 @@ public final class ShellConfigLoader {
             );
 
             JSONObject canObject = root.optJSONObject("can");
-            DeviceMode canMode = canObject == null ? DeviceMode.STUB : DeviceMode.fromConfig(canObject.optString("mode", "stub"));
+            DeviceMode canMode = canObject == null ? DeviceMode.REAL : DeviceMode.fromConfig(canObject.optString("mode", "real"));
             Map<String, ShellConfig.CanChannel> canChannels = new LinkedHashMap<>();
             if (canObject != null) {
                 JSONObject channelObject = canObject.optJSONObject("channels");
@@ -236,7 +236,7 @@ public final class ShellConfigLoader {
 
             JSONObject keyboardObject = root.optJSONObject("keyboard");
             ShellConfig.KeyboardConfig keyboardConfig = new ShellConfig.KeyboardConfig(
-                keyboardObject == null ? DeviceMode.STUB : DeviceMode.fromConfig(keyboardObject.optString("mode", "stub")),
+                keyboardObject == null ? DeviceMode.REAL : DeviceMode.fromConfig(keyboardObject.optString("mode", "real")),
                 keyboardObject == null ? "keyboard" : keyboardObject.optString("serialKey", "keyboard"),
                 keyboardObject == null ? "serial" : keyboardObject.optString("protocol", "serial"),
                 keyboardObject == null ? "" : keyboardObject.optString("note", "")
@@ -348,17 +348,17 @@ public final class ShellConfigLoader {
      */
     public static ShellConfig createDefault() {
         Map<String, ShellConfig.SerialChannel> serialChannels = new LinkedHashMap<>();
-        serialChannels.put("keyboard", new ShellConfig.SerialChannel("keyboard", "ttyS0", 9600, SerialMode.STUB, "Keyboard / ttyS0"));
-        serialChannels.put("debug", new ShellConfig.SerialChannel("debug", "ttyS2", 115200, SerialMode.STUB, "debug / ttyS2"));
-        serialChannels.put("rs232_1", new ShellConfig.SerialChannel("rs232_1", "ttyS3", 9600, SerialMode.STUB, "DVR / RS232-1"));
-        serialChannels.put("rs232_2", new ShellConfig.SerialChannel("rs232_2", "ttyS4", 9600, SerialMode.STUB, "RS232-2"));
-        serialChannels.put("gps", new ShellConfig.SerialChannel("gps", "ttyS5", 115200, SerialMode.STUB, "GPS"));
-        serialChannels.put("rs485_1", new ShellConfig.SerialChannel("rs485_1", "ttyS7", 9600, SerialMode.STUB, "RS485-1"));
-        serialChannels.put("rs485_2", new ShellConfig.SerialChannel("rs485_2", "ttyS9", 9600, SerialMode.STUB, "RS485-2"));
+        serialChannels.put("keyboard", new ShellConfig.SerialChannel("keyboard", "ttyS0", 9600, SerialMode.REAL, "Keyboard / ttyS0"));
+        serialChannels.put("debug", new ShellConfig.SerialChannel("debug", "ttyS2", 115200, SerialMode.REAL, "debug / ttyS2"));
+        serialChannels.put("rs232_1", new ShellConfig.SerialChannel("rs232_1", "ttyS3", 9600, SerialMode.REAL, "DVR / RS232-1"));
+        serialChannels.put("rs232_2", new ShellConfig.SerialChannel("rs232_2", "ttyS4", 9600, SerialMode.REAL, "RS232-2"));
+        serialChannels.put("gps", new ShellConfig.SerialChannel("gps", "ttyS5", 115200, SerialMode.REAL, "GPS"));
+        serialChannels.put("rs485_1", new ShellConfig.SerialChannel("rs485_1", "ttyS7", 9600, SerialMode.REAL, "RS485-1"));
+        serialChannels.put("rs485_2", new ShellConfig.SerialChannel("rs485_2", "ttyS9", 9600, SerialMode.REAL, "RS485-2"));
 
         Map<String, ShellConfig.SocketChannel> socketChannels = new LinkedHashMap<>();
-        socketChannels.put("jt808", new ShellConfig.SocketChannel("jt808", "JT808_SOCKET", "47.119.154.255", 7001, SocketMode.STUB, "JT808 调度"));
-        socketChannels.put("al808", new ShellConfig.SocketChannel("al808", "AL808_SOCKET", "47.119.154.255", 7001, SocketMode.STUB, "AL808 调度"));
+        socketChannels.put("jt808", new ShellConfig.SocketChannel("jt808", "JT808_SOCKET", "47.119.154.255", 7001, SocketMode.REAL, "JT808 调度"));
+        socketChannels.put("al808", new ShellConfig.SocketChannel("al808", "AL808_SOCKET", "47.119.154.255", 7001, SocketMode.REAL, "AL808 调度"));
 
         Map<String, ShellConfig.GpioPin> gpioPins = new LinkedHashMap<>();
         gpioPins.put("inner_audio", new ShellConfig.GpioPin("inner_audio", "GPIO1_B1", "/proc/rp_gpio/gpio1b1", 0, "内音"));
@@ -391,12 +391,12 @@ public final class ShellConfigLoader {
                 serialChannels,
                 socketChannels,
                 new ShellConfig.GpioConfig(DeviceMode.REAL, gpioPins, "M90 关键 GPIO"),
-                new ShellConfig.CameraConfig(DeviceMode.STUB, cameraChannels, "M90 预置 Camera 通道"),
-                new ShellConfig.RfidConfig(DeviceMode.STUB, "RFID-DEMO-001", "", "", "/dev/i2c-3", "0x00", "RFID 默认走 stub，I2C-3 待真机确认地址"),
-                new ShellConfig.SystemConfig(DeviceMode.STUB, false, false, false, "", "", "", "系统能力默认走 stub"),
-                new ShellConfig.LocationConfig(DeviceMode.STUB, false, "gps", 1000L, 0F, "LocationManager 默认关闭，主链仍走 ttyS5"),
-                new ShellConfig.CanConfig(DeviceMode.STUB, canChannels, "CAN 默认走 stub，支持 can0/can1 配置化自检"),
-                new ShellConfig.KeyboardConfig(DeviceMode.STUB, "keyboard", "serial", "ttyS0 Keyboard 默认关闭"),
+                new ShellConfig.CameraConfig(DeviceMode.REAL, cameraChannels, "M90 预置 Camera 通道"),
+                new ShellConfig.RfidConfig(DeviceMode.REAL, "", "", "", "/dev/i2c-3", "0x00", "RFID real 模式"),
+                new ShellConfig.SystemConfig(DeviceMode.REAL, false, false, false, "", "", "", "系统能力 real 模式"),
+                new ShellConfig.LocationConfig(DeviceMode.REAL, false, "gps", 1000L, 0F, "LocationManager real 模式"),
+                new ShellConfig.CanConfig(DeviceMode.REAL, canChannels, "CAN real 模式"),
+                new ShellConfig.KeyboardConfig(DeviceMode.REAL, "keyboard", "serial", "ttyS0 Keyboard real 模式"),
                 new ShellConfig.DebugReplay("rs485_1", "gps", "al808", "al808", "inner_audio", "io1", "io2", "av_out"),
                 ShellConfig.BasicSetupConfig.defaults()
         );
