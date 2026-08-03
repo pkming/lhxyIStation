@@ -51,3 +51,12 @@ sh apk.sh update --skip-upload   # 只本地生成、不上传
 - [真机联调必要项](./docs/长期说明/真机联调必要项.md)
 - [配置管理](./docs/长期说明/配置管理.md) ｜ [调试与工作流](./docs/长期说明/调试与工作流.md)
 - [docs/README.md](./docs/README.md)
+
+## Release 签名
+
+- 签名文件：`config/signing/lhxy-istation-release.jks`
+- Key Alias：`lhxy-istation-release`
+- Store Password：`LhxyIStation-Release-2026!M90`
+- Key Password：`LhxyIStation-Release-2026!M90`
+
+首次改用此签名安装时，如果设备上存在使用其他证书签名的同包名应用，需要先卸载旧应用。
