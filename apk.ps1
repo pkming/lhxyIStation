@@ -5,6 +5,8 @@ param(
     [string]$Command,
     [Parameter(Position = 1)]
     [string]$Version,
+    [Alias("pin-base")]
+    [switch]$PinBase,
     [Alias("force-pin-base")]
     [switch]$ForcePinBase
 )
@@ -80,7 +82,7 @@ function Ensure-Java {
         if (Is-CompatibleJavaHome $candidate) {
             $env:JAVA_HOME = $candidate
             $env:Path = (Join-Path $candidate "bin") + ";" + $env:Path
-            Write-Output ("Using compatible JDK: " + $candidate)
+            Write-Host ("Using compatible JDK: " + $candidate)
             return
         }
     }
@@ -103,12 +105,70 @@ function Find-ReleaseApk {
     return $candidate.FullName
 }
 
+function Invoke-ReleaseBuild {
+    Ensure-Java
+    Push-Location $root
+    try {
+        & (Join-Path $root "gradlew.bat") assembleRelease | Out-Host
+        if ($LASTEXITCODE -ne 0) {
+            Fail ("assembleRelease failed with exit code " + $LASTEXITCODE)
+        }
+    } finally {
+        Pop-Location
+    }
+    return Find-ReleaseApk
+}
+
+function Archive-ReleaseApk([string]$ReleaseApk) {
+    New-Item -ItemType Directory -Force $archiveDir | Out-Null
+    $archivedApk = Join-Path $archiveDir (Split-Path $ReleaseApk -Leaf)
+    Copy-Item $ReleaseApk $archivedApk -Force
+    return $archivedApk
+}
+
+function Pin-BaselineApk([string]$ArchivedApk, [string]$VersionName) {
+    New-Item -ItemType Directory -Force $baseDir | Out-Null
+    $baselineApk = Join-Path $baseDir ("base-" + $VersionName + ".apk")
+    if ((Test-Path $baselineApk) -and !$ForcePinBase) {
+        $oldHash = (Get-FileHash $baselineApk -Algorithm SHA256).Hash
+        $newHash = (Get-FileHash $ArchivedApk -Algorithm SHA256).Hash
+        if ($oldHash -ne $newHash) {
+            Fail ("A different baseline already exists for version " + $VersionName + ". Use --force-pin-base only when intentional.")
+        }
+    }
+    Copy-Item $ArchivedApk $baselineApk -Force
+    Copy-Item $baselineApk (Join-Path $baseDir "latest-base.apk") -Force
+    return $baselineApk
+}
+
 if ([string]::IsNullOrWhiteSpace($Command) -or $Command -in @("help", "--help", "-h") -or $Version -in @("help", "--help", "-h")) {
-    Write-Output "Usage: .\apk.bat newbase [version] [--force-pin-base]"
+    Write-Output "Usage:"
+    Write-Output "  .\apk.bat rebuild [--pin-base] [--force-pin-base]"
+    Write-Output "  .\apk.bat newbase [version] [--force-pin-base]"
     exit 0
 }
-if ($Command -ne "newbase") {
-    Fail "Windows wrapper currently supports only: newbase"
+if ($Command -notin @("rebuild", "newbase")) {
+    Fail "Windows wrapper supports: rebuild, newbase"
+}
+if ($Command -eq "rebuild") {
+    if ($Version) {
+        Fail "rebuild does not accept a version. Use: .\apk.bat rebuild [--pin-base] [--force-pin-base]"
+    }
+    $releaseApk = Invoke-ReleaseBuild
+    $archivedApk = Archive-ReleaseApk $releaseApk
+    Write-Output "Rebuild completed"
+    Write-Output ("Release APK: " + $releaseApk)
+    Write-Output ("Archive APK: " + $archivedApk)
+    if ($PinBase) {
+        $currentVersion = (Get-VersionInfo).Name
+        $baselineApk = Pin-BaselineApk $archivedApk $currentVersion
+        Write-Output ("Baseline APK: " + $baselineApk)
+        Write-Output ("Latest base: " + (Join-Path $baseDir "latest-base.apk"))
+    }
+    exit 0
+}
+if ($PinBase) {
+    Fail "newbase always pins the new baseline; do not pass --pin-base"
 }
 if ($Version -and $Version -notmatch '^\d+\.\d+\.\d+$') {
     Fail "Version must use MAJOR.MINOR.PATCH, for example 0.2.0"
@@ -126,32 +186,9 @@ $newCode = $info.Code + 1
 try {
     Set-Version $newCode $Version
     Write-Output ("Version upgraded: " + $info.Code + " -> " + $newCode + " / " + $info.Name + " -> " + $Version)
-    Ensure-Java
-
-    Push-Location $root
-    try {
-        & (Join-Path $root "gradlew.bat") assembleRelease
-        if ($LASTEXITCODE -ne 0) {
-            Fail ("assembleRelease failed with exit code " + $LASTEXITCODE)
-        }
-    } finally {
-        Pop-Location
-    }
-
-    $releaseApk = Find-ReleaseApk
-    New-Item -ItemType Directory -Force $archiveDir, $baseDir | Out-Null
-    $archivedApk = Join-Path $archiveDir (Split-Path $releaseApk -Leaf)
-    Copy-Item $releaseApk $archivedApk -Force
-    $baselineApk = Join-Path $baseDir ("base-" + $Version + ".apk")
-    if ((Test-Path $baselineApk) -and !$ForcePinBase) {
-        $oldHash = (Get-FileHash $baselineApk -Algorithm SHA256).Hash
-        $newHash = (Get-FileHash $archivedApk -Algorithm SHA256).Hash
-        if ($oldHash -ne $newHash) {
-            Fail ("A different baseline already exists for version " + $Version + ". Use --force-pin-base only when intentional.")
-        }
-    }
-    Copy-Item $archivedApk $baselineApk -Force
-    Copy-Item $baselineApk (Join-Path $baseDir "latest-base.apk") -Force
+    $releaseApk = Invoke-ReleaseBuild
+    $archivedApk = Archive-ReleaseApk $releaseApk
+    $baselineApk = Pin-BaselineApk $archivedApk $Version
     Write-Output ("New baseline completed: version " + $Version)
     Write-Output ("Release APK: " + $releaseApk)
     Write-Output ("Baseline APK: " + $baselineApk)

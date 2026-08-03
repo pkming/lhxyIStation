@@ -18,6 +18,7 @@ M90 公交报站终端在 Android 11 上的复刻工程（马来西亚 MLXY 现�
 
 ```bash
 sh apk.sh rebuild            # 编译 release，产物在 apk/release/
+.\apk.bat rebuild             # Windows 等价命令，不升级版本号
 sh apk.sh newbase [版本号]    # 一键升版本 → 编全量 → 固定为新基线(apk/base/)
 .\apk.bat newbase [版本号]    # Windows 等价命令，无需 Git Bash
 sh apk.sh update             # 基于最新基线出热更补丁(默认上传 OSS)
