@@ -68,8 +68,8 @@ final class LegacyCardSpeechController {
         enableInnerHorn();
         pendingSpeech = () -> {
             pendingSpeech = null;
-            float speechVolume = applyConfiguredVolume();
-            boolean spoken = ttsEngine.speak(speechText, utteranceId, speechVolume, new LegacyTtsEngine.Listener() {
+            applyConfiguredVolume();
+            boolean spoken = ttsEngine.speak(speechText, utteranceId, new LegacyTtsEngine.Listener() {
                 @Override
                 public void onDone() {
                     disableInnerHorn();
@@ -136,32 +136,27 @@ final class LegacyCardSpeechController {
         return builder.toString();
     }
 
-    private float applyConfiguredVolume() {
+    private void applyConfiguredVolume() {
         if (audioManager == null) {
-            return 1.0f;
+            return;
         }
         ShellConfig shellConfig = ShellRuntime.get().getActiveConfig();
         if (shellConfig == null) {
-            return 1.0f;
+            return;
         }
         int targetVolume = volumeSource == VolumeSource.DISPATCH
                 ? shellConfig.getBasicSetupConfig().getOtherSettings().getDispatchVolume()
                 : shellConfig.getBasicSetupConfig().getTtsSettings().getInnerVolume();
         int maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
         int bounded = Math.max(0, Math.min(targetVolume, maxVolume));
-        float speechVolume = maxVolume <= 0
-                ? 1.0f
-                : (float) Math.sqrt(bounded / (float) maxVolume);
         audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, bounded, 0);
         AppLogCenter.log(
                 LogCategory.DEVICE,
                 LogLevel.INFO,
                 tag,
-                "刷卡播报音量 source=" + volumeSource + " / target=" + targetVolume + " / bounded=" + bounded
-                        + " / ttsGain=" + speechVolume,
+                "刷卡播报音量 source=" + volumeSource + " / target=" + targetVolume + " / bounded=" + bounded,
                 logTraceId
         );
-        return speechVolume;
     }
 
     private void enableInnerHorn() {
