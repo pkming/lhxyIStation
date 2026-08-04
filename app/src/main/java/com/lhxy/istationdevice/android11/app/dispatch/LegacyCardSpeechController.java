@@ -121,34 +121,7 @@ final class LegacyCardSpeechController {
         if (normalized.isEmpty() || "-".equals(normalized)) {
             return "";
         }
-        String hex = normalized.replaceAll("[^0-9A-Fa-f]", "");
-        if (hex.length() >= 2 && hex.length() % 2 == 0 && hex.length() == normalized.replaceAll("\\s+", "").length()) {
-            String decoded = decodeAsciiHex(hex);
-            if (!decoded.isEmpty()) {
-                return decoded;
-            }
-        }
         return normalized.replaceAll("\\s+", "");
-    }
-
-    private static String decodeAsciiHex(String hex) {
-        StringBuilder builder = new StringBuilder(hex.length() / 2);
-        for (int index = 0; index + 1 < hex.length(); index += 2) {
-            int value;
-            try {
-                value = Integer.parseInt(hex.substring(index, index + 2), 16);
-            } catch (NumberFormatException e) {
-                return "";
-            }
-            if (value == 0) {
-                continue;
-            }
-            if (value < 0x20 || value > 0x7E) {
-                return "";
-            }
-            builder.append((char) value);
-        }
-        return builder.toString().trim();
     }
 
     private static String spellOut(String value) {
