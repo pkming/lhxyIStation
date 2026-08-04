@@ -149,7 +149,9 @@ final class LegacyCardSpeechController {
                 : shellConfig.getBasicSetupConfig().getTtsSettings().getInnerVolume();
         int maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
         int bounded = Math.max(0, Math.min(targetVolume, maxVolume));
-        float speechVolume = maxVolume <= 0 ? 1.0f : bounded / (float) maxVolume;
+        float speechVolume = maxVolume <= 0
+                ? 1.0f
+                : (float) Math.sqrt(bounded / (float) maxVolume);
         audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, bounded, 0);
         AppLogCenter.log(
                 LogCategory.DEVICE,
