@@ -678,9 +678,6 @@ public final class LegacyBasicSetupSectionFragment extends Fragment {
     }
 
     private void saveTtsConfig(View root) {
-        if (!requireStationResourceImported()) {
-            return;
-        }
         confirmAction(R.string.tts_ok_tip, 0, () -> persistBasicSetup("legacy-basic-tts-save", buildUpdatedConfig(requireConfig(), new ShellConfig.BasicSetupConfig(
             requireConfig().getBasicSetupConfig().getNewspaperSettings(),
             requireConfig().getBasicSetupConfig().getNetworkSettings(),
