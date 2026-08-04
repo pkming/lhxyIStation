@@ -799,7 +799,7 @@ public final class LegacyMainActivity extends AppCompatActivity {
         }
         if (btnLineChoiceShortcut != null) {
             btnLineChoiceShortcut.setEnabled(true);
-            btnLineChoiceShortcut.setBackgroundResource(R.drawable.txt_key_red);
+            btnLineChoiceShortcut.setBackgroundResource(R.drawable.txt_key_bck);
             btnLineChoiceShortcut.setOnClickListener(v -> startActivity(LegacyVideoMonitorActivity.createIntent(this, "home")));
         }
         if (btnMessage != null) {
@@ -943,7 +943,7 @@ public final class LegacyMainActivity extends AppCompatActivity {
             return;
         }
         button.setEnabled(true);
-        button.setBackgroundResource(R.drawable.txt_key_red);
+        button.setBackgroundResource(R.drawable.txt_key_bck);
     }
 
     @NonNull
