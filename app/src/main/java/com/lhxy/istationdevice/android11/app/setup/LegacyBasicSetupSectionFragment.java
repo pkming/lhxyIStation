@@ -377,9 +377,6 @@ public final class LegacyBasicSetupSectionFragment extends Fragment {
     }
 
     private void saveNetworkConfig(View root) {
-        if (!requireStationResourceImported()) {
-            return;
-        }
         confirmAction(R.string.network_dialog_tip, R.string.restart, () -> {
             String traceId = TraceIds.next("legacy-basic-network-save");
             try {
@@ -478,9 +475,6 @@ public final class LegacyBasicSetupSectionFragment extends Fragment {
     }
 
     private void saveSerialConfig(View root) {
-        if (!requireStationResourceImported()) {
-            return;
-        }
         confirmAction(R.string.port_ok_tip, R.string.restart, () -> {
             String traceId = TraceIds.next("legacy-basic-serial-save");
             try {
@@ -696,9 +690,6 @@ public final class LegacyBasicSetupSectionFragment extends Fragment {
     }
 
     private void saveLanguageConfig(View root) {
-        if (!requireStationResourceImported()) {
-            return;
-        }
         confirmAction(R.string.language_tip, R.string.restart, () -> {
             String traceId = TraceIds.next("legacy-basic-language-save");
             try {
@@ -727,9 +718,6 @@ public final class LegacyBasicSetupSectionFragment extends Fragment {
     }
 
     private void saveOtherConfig(View root) {
-        if (!requireStationResourceImported()) {
-            return;
-        }
         ShellConfig.OtherSettings currentSettings = requireConfig().getBasicSetupConfig().getOtherSettings();
         confirmAction(R.string.other_ok_tip, 0, () -> persistBasicSetup("legacy-basic-other-save", buildUpdatedConfig(requireConfig(), new ShellConfig.BasicSetupConfig(
             requireConfig().getBasicSetupConfig().getNewspaperSettings(),
