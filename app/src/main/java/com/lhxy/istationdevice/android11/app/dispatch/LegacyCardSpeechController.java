@@ -2,6 +2,8 @@ package com.lhxy.istationdevice.android11.app.dispatch;
 
 import android.content.Context;
 import android.media.AudioManager;
+import android.os.Handler;
+import android.os.Looper;
 import com.lhxy.istationdevice.android11.app.audio.LegacyTtsEngine;
 
 import com.lhxy.istationdevice.android11.core.AppLogCenter;
@@ -11,6 +13,8 @@ import com.lhxy.istationdevice.android11.domain.config.ShellConfig;
 import com.lhxy.istationdevice.android11.runtime.ShellRuntime;
 
 final class LegacyCardSpeechController {
+    private static final long INNER_HORN_WARM_UP_MILLIS = 800L;
+
     enum VolumeSource {
         TTS_INNER,
         DISPATCH
@@ -23,8 +27,10 @@ final class LegacyCardSpeechController {
     private final String gpioTracePrefix;
     private final String utteranceId;
     private final VolumeSource volumeSource;
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
     private LegacyTtsEngine ttsEngine;
+    private Runnable pendingSpeech;
 
     LegacyCardSpeechController(
             Context context,
@@ -55,33 +61,43 @@ final class LegacyCardSpeechController {
         }
         String speechText = "ID号 " + spellOut(displayId);
         init();
-        enableInnerHorn();
-        float speechVolume = applyConfiguredVolume();
-        boolean spoken = ttsEngine.speak(speechText, utteranceId, speechVolume, new LegacyTtsEngine.Listener() {
-            @Override
-            public void onDone() {
-                disableInnerHorn();
-            }
-
-            @Override
-            public void onError() {
-                disableInnerHorn();
-            }
-
-            @Override
-            public void onStop() {
-                disableInnerHorn();
-            }
-        });
-        if (!spoken) {
-            AppLogCenter.log(LogCategory.BIZ, LogLevel.WARN, tag,
-                    "卡号播报失败: TTS 未就绪 card=" + displayId, logTraceId);
-            disableInnerHorn();
-            return;
+        cancelPendingSpeech();
+        if (ttsEngine != null) {
+            ttsEngine.stop();
         }
+        enableInnerHorn();
+        pendingSpeech = () -> {
+            pendingSpeech = null;
+            float speechVolume = applyConfiguredVolume();
+            boolean spoken = ttsEngine.speak(speechText, utteranceId, speechVolume, new LegacyTtsEngine.Listener() {
+                @Override
+                public void onDone() {
+                    disableInnerHorn();
+                }
+
+                @Override
+                public void onError() {
+                    disableInnerHorn();
+                }
+
+                @Override
+                public void onStop() {
+                    disableInnerHorn();
+                }
+            });
+            if (!spoken) {
+                AppLogCenter.log(LogCategory.BIZ, LogLevel.WARN, tag,
+                        "卡号播报失败: TTS 未就绪 card=" + displayId, logTraceId);
+                disableInnerHorn();
+            }
+        };
+        mainHandler.postDelayed(pendingSpeech, INNER_HORN_WARM_UP_MILLIS);
+        AppLogCenter.log(LogCategory.DEVICE, LogLevel.INFO, tag,
+                "内置功放预热 " + INNER_HORN_WARM_UP_MILLIS + "ms 后播报 card=" + displayId, logTraceId);
     }
 
     void stop() {
+        cancelPendingSpeech();
         if (ttsEngine != null) {
             ttsEngine.stop();
         }
@@ -90,6 +106,14 @@ final class LegacyCardSpeechController {
 
     void shutdown() {
         // The shared engine is owned by the application and remains warm across pages.
+    }
+
+    private void cancelPendingSpeech() {
+        if (pendingSpeech == null) {
+            return;
+        }
+        mainHandler.removeCallbacks(pendingSpeech);
+        pendingSpeech = null;
     }
 
     static String normalizeCardForDisplay(String cardNo) {
