@@ -12,6 +12,7 @@ import com.lhxy.istationdevice.android11.protocol.gps.GpsStreamParser;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.LongSupplier;
 
 /**
  * GPS 串口监视器
@@ -23,16 +24,30 @@ public final class GpsSerialMonitor {
     private static final long RAW_LOG_INTERVAL_MS = 10_000L;
     private static final long FIX_LOG_INTERVAL_MS = 10_000L;
     private static final int INITIAL_RAW_LOG_LIMIT = 3;
+    private static final long RAW_DATA_TIMEOUT_MS = 3_000L;
+    private static final long VALID_FIX_TIMEOUT_MS = 5_000L;
 
     private final GpsStreamParser streamParser = new GpsStreamParser();
     private final CopyOnWriteArrayList<SnapshotListener> snapshotListeners = new CopyOnWriteArrayList<>();
+    private final LongSupplier clock;
     private volatile String attachedChannelKey;
     private volatile String attachedPortName;
     private volatile GpsFixSnapshot latestSnapshot;
+    private volatile SerialPortAdapter attachedAdapter;
+    private volatile long lastRawReceiveTimeMs;
+    private volatile long lastValidFixTimeMs;
     private long rawPacketCount;
     private long lastRawLogTimeMs;
     private long lastFixLogTimeMs;
     private GpsFixSnapshot lastLoggedSnapshot;
+
+    public GpsSerialMonitor() {
+        this(System::currentTimeMillis);
+    }
+
+    GpsSerialMonitor(LongSupplier clock) {
+        this.clock = clock == null ? System::currentTimeMillis : clock;
+    }
 
     /**
      * 绑定 GPS 串口监听。
@@ -43,11 +58,14 @@ public final class GpsSerialMonitor {
         }
         streamParser.reset();
         latestSnapshot = null;
+        lastRawReceiveTimeMs = 0L;
+        lastValidFixTimeMs = 0L;
         resetLogState();
         attachedChannelKey = serialChannel.getKey();
         attachedPortName = serialChannel.getPortName();
+        attachedAdapter = serialPortAdapter;
         serialPortAdapter.setReceiveListener(serialChannel.getPortName(), buildListener(traceId));
-        AppLogCenter.log(
+        safeLog(
                 LogCategory.BIZ,
                 LogLevel.INFO,
                 TAG,
@@ -68,15 +86,50 @@ public final class GpsSerialMonitor {
         resetLogState();
         attachedChannelKey = null;
         attachedPortName = null;
+        attachedAdapter = null;
         latestSnapshot = null;
-        AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, TAG, "已解绑 GPS 串口监听: " + portName, traceId);
+        lastRawReceiveTimeMs = 0L;
+        lastValidFixTimeMs = 0L;
+        safeLog(LogCategory.BIZ, LogLevel.INFO, TAG, "已解绑 GPS 串口监听: " + portName, traceId);
     }
 
     /**
      * 当前最新的一份定位快照。
      */
     public GpsFixSnapshot getLatestSnapshot() {
+        GpsConnectionState state = getConnectionState();
+        if (state == GpsConnectionState.DISCONNECTED
+                || state == GpsConnectionState.RECONNECTING
+                || state == GpsConnectionState.EXPIRED) {
+            return null;
+        }
         return latestSnapshot;
+    }
+
+    public GpsConnectionState getConnectionState() {
+        String portName = attachedPortName;
+        SerialPortAdapter adapter = attachedAdapter;
+        if (portName == null || adapter == null) {
+            return GpsConnectionState.DISCONNECTED;
+        }
+        if (!adapter.isOpen(portName)) {
+            return GpsConnectionState.RECONNECTING;
+        }
+        long now = clock.getAsLong();
+        if (lastRawReceiveTimeMs <= 0L) {
+            return GpsConnectionState.SEARCHING;
+        }
+        if (now - lastRawReceiveTimeMs > RAW_DATA_TIMEOUT_MS) {
+            return GpsConnectionState.RECONNECTING;
+        }
+        GpsFixSnapshot snapshot = latestSnapshot;
+        if (snapshot == null || !snapshot.isValid()) {
+            return GpsConnectionState.SEARCHING;
+        }
+        if (lastValidFixTimeMs <= 0L || now - lastValidFixTimeMs > VALID_FIX_TIMEOUT_MS) {
+            return GpsConnectionState.EXPIRED;
+        }
+        return GpsConnectionState.FIXED;
     }
 
     /**
@@ -131,19 +184,34 @@ public final class GpsSerialMonitor {
         } else {
             builder.append("\n").append(latestSnapshot.describe());
         }
+        builder.append("\n- state=").append(getConnectionState());
         return builder.toString();
     }
 
     private SerialReceiveListener buildListener(String traceId) {
         return (portName, payload) -> {
+            lastRawReceiveTimeMs = clock.getAsLong();
             logRawSampleIfNeeded(portName, payload, traceId);
             List<GpsFixSnapshot> snapshots = streamParser.accept(payload);
             for (GpsFixSnapshot snapshot : snapshots) {
                 latestSnapshot = snapshot;
+                if (isAuthoritativeValidFix(snapshot)) {
+                    lastValidFixTimeMs = clock.getAsLong();
+                }
                 logFixIfNeeded(snapshot, traceId);
                 notifySnapshotListeners(snapshot);
             }
         };
+    }
+
+    private boolean isAuthoritativeValidFix(GpsFixSnapshot snapshot) {
+        if (snapshot == null || !snapshot.isValid() || snapshot.getSourceSentence() == null) {
+            return false;
+        }
+        String sentence = snapshot.getSourceSentence();
+        return sentence.startsWith("$GPRMC") || sentence.startsWith("$GNRMC")
+                || sentence.startsWith("$BDRMC") || sentence.startsWith("$GPGGA")
+                || sentence.startsWith("$GNGGA") || sentence.startsWith("$BDGGA");
     }
 
     private void notifySnapshotListeners(GpsFixSnapshot snapshot) {
@@ -153,7 +221,7 @@ public final class GpsSerialMonitor {
             } catch (RuntimeException ignored) {
                 // 不中断 GPS 解析，但必须记录：这个监听器很可能就是自动报站的触发回调，
                 // 静默吞掉会造成“有定位却不报站、日志毫无痕迹”的黑洞。
-                AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, "GpsSerialMonitor",
+                safeLog(LogCategory.ERROR, LogLevel.WARN, "GpsSerialMonitor",
                         "GPS快照监听器抛异常(自动报站回调可能受影响): " + ignored, "gps-snapshot-listener");
             }
         }
@@ -176,7 +244,7 @@ public final class GpsSerialMonitor {
             return;
         }
         lastRawLogTimeMs = now;
-        AppLogCenter.log(
+        safeLog(
                 LogCategory.PROTOCOL_RX,
                 LogLevel.DEBUG,
                 TAG,
@@ -198,7 +266,7 @@ public final class GpsSerialMonitor {
         }
         lastFixLogTimeMs = now;
         lastLoggedSnapshot = snapshot;
-        AppLogCenter.log(
+        safeLog(
                 LogCategory.BIZ,
                 LogLevel.INFO,
                 TAG,
@@ -230,6 +298,14 @@ public final class GpsSerialMonitor {
         return value == null || value.trim().isEmpty() ? "-" : value.trim();
     }
 
+    private void safeLog(LogCategory category, LogLevel level, String tag, String message, String traceId) {
+        try {
+            AppLogCenter.log(category, level, tag, message, traceId);
+        } catch (RuntimeException ignored) {
+            // Android logging is unavailable in local JVM tests; GPS state must remain operational.
+        }
+    }
+
     private String previewAscii(byte[] payload) {
         if (payload == null || payload.length == 0) {
             return "";
@@ -243,5 +319,13 @@ public final class GpsSerialMonitor {
 
     public interface SnapshotListener {
         void onSnapshot(GpsFixSnapshot snapshot);
+    }
+
+    public enum GpsConnectionState {
+        DISCONNECTED,
+        RECONNECTING,
+        SEARCHING,
+        FIXED,
+        EXPIRED
     }
 }

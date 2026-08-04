@@ -1,5 +1,9 @@
 package com.lhxy.istationdevice.android11.devicem90;
 
+import android.system.ErrnoException;
+import android.system.Os;
+import android.system.OsConstants;
+
 import com.lhxy.istationdevice.android11.core.AppLogCenter;
 import com.lhxy.istationdevice.android11.core.Hexs;
 import com.lhxy.istationdevice.android11.core.LogCategory;
@@ -8,14 +12,11 @@ import com.lhxy.istationdevice.android11.deviceapi.SerialPortAdapter;
 import com.lhxy.istationdevice.android11.deviceapi.SerialPortConfig;
 import com.lhxy.istationdevice.android11.deviceapi.SerialReceiveListener;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.RandomAccessFile;
+import java.io.FileDescriptor;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -27,6 +28,7 @@ import java.util.concurrent.TimeUnit;
  */
 public final class M90RealSerialPortAdapter implements SerialPortAdapter {
     private static final String TAG = "M90RealSerial";
+    private static final long[] RECONNECT_DELAYS_MS = {1_000L, 2_000L, 5_000L, 10_000L};
 
     private final Map<String, SerialSession> sessions = new ConcurrentHashMap<>();
     private final Map<String, SerialReceiveListener> listeners = new ConcurrentHashMap<>();
@@ -38,7 +40,14 @@ public final class M90RealSerialPortAdapter implements SerialPortAdapter {
     public void open(SerialPortConfig config, String traceId) {
         String portPath = normalizePortPath(config.getPortName());
         SerialSession session = sessions.computeIfAbsent(portPath, key -> new SerialSession());
-        session.executor.execute(() -> openInternal(session, portPath, config, traceId));
+        session.executor.execute(() -> {
+            session.desiredOpen = true;
+            session.desiredPortPath = portPath;
+            session.desiredConfig = config;
+            session.desiredTraceId = traceId;
+            session.reconnectAttempt = 0;
+            openInternal(session, portPath, config, traceId);
+        });
     }
 
     /**
@@ -52,7 +61,8 @@ public final class M90RealSerialPortAdapter implements SerialPortAdapter {
             return;
         }
         session.executor.execute(() -> {
-            session.closeQuietly();
+            session.desiredOpen = false;
+            session.closeActiveQuietly();
             AppLogCenter.log(LogCategory.DEVICE, LogLevel.INFO, TAG, "real close " + portPath, traceId);
         });
     }
@@ -83,11 +93,13 @@ public final class M90RealSerialPortAdapter implements SerialPortAdapter {
                     AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, TAG, "real send skipped, port not open: " + portPath, traceId);
                     return;
                 }
-                session.outputStream.write(payload);
-                session.outputStream.flush();
+                int offset = 0;
+                while (offset < payload.length) {
+                    offset += Os.write(session.fileDescriptor, payload, offset, payload.length - offset);
+                }
                 AppLogCenter.log(LogCategory.PROTOCOL_TX, LogLevel.DEBUG, TAG, "real send on " + portPath + ": " + Hexs.toHex(payload), traceId);
             } catch (Exception e) {
-                session.closeQuietly();
+                session.handleTransportFailure(traceId + "-send-failure");
                 AppLogCenter.log(LogCategory.ERROR, LogLevel.ERROR, TAG, "real send failed on " + portPath + ": " + e.getMessage(), traceId);
             }
         });
@@ -109,23 +121,27 @@ public final class M90RealSerialPortAdapter implements SerialPortAdapter {
     }
 
     private void openInternal(SerialSession session, String portPath, SerialPortConfig config, String traceId) {
+        if (!session.desiredOpen) {
+            return;
+        }
         try {
-            session.closeQuietly();
-            File deviceFile = new File(portPath);
-            if (!deviceFile.exists()) {
+            session.closeActiveQuietly();
+            if (!new java.io.File(portPath).exists()) {
                 throw new IllegalStateException("串口节点不存在: " + portPath);
             }
 
             configurePort(portPath, config.getBaudRate(), traceId);
-            RandomAccessFile randomAccessFile = new RandomAccessFile(deviceFile, "rw");
-            FileInputStream inputStream = new FileInputStream(randomAccessFile.getFD());
-            FileOutputStream outputStream = new FileOutputStream(randomAccessFile.getFD());
-
-            session.randomAccessFile = randomAccessFile;
-            session.inputStream = inputStream;
-            session.outputStream = outputStream;
+            session.fileDescriptor = Os.open(
+                    portPath,
+                    OsConstants.O_RDWR | OsConstants.O_NOCTTY | OsConstants.O_NONBLOCK,
+                    0
+            );
+            // Avoid a blocking device open, then restore normal blocking reads for the M90 UART driver.
+            Os.fcntlInt(session.fileDescriptor, OsConstants.F_SETFL, 0);
             session.portPath = portPath;
             session.baudRate = config.getBaudRate();
+            session.generation++;
+            session.reconnectAttempt = 0;
 
             AppLogCenter.log(
                     LogCategory.DEVICE,
@@ -136,8 +152,9 @@ public final class M90RealSerialPortAdapter implements SerialPortAdapter {
             );
             session.startReadLoop(traceId);
         } catch (Exception e) {
-            session.closeQuietly();
+            session.closeActiveQuietly();
             AppLogCenter.log(LogCategory.ERROR, LogLevel.ERROR, TAG, "real open failed on " + portPath + ": " + e.getMessage(), traceId);
+            session.scheduleReconnect();
         }
     }
 
@@ -195,17 +212,21 @@ public final class M90RealSerialPortAdapter implements SerialPortAdapter {
     }
 
     private final class SerialSession {
-        private final ExecutorService executor = Executors.newSingleThreadExecutor();
-        private volatile RandomAccessFile randomAccessFile;
-        private volatile FileInputStream inputStream;
-        private volatile FileOutputStream outputStream;
+        private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
+        private volatile FileDescriptor fileDescriptor;
         private volatile String portPath;
         private volatile int baudRate;
         private volatile Thread readerThread;
+        private volatile boolean desiredOpen;
+        private volatile String desiredPortPath;
+        private volatile SerialPortConfig desiredConfig;
+        private volatile String desiredTraceId;
+        private volatile long generation;
+        private int reconnectAttempt;
         private long receiveCount;
 
         private boolean isOpen() {
-            return randomAccessFile != null;
+            return fileDescriptor != null && fileDescriptor.valid();
         }
 
         /**
@@ -213,8 +234,9 @@ public final class M90RealSerialPortAdapter implements SerialPortAdapter {
          */
         private void startReadLoop(String traceId) {
             String currentPortPath = portPath;
-            FileInputStream currentInputStream = inputStream;
-            if (currentPortPath == null || currentInputStream == null) {
+            FileDescriptor currentFileDescriptor = fileDescriptor;
+            long currentGeneration = generation;
+            if (currentPortPath == null || currentFileDescriptor == null) {
                 // 读线程没起来 → “打开了却一直收不到数据”，之前无日志。
                 AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, TAG,
                         "读线程未启动: port或inputStream为空 traceId=" + traceId, traceId);
@@ -230,14 +252,20 @@ public final class M90RealSerialPortAdapter implements SerialPortAdapter {
                 int suppressedRxLogs = 0;
                 long suppressedRxBytes = 0;
                 try {
-                    while (isOpen() && currentPortPath.equals(portPath) && currentInputStream == inputStream) {
-                        int length = currentInputStream.read(buffer);
-                        if (length < 0) {
-                            AppLogCenter.log(LogCategory.DEVICE, LogLevel.INFO, TAG, "real serial eof on " + currentPortPath, readTraceId);
-                            break;
+                    while (isCurrentSession(currentFileDescriptor, currentGeneration)) {
+                        int length;
+                        try {
+                            length = Os.read(currentFileDescriptor, buffer, 0, buffer.length);
+                        } catch (ErrnoException e) {
+                            if (e.errno == OsConstants.EAGAIN) {
+                                Thread.sleep(20L);
+                                continue;
+                            }
+                            throw e;
                         }
                         if (length == 0) {
-                            continue;
+                            AppLogCenter.log(LogCategory.DEVICE, LogLevel.INFO, TAG, "real serial eof on " + currentPortPath, readTraceId);
+                            break;
                         }
 
                         byte[] payload = new byte[length];
@@ -270,13 +298,11 @@ public final class M90RealSerialPortAdapter implements SerialPortAdapter {
                         }
                     }
                 } catch (Exception e) {
-                    if (currentPortPath.equals(portPath)) {
+                    if (isCurrentSession(currentFileDescriptor, currentGeneration)) {
                         AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, TAG, "real recv failed on " + currentPortPath + ": " + e.getMessage(), readTraceId);
                     }
                 } finally {
-                    if (currentPortPath.equals(portPath)) {
-                        closeQuietly();
-                    }
+                    executor.execute(() -> handleReaderStopped(currentFileDescriptor, currentGeneration, readTraceId));
                 }
             }, "serial-rx-" + currentPortPath.replace("/", "_"));
             thread.setDaemon(true);
@@ -284,33 +310,60 @@ public final class M90RealSerialPortAdapter implements SerialPortAdapter {
             thread.start();
         }
 
-        private void closeQuietly() {
-            try {
-                if (outputStream != null) {
-                    outputStream.close();
-                }
-            } catch (Exception ignore) {
-                // ignore
+        private boolean isCurrentSession(FileDescriptor descriptor, long sessionGeneration) {
+            return desiredOpen && descriptor != null && descriptor == fileDescriptor
+                    && sessionGeneration == generation && descriptor.valid();
+        }
+
+        private void handleReaderStopped(FileDescriptor descriptor, long sessionGeneration, String traceId) {
+            if (descriptor != fileDescriptor || sessionGeneration != generation) {
+                return;
             }
-            try {
-                if (inputStream != null) {
-                    inputStream.close();
-                }
-            } catch (Exception ignore) {
-                // ignore
+            closeActiveQuietly();
+            AppLogCenter.log(LogCategory.DEVICE, LogLevel.WARN, TAG,
+                    "real serial reader stopped, scheduling reconnect " + desiredPortPath, traceId);
+            scheduleReconnect();
+        }
+
+        private void handleTransportFailure(String traceId) {
+            closeActiveQuietly();
+            scheduleReconnect();
+            AppLogCenter.log(LogCategory.DEVICE, LogLevel.WARN, TAG,
+                    "real serial transport failed, scheduling reconnect " + desiredPortPath, traceId);
+        }
+
+        private void scheduleReconnect() {
+            if (!desiredOpen || desiredConfig == null || desiredPortPath == null) {
+                return;
             }
+            int delayIndex = Math.min(reconnectAttempt, RECONNECT_DELAYS_MS.length - 1);
+            long delayMs = RECONNECT_DELAYS_MS[delayIndex];
+            reconnectAttempt++;
+            String reconnectTraceId = (desiredTraceId == null ? "serial" : desiredTraceId)
+                    + "-reconnect-" + reconnectAttempt;
+            AppLogCenter.log(LogCategory.DEVICE, LogLevel.INFO, TAG,
+                    "real reconnect scheduled " + desiredPortPath
+                            + " attempt=" + reconnectAttempt + " delayMs=" + delayMs,
+                    reconnectTraceId);
+            executor.schedule(() -> {
+                if (desiredOpen && !isOpen()) {
+                    openInternal(this, desiredPortPath, desiredConfig, reconnectTraceId);
+                }
+            }, delayMs, TimeUnit.MILLISECONDS);
+        }
+
+        private void closeActiveQuietly() {
+            generation++;
             try {
-                if (randomAccessFile != null) {
-                    randomAccessFile.close();
+                if (fileDescriptor != null && fileDescriptor.valid()) {
+                    Os.close(fileDescriptor);
                 }
             } catch (Exception ignore) {
                 // ignore
             }
             readerThread = null;
             receiveCount = 0;
-            randomAccessFile = null;
-            inputStream = null;
-            outputStream = null;
+            fileDescriptor = null;
             portPath = null;
             baudRate = 0;
         }

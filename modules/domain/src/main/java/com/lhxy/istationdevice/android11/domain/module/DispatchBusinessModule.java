@@ -259,6 +259,7 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
                     dispatchState,
                     resolveSignInState(),
                     resolveStationState(),
+                    getLatestGpsSnapshot(),
                     requestType
             );
             if (!socketClientAdapter.isConnected(socketChannel.getChannelName())) {
@@ -545,8 +546,8 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
     // status/direction/busNo 的取值约定待对平台日志校准。
     private Jt808ReportStationSnapshot buildReportStationSnapshot(StationState station, GpsFixSnapshot snapshot) {
         boolean valid = snapshot != null && snapshot.isValid();
-        String latitude = valid ? emptyToZero(snapshot.getLatitudeDecimal()) : emptyToZero(station.getLatitude());
-        String longitude = valid ? emptyToZero(snapshot.getLongitudeDecimal()) : emptyToZero(station.getLongitude());
+        String latitude = valid ? emptyToZero(snapshot.getLatitudeDecimal()) : "0";
+        String longitude = valid ? emptyToZero(snapshot.getLongitudeDecimal()) : "0";
         // 以下取值全部对齐 V32 现场版 MainActivity(2541-2588) + GenerateJQ808ReqPackage.generateReportStation：
         // - speed：0x0b02 这条路 V32 用 toNumberFormat(节速*1.852, 1)*10 → 即 0.1km/h 单位(km/h×10)，
         //   与 DVR/siteInfo 路径(纯 km/h)不同，别混。
@@ -695,6 +696,7 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
         if (stationState == null || reminderPoint == null) {
             return;
         }
+        boolean validFix = snapshot != null && snapshot.isValid();
         try {
             ShellConfig shellConfig = requireShellConfig();
             ShellConfig.SocketChannel socketChannel = shellConfig.requireSocketChannel(shellConfig.getDebugReplay().getJt808SocketKey());
@@ -707,9 +709,9 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
                     reminderPoint,
                     stationState.getActiveCrossArrivalTime(),
                     reminderType == LegacyGpsAutoReportEngine.REMINDER_TYPE_LEAVE ? compactNowTime() : "000000000000",
-                    snapshot == null ? 0 : parseAngle(snapshot.getCourse()),
-                    snapshot == null ? stationState.getLongitude() : snapshot.getLongitudeDecimal(),
-                    snapshot == null ? stationState.getLatitude() : snapshot.getLatitudeDecimal()
+                    validFix ? parseAngle(snapshot.getCourse()) : 0,
+                    validFix ? snapshot.getLongitudeDecimal() : "0",
+                    validFix ? snapshot.getLatitudeDecimal() : "0"
             );
             socketClientAdapter.send(socketChannel.getChannelName(), payload, traceId + "-send");
             AppLogCenter.log(
@@ -743,6 +745,7 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
         if (stationState == null || !stationState.isCrossingReminderActive()) {
             return;
         }
+        boolean validFix = snapshot != null && snapshot.isValid();
         try {
             ShellConfig shellConfig = requireShellConfig();
             ShellConfig.SocketChannel socketChannel = shellConfig.requireSocketChannel(shellConfig.getDebugReplay().getJt808SocketKey());
@@ -757,8 +760,8 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
                     highSpeedKmh,
                     averageSpeedHundredKmh,
                     continueSeconds,
-                    snapshot == null ? stationState.getLongitude() : snapshot.getLongitudeDecimal(),
-                    snapshot == null ? stationState.getLatitude() : snapshot.getLatitudeDecimal(),
+                    validFix ? snapshot.getLongitudeDecimal() : "0",
+                    validFix ? snapshot.getLatitudeDecimal() : "0",
                     compactNowTime()
             );
             socketClientAdapter.send(socketChannel.getChannelName(), payload, traceId + "-send");

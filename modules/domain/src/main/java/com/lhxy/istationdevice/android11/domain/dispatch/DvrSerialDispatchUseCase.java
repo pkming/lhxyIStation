@@ -127,6 +127,7 @@ public final class DvrSerialDispatchUseCase {
     }
 
     private byte[] buildGpsPayload(StationState stationState, GpsFixSnapshot snapshot) {
+        boolean validFix = snapshot != null && snapshot.isValid();
         byte[] payload = new byte[94];
         payload[0] = 0x55;
         payload[1] = 0x05;
@@ -134,12 +135,12 @@ public final class DvrSerialDispatchUseCase {
         payload[3] = 0x00;
         writeFixedText(payload, 4, 20, safeLineName(stationState.getLineName()));
         writeLittleEndianInt(payload, 24, (int) (System.currentTimeMillis() / 1000L));
-        payload[28] = hemisphereFlag(snapshot == null ? "E" : snapshot.getLongitudeHemisphere(), "E");
-        writeFixedText(payload, 29, 23, safeDecimal(snapshot == null ? null : snapshot.getLongitudeDecimal()));
-        payload[52] = hemisphereFlag(snapshot == null ? "N" : snapshot.getLatitudeHemisphere(), "N");
-        writeFixedText(payload, 53, 23, safeDecimal(snapshot == null ? null : snapshot.getLatitudeDecimal()));
-        writeLittleEndianInt(payload, 76, toSpeedKmh(snapshot));
-        writeLittleEndianInt(payload, 80, toAngle(snapshot));
+        payload[28] = hemisphereFlag(validFix ? snapshot.getLongitudeHemisphere() : "E", "E");
+        writeFixedText(payload, 29, 23, safeDecimal(validFix ? snapshot.getLongitudeDecimal() : null));
+        payload[52] = hemisphereFlag(validFix ? snapshot.getLatitudeHemisphere() : "N", "N");
+        writeFixedText(payload, 53, 23, safeDecimal(validFix ? snapshot.getLatitudeDecimal() : null));
+        writeLittleEndianInt(payload, 76, validFix ? toSpeedKmh(snapshot) : 0);
+        writeLittleEndianInt(payload, 80, validFix ? toAngle(snapshot) : 361);
         payload[84] = (byte) (resolveDirection(stationState) == 1 ? 0x00 : 0x01);
         payload[85] = (byte) stationNo(stationState);
         payload[86] = (byte) reportStatus(stationState);
@@ -150,6 +151,7 @@ public final class DvrSerialDispatchUseCase {
     }
 
     private byte[] buildSiteInfoPayload(StationState stationState, GpsFixSnapshot snapshot) {
+        boolean validFix = snapshot != null && snapshot.isValid();
         byte[] payload = new byte[70];
         payload[0] = 0x55;
         payload[1] = 0x06;
@@ -162,7 +164,7 @@ public final class DvrSerialDispatchUseCase {
         payload[48] = 0x00;
         writeLittleEndianInt(payload, 52, (int) (System.currentTimeMillis() / 1000L));
         payload[56] = (byte) stationNo(stationState);
-        writeLittleEndianInt(payload, 60, toSpeedKmh(snapshot));
+        writeLittleEndianInt(payload, 60, validFix ? toSpeedKmh(snapshot) : 0);
         payload[68] = checksum(payload, 68);
         payload[69] = (byte) 0xAA;
         return payload;

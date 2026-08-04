@@ -63,6 +63,15 @@ public final class GpsState {
 
     public void applySnapshot(GpsFixSnapshot snapshot) {
         if (snapshot == null) {
+            valid = false;
+            fixQuality = 0;
+            fixType = 0;
+            usedSatellites = 0;
+            latitude = "-";
+            longitude = "-";
+            altitude = "-";
+            speedKnots = "-";
+            course = "-";
             return;
         }
         valid = snapshot.isValid();

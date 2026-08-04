@@ -58,20 +58,25 @@ public final class GpsNmeaParser {
         String latitudeHemisphere = safeField(fields, 4);
         String longitudeRaw = safeField(fields, 5);
         String longitudeHemisphere = safeField(fields, 6);
+        String latitudeDecimal = convertToDecimal(latitudeRaw, latitudeHemisphere, 2);
+        String longitudeDecimal = convertToDecimal(longitudeRaw, longitudeHemisphere, 3);
+        boolean valid = "A".equalsIgnoreCase(safeField(fields, 2))
+                && !latitudeDecimal.isEmpty()
+                && !longitudeDecimal.isEmpty();
 
         return new GpsFixSnapshot(
                 sentence,
-                "A".equalsIgnoreCase(safeField(fields, 2)),
+                valid,
                 previousSnapshot == null ? 0 : previousSnapshot.getFixQuality(),
                 previousSnapshot == null ? 0 : previousSnapshot.getFixType(),
                 safeField(fields, 1),
                 safeField(fields, 9),
                 latitudeRaw,
                 latitudeHemisphere,
-                convertToDecimal(latitudeRaw, latitudeHemisphere, 2),
+                latitudeDecimal,
                 longitudeRaw,
                 longitudeHemisphere,
-                convertToDecimal(longitudeRaw, longitudeHemisphere, 3),
+                longitudeDecimal,
                 safeField(fields, 7),
                 safeField(fields, 8),
                 previousSnapshot == null ? "0" : previousSnapshot.getAltitudeMeters(),
@@ -93,7 +98,9 @@ public final class GpsNmeaParser {
         int usedSatellites = parseInt(safeField(fields, 7));
         String altitudeMeters = safeDecimalField(fields, 9);
         int fixQuality = parseInt(safeField(fields, 6));
-        boolean valid = fixQuality > 0 || (safeField(fields, 6).isEmpty() && previousSnapshot != null && previousSnapshot.isValid());
+        String latitudeDecimal = convertToDecimal(latitudeRaw, latitudeHemisphere, 2);
+        String longitudeDecimal = convertToDecimal(longitudeRaw, longitudeHemisphere, 3);
+        boolean valid = fixQuality > 0 && !latitudeDecimal.isEmpty() && !longitudeDecimal.isEmpty();
 
         return new GpsFixSnapshot(
                 sentence,
@@ -104,10 +111,10 @@ public final class GpsNmeaParser {
                 previousSnapshot == null ? "" : previousSnapshot.getDate(),
                 valueOrPrevious(latitudeRaw, previousSnapshot == null ? "" : previousSnapshot.getLatitudeRaw()),
                 valueOrPrevious(latitudeHemisphere, previousSnapshot == null ? "" : previousSnapshot.getLatitudeHemisphere()),
-                valueOrPrevious(convertToDecimal(latitudeRaw, latitudeHemisphere, 2), previousSnapshot == null ? "" : previousSnapshot.getLatitudeDecimal()),
+                latitudeDecimal,
                 valueOrPrevious(longitudeRaw, previousSnapshot == null ? "" : previousSnapshot.getLongitudeRaw()),
                 valueOrPrevious(longitudeHemisphere, previousSnapshot == null ? "" : previousSnapshot.getLongitudeHemisphere()),
-                valueOrPrevious(convertToDecimal(longitudeRaw, longitudeHemisphere, 3), previousSnapshot == null ? "" : previousSnapshot.getLongitudeDecimal()),
+                longitudeDecimal,
                 previousSnapshot == null ? "" : previousSnapshot.getSpeedKnots(),
                 previousSnapshot == null ? "" : previousSnapshot.getCourse(),
                 altitudeMeters.isEmpty() ? previousSnapshot == null ? "0" : previousSnapshot.getAltitudeMeters() : altitudeMeters,
@@ -121,8 +128,12 @@ public final class GpsNmeaParser {
             return previousSnapshot;
         }
 
-        int fixType = parseInt(safeField(fields, 2));
-        boolean valid = fixType >= 2 || (fixType == 0 && previousSnapshot != null && previousSnapshot.isValid());
+        int parsedFixType = parseInt(safeField(fields, 2));
+        int fixType = parsedFixType >= 1 && parsedFixType <= 3
+                ? parsedFixType
+                : previousSnapshot == null ? 0 : previousSnapshot.getFixType();
+        // GSA only supplements fix metadata. RMC/GGA own validity because GSA has no coordinates.
+        boolean valid = previousSnapshot != null && previousSnapshot.isValid();
 
         return new GpsFixSnapshot(
                 sentence,

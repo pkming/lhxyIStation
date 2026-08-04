@@ -4,6 +4,7 @@ import com.lhxy.istationdevice.android11.domain.config.ShellConfig;
 import com.lhxy.istationdevice.android11.domain.module.state.DispatchState;
 import com.lhxy.istationdevice.android11.domain.module.state.SignInState;
 import com.lhxy.istationdevice.android11.domain.module.state.StationState;
+import com.lhxy.istationdevice.android11.protocol.gps.GpsFixSnapshot;
 
 import java.nio.charset.Charset;
 import java.util.Random;
@@ -20,6 +21,7 @@ public final class DispatchProfessionRequestPacketFactory {
             DispatchState dispatchState,
             SignInState signInState,
             StationState stationState,
+            GpsFixSnapshot gpsSnapshot,
             int professionRequestType
     ) {
         byte[] body = new byte[88];
@@ -28,8 +30,9 @@ public final class DispatchProfessionRequestPacketFactory {
         writeCardNo(body, 37, 36, signInState == null ? "-" : signInState.getCardNo());
         body[73] = (byte) (professionRequestType & 0xFF);
         writeBcdTime(body, 74, compactNowTime());
-        writeCoordinate(body, 80, stationState == null ? "0" : stationState.getLongitude());
-        writeCoordinate(body, 84, stationState == null ? "0" : stationState.getLatitude());
+        boolean validFix = gpsSnapshot != null && gpsSnapshot.isValid();
+        writeCoordinate(body, 80, validFix ? gpsSnapshot.getLongitudeDecimal() : "0");
+        writeCoordinate(body, 84, validFix ? gpsSnapshot.getLatitudeDecimal() : "0");
 
         byte[] header = buildHeader(
                 88,

@@ -912,12 +912,7 @@ public final class LegacyMainActivity extends AppCompatActivity {
     }
 
     private void openLineChoiceFromHome() {
-        if (LegacyAuthSession.isValid(this)) {
-            LegacyAuthSession.touch(this);
-            startActivity(new Intent(this, LegacyLineChoiceActivity.class));
-            return;
-        }
-        startActivity(LegacyLoginActivity.createIntent(this, LegacyLineChoiceActivity.class));
+        startActivity(new Intent(this, LegacyLineChoiceActivity.class));
     }
 
     private void openMenuFromHome() {
