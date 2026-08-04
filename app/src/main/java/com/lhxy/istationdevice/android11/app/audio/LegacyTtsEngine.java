@@ -1,6 +1,7 @@
 package com.lhxy.istationdevice.android11.app.audio;
 
 import android.content.Context;
+import android.media.AudioManager;
 import android.os.Bundle;
 import android.speech.tts.TextToSpeech;
 import android.speech.tts.UtteranceProgressListener;
@@ -50,10 +51,14 @@ public final class LegacyTtsEngine {
     }
 
     public synchronized boolean speak(String text, String utteranceId, Listener listener) {
+        return speak(text, utteranceId, 1.0f, listener);
+    }
+
+    public synchronized boolean speak(String text, String utteranceId, float volume, Listener listener) {
         if (text == null || text.trim().isEmpty()) {
             return false;
         }
-        PendingSpeech request = new PendingSpeech(text, utteranceId, listener);
+        PendingSpeech request = new PendingSpeech(text, utteranceId, clampVolume(volume), listener);
         if (!ready || textToSpeech == null) {
             log(LogLevel.WARN, "TTS not ready; speech ignored: " + text, "tts-speak");
             return false;
@@ -123,10 +128,17 @@ public final class LegacyTtsEngine {
     private boolean speakNow(PendingSpeech request) {
         textToSpeech.stop();
         activeSpeech = request;
-        int result = textToSpeech.speak(request.text, TextToSpeech.QUEUE_FLUSH, (Bundle) null, request.utteranceId);
+        Bundle params = new Bundle();
+        params.putInt(TextToSpeech.Engine.KEY_PARAM_STREAM, AudioManager.STREAM_MUSIC);
+        params.putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, request.volume);
+        int result = textToSpeech.speak(request.text, TextToSpeech.QUEUE_FLUSH, params, request.utteranceId);
         log(result == TextToSpeech.SUCCESS ? LogLevel.INFO : LogLevel.WARN,
-                "TTS speak result=" + result + " text=" + request.text, "tts-speak");
+                "TTS speak result=" + result + " volume=" + request.volume + " text=" + request.text, "tts-speak");
         return result == TextToSpeech.SUCCESS;
+    }
+
+    private static float clampVolume(float volume) {
+        return Math.max(0.0f, Math.min(volume, 1.0f));
     }
 
     private synchronized void dispatch(String utteranceId, int event) {
@@ -154,11 +166,13 @@ public final class LegacyTtsEngine {
     private static final class PendingSpeech {
         private final String text;
         private final String utteranceId;
+        private final float volume;
         private final Listener listener;
 
-        private PendingSpeech(String text, String utteranceId, Listener listener) {
+        private PendingSpeech(String text, String utteranceId, float volume, Listener listener) {
             this.text = text;
             this.utteranceId = utteranceId;
+            this.volume = volume;
             this.listener = listener;
         }
     }
