@@ -46,7 +46,8 @@ public final class LegacyDispatchPaycardTestFragment extends Fragment {
                 "PaycardTest",
                 "paycard-tts",
                 "dispatch-paycard",
-                "dispatch-paycard-test"
+                "dispatch-paycard-test",
+                LegacyCardSpeechController.VolumeSource.DISPATCH
         );
         Button butBroadcastTest = view.findViewById(R.id.butBroadcastTest);
         cardSpeechController.init();

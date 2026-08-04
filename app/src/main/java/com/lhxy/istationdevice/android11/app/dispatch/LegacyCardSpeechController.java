@@ -11,22 +11,36 @@ import com.lhxy.istationdevice.android11.domain.config.ShellConfig;
 import com.lhxy.istationdevice.android11.runtime.ShellRuntime;
 
 final class LegacyCardSpeechController {
+    enum VolumeSource {
+        TTS_INNER,
+        DISPATCH
+    }
+
     private final Context appContext;
     private final AudioManager audioManager;
     private final String tag;
     private final String logTraceId;
     private final String gpioTracePrefix;
     private final String utteranceId;
+    private final VolumeSource volumeSource;
 
     private LegacyTtsEngine ttsEngine;
 
-    LegacyCardSpeechController(Context context, String tag, String logTraceId, String gpioTracePrefix, String utteranceId) {
+    LegacyCardSpeechController(
+            Context context,
+            String tag,
+            String logTraceId,
+            String gpioTracePrefix,
+            String utteranceId,
+            VolumeSource volumeSource
+    ) {
         this.appContext = context.getApplicationContext();
         this.audioManager = (AudioManager) appContext.getSystemService(Context.AUDIO_SERVICE);
         this.tag = tag;
         this.logTraceId = logTraceId;
         this.gpioTracePrefix = gpioTracePrefix;
         this.utteranceId = utteranceId;
+        this.volumeSource = volumeSource == null ? VolumeSource.TTS_INNER : volumeSource;
     }
 
     void init() {
@@ -42,7 +56,7 @@ final class LegacyCardSpeechController {
         String speechText = "ID号 " + spellOut(displayId);
         init();
         enableInnerHorn();
-        applyInnerTtsVolume();
+        applyConfiguredVolume();
         boolean spoken = ttsEngine.speak(speechText, utteranceId, new LegacyTtsEngine.Listener() {
             @Override
             public void onDone() {
@@ -125,7 +139,7 @@ final class LegacyCardSpeechController {
         return builder.toString();
     }
 
-    private void applyInnerTtsVolume() {
+    private void applyConfiguredVolume() {
         if (audioManager == null) {
             return;
         }
@@ -133,9 +147,18 @@ final class LegacyCardSpeechController {
         if (shellConfig == null) {
             return;
         }
-        int targetVolume = shellConfig.getBasicSetupConfig().getTtsSettings().getInnerVolume();
+        int targetVolume = volumeSource == VolumeSource.DISPATCH
+                ? shellConfig.getBasicSetupConfig().getOtherSettings().getDispatchVolume()
+                : shellConfig.getBasicSetupConfig().getTtsSettings().getInnerVolume();
         int bounded = Math.max(0, Math.min(targetVolume, audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)));
         audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, bounded, 0);
+        AppLogCenter.log(
+                LogCategory.DEVICE,
+                LogLevel.INFO,
+                tag,
+                "刷卡播报音量 source=" + volumeSource + " / target=" + targetVolume + " / bounded=" + bounded,
+                logTraceId
+        );
     }
 
     private void enableInnerHorn() {

@@ -62,7 +62,8 @@ public final class LegacyDispatchAttendanceFragment extends Fragment {
                 "Attendance",
                 "attendance-card-tts",
                 "dispatch-attendance-card",
-                "dispatch-attendance-card"
+                "dispatch-attendance-card",
+                LegacyCardSpeechController.VolumeSource.TTS_INNER
         );
         cardSpeechController.init();
         if (butAffirmOperation != null) {
