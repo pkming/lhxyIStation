@@ -298,7 +298,13 @@ public final class ShellConfigLoader {
                 new ShellConfig.TtsSettings(
                     ttsObject == null || ttsObject.optBoolean("enabled", true),
                     ttsObject == null ? 8 : ttsObject.optInt("innerVolume", 8),
-                    ttsObject == null ? 8 : ttsObject.optInt("outerVolume", 8)
+                    ttsObject == null ? 8 : ttsObject.optInt("outerVolume", 8),
+                    ttsObject == null ? ShellConfig.TtsSettings.STATION_MODE_MIXED
+                            : ttsObject.has("stationPlaybackMode")
+                                    ? ttsObject.optString("stationPlaybackMode", ShellConfig.TtsSettings.STATION_MODE_MIXED)
+                                    : ttsObject.optBoolean("enabled", true)
+                                            ? ShellConfig.TtsSettings.STATION_MODE_MIXED
+                                            : ShellConfig.TtsSettings.STATION_MODE_FILE
                 ),
                 new ShellConfig.LanguageSettings(languageObject == null ? "auto" : languageObject.optString("languageCode", "auto")),
                 new ShellConfig.OtherSettings(
@@ -671,6 +677,7 @@ public final class ShellConfigLoader {
         ttsObject.put("enabled", shellConfig.getBasicSetupConfig().getTtsSettings().isEnabled());
         ttsObject.put("innerVolume", shellConfig.getBasicSetupConfig().getTtsSettings().getInnerVolume());
         ttsObject.put("outerVolume", shellConfig.getBasicSetupConfig().getTtsSettings().getOuterVolume());
+        ttsObject.put("stationPlaybackMode", shellConfig.getBasicSetupConfig().getTtsSettings().getStationPlaybackMode());
         basicSetupObject.put("tts", ttsObject);
 
         JSONObject languageObject = new JSONObject();

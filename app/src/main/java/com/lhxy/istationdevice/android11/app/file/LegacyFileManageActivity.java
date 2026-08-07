@@ -407,6 +407,9 @@ public final class LegacyFileManageActivity extends LegacyBaseActivity {
                 .runAction("file", actionKey, TraceIds.next("legacy-file-manage-" + actionKey));
             runOnUiThread(() -> {
                 ShellRuntime.get().applyConfig(this, ShellConfigRepository.get(this));
+                if ("import_station_resources".equals(actionKey) && result.isSuccess()) {
+                    LegacyLineCatalog.clearCache();
+                }
                 TerminalBusinessModule stationModule = ShellRuntime.get().getModuleHub().findModule("station");
                 if (stationModule instanceof StationBusinessModule) {
                     LegacyStationResourceStateRepository.StationResourceState state = LegacyStationResourceStateRepository.getState(this);

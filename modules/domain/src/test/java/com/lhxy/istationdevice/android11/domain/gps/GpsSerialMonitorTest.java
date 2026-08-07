@@ -9,6 +9,7 @@ import com.lhxy.istationdevice.android11.deviceapi.SerialPortAdapter;
 import com.lhxy.istationdevice.android11.deviceapi.SerialPortConfig;
 import com.lhxy.istationdevice.android11.deviceapi.SerialReceiveListener;
 import com.lhxy.istationdevice.android11.domain.config.ShellConfig;
+import com.lhxy.istationdevice.android11.protocol.gps.GpsFixSnapshot;
 
 import org.junit.Test;
 
@@ -42,6 +43,34 @@ public class GpsSerialMonitorTest {
         adapter.open = false;
         assertEquals(GpsSerialMonitor.GpsConnectionState.RECONNECTING, monitor.getConnectionState());
         assertNull(monitor.getLatestSnapshot());
+    }
+
+    @Test
+    public void incompleteSentenceDoesNotBlankLatestUsableFix() {
+        AtomicLong now = new AtomicLong(1_000L);
+        FakeSerialAdapter adapter = new FakeSerialAdapter();
+        GpsSerialMonitor monitor = new GpsSerialMonitor(now::get);
+        monitor.attach(
+                adapter,
+                new ShellConfig.SerialChannel("gps", "ttyS5", 115200, SerialMode.REAL, "test"),
+                "gps-test"
+        );
+
+        adapter.emit("$GNRMC,103618.00,A,2240.56605,N,11403.35383,E,0.03,99.63,150726,,,A*00\r\n");
+        GpsFixSnapshot validFix = monitor.getLatestSnapshot();
+        assertNotNull(validFix);
+        assertEquals("22.676101", validFix.getLatitudeDecimal());
+        assertEquals("114.055897", validFix.getLongitudeDecimal());
+
+        now.set(2_000L);
+        adapter.emit("$GNGGA,103619.00,,,,,0,00,25.5,0.0,M,0.0,M,,*00\r\n");
+
+        GpsFixSnapshot stableFix = monitor.getLatestSnapshot();
+        assertEquals(GpsSerialMonitor.GpsConnectionState.FIXED, monitor.getConnectionState());
+        assertNotNull(stableFix);
+        assertEquals(validFix.getLatitudeDecimal(), stableFix.getLatitudeDecimal());
+        assertEquals(validFix.getLongitudeDecimal(), stableFix.getLongitudeDecimal());
+        assertEquals(validFix.getCourse(), stableFix.getCourse());
     }
 
     private static final class FakeSerialAdapter implements SerialPortAdapter {

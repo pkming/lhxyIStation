@@ -3,7 +3,13 @@ plugins {
     id 'com.android.library' version '8.4.2' apply false
 }
 
-tasks.register("clean", Delete) {
-    delete rootProject.buildDir
+def buildUser = System.getProperty("user.name", "user").replaceAll(/[^A-Za-z0-9._-]/, "_")
+
+subprojects {
+    layout.buildDirectory.set(file("build/${buildUser}"))
 }
 
+tasks.register("clean", Delete) {
+    delete rootProject.buildDir
+    delete subprojects.collect { it.layout.buildDirectory }
+}

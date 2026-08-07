@@ -1200,14 +1200,24 @@ public final class ShellConfig {
     }
 
     public static final class TtsSettings {
+        public static final String STATION_MODE_MIXED = "mixed";
+        public static final String STATION_MODE_FILE = "file";
+        public static final String STATION_MODE_TTS = "tts";
+
         private final boolean enabled;
         private final int innerVolume;
         private final int outerVolume;
+        private final String stationPlaybackMode;
 
         public TtsSettings(boolean enabled, int innerVolume, int outerVolume) {
+            this(enabled, innerVolume, outerVolume, enabled ? STATION_MODE_MIXED : STATION_MODE_FILE);
+        }
+
+        public TtsSettings(boolean enabled, int innerVolume, int outerVolume, String stationPlaybackMode) {
             this.enabled = enabled;
             this.innerVolume = innerVolume;
             this.outerVolume = outerVolume;
+            this.stationPlaybackMode = normalizeStationPlaybackMode(stationPlaybackMode);
         }
 
         public static TtsSettings defaults() {
@@ -1217,6 +1227,17 @@ public final class ShellConfig {
         public boolean isEnabled() { return enabled; }
         public int getInnerVolume() { return innerVolume; }
         public int getOuterVolume() { return outerVolume; }
+        public String getStationPlaybackMode() { return stationPlaybackMode; }
+
+        private static String normalizeStationPlaybackMode(String mode) {
+            if (STATION_MODE_FILE.equalsIgnoreCase(mode)) {
+                return STATION_MODE_FILE;
+            }
+            if (STATION_MODE_TTS.equalsIgnoreCase(mode)) {
+                return STATION_MODE_TTS;
+            }
+            return STATION_MODE_MIXED;
+        }
     }
 
     public static final class LanguageSettings {

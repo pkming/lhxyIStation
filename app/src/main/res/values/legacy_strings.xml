@@ -211,6 +211,7 @@
     <string name="basic_newspaper_point">是否整点报时</string>
     <string name="basic_newspaper_overtone">是否报超速音</string>
     <string name="basic_tts_switch">是否TTS报站</string>
+    <string name="station_playback_mode">报站模式</string>
     <string name="basic_tts_shouting">喊话音量</string>
     <string name="basic_tts_dispatch">调度音量</string>
     <string name="basic_other_vehicle_number">车号</string>

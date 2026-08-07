@@ -33,6 +33,7 @@ public final class GpsSerialMonitor {
     private volatile String attachedChannelKey;
     private volatile String attachedPortName;
     private volatile GpsFixSnapshot latestSnapshot;
+    private volatile GpsFixSnapshot latestUsableSnapshot;
     private volatile SerialPortAdapter attachedAdapter;
     private volatile long lastRawReceiveTimeMs;
     private volatile long lastValidFixTimeMs;
@@ -58,6 +59,7 @@ public final class GpsSerialMonitor {
         }
         streamParser.reset();
         latestSnapshot = null;
+        latestUsableSnapshot = null;
         lastRawReceiveTimeMs = 0L;
         lastValidFixTimeMs = 0L;
         resetLogState();
@@ -88,6 +90,7 @@ public final class GpsSerialMonitor {
         attachedPortName = null;
         attachedAdapter = null;
         latestSnapshot = null;
+        latestUsableSnapshot = null;
         lastRawReceiveTimeMs = 0L;
         lastValidFixTimeMs = 0L;
         safeLog(LogCategory.BIZ, LogLevel.INFO, TAG, "已解绑 GPS 串口监听: " + portName, traceId);
@@ -103,7 +106,8 @@ public final class GpsSerialMonitor {
                 || state == GpsConnectionState.EXPIRED) {
             return null;
         }
-        return latestSnapshot;
+        GpsFixSnapshot usableSnapshot = latestUsableSnapshot;
+        return usableSnapshot == null ? latestSnapshot : usableSnapshot;
     }
 
     public GpsConnectionState getConnectionState() {
@@ -122,14 +126,13 @@ public final class GpsSerialMonitor {
         if (now - lastRawReceiveTimeMs > RAW_DATA_TIMEOUT_MS) {
             return GpsConnectionState.RECONNECTING;
         }
-        GpsFixSnapshot snapshot = latestSnapshot;
-        if (snapshot == null || !snapshot.isValid()) {
-            return GpsConnectionState.SEARCHING;
+        if (lastValidFixTimeMs > 0L && now - lastValidFixTimeMs <= VALID_FIX_TIMEOUT_MS) {
+            return GpsConnectionState.FIXED;
         }
-        if (lastValidFixTimeMs <= 0L || now - lastValidFixTimeMs > VALID_FIX_TIMEOUT_MS) {
+        if (lastValidFixTimeMs > 0L) {
             return GpsConnectionState.EXPIRED;
         }
-        return GpsConnectionState.FIXED;
+        return GpsConnectionState.SEARCHING;
     }
 
     /**
@@ -195,13 +198,25 @@ public final class GpsSerialMonitor {
             List<GpsFixSnapshot> snapshots = streamParser.accept(payload);
             for (GpsFixSnapshot snapshot : snapshots) {
                 latestSnapshot = snapshot;
+                if (hasUsableCoordinates(snapshot) && snapshot.isValid()) {
+                    latestUsableSnapshot = snapshot;
+                }
                 if (isAuthoritativeValidFix(snapshot)) {
                     lastValidFixTimeMs = clock.getAsLong();
                 }
                 logFixIfNeeded(snapshot, traceId);
-                notifySnapshotListeners(snapshot);
+                GpsFixSnapshot displaySnapshot = latestUsableSnapshot == null ? snapshot : latestUsableSnapshot;
+                notifySnapshotListeners(displaySnapshot);
             }
         };
+    }
+
+    private boolean hasUsableCoordinates(GpsFixSnapshot snapshot) {
+        return snapshot != null
+                && snapshot.getLatitudeDecimal() != null
+                && !snapshot.getLatitudeDecimal().trim().isEmpty()
+                && snapshot.getLongitudeDecimal() != null
+                && !snapshot.getLongitudeDecimal().trim().isEmpty();
     }
 
     private boolean isAuthoritativeValidFix(GpsFixSnapshot snapshot) {

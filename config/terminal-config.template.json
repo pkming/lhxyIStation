@@ -245,7 +245,8 @@
     "tts": {
       "enabled": true,
       "innerVolume": 8,
-      "outerVolume": 8
+      "outerVolume": 8,
+      "stationPlaybackMode": "mixed"
     },
     "language": {
       "languageCode": "auto"

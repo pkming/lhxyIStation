@@ -195,18 +195,50 @@ public final class LegacyLineCatalog {
         List<List<String>> rows = readCsvRows(csvFile);
         List<String> stations = new ArrayList<>();
         List<String> speedLimits = new ArrayList<>();
+        int stationNameColumn = resolveHeaderColumn(
+                rows.isEmpty() ? Collections.emptyList() : rows.get(0),
+                Arrays.asList("stopname", "stationname", "站名"),
+                rows.isEmpty() || rows.get(0).size() < 3 ? 1 : 2
+        );
         for (int i = 1; i < rows.size(); i++) {
             List<String> row = rows.get(i);
             if (row.size() < 2) {
                 continue;
             }
-            String stationName = cleanCell(row.get(1));
+            String stationName = stationNameColumn < row.size() ? cleanCell(row.get(stationNameColumn)) : "";
+            // 兼容旧的两列表格：第二列既是语音标识，也是唯一可用的站名。
+            if (stationName.isEmpty()) {
+                stationName = cleanCell(row.get(1));
+            }
             if (!stationName.isEmpty()) {
                 stations.add(stationName);
                 speedLimits.add(row.size() > 12 ? cleanCell(row.get(12)) : "");
             }
         }
         return new DirectionProfile(stations, speedLimits);
+    }
+
+    private static int resolveHeaderColumn(
+            @NonNull List<String> header,
+            @NonNull List<String> acceptedNames,
+            int fallbackIndex
+    ) {
+        for (int index = 0; index < header.size(); index++) {
+            String normalized = normalizeHeader(header.get(index));
+            if (acceptedNames.contains(normalized)) {
+                return index;
+            }
+        }
+        return fallbackIndex;
+    }
+
+    @NonNull
+    private static String normalizeHeader(@Nullable String value) {
+        return cleanCell(value == null ? "" : value)
+                .toLowerCase(Locale.ROOT)
+                .replace(" ", "")
+                .replace("_", "")
+                .replace("-", "");
     }
 
     @NonNull

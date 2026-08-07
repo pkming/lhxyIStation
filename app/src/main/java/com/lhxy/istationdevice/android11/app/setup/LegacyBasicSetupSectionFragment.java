@@ -222,7 +222,17 @@ public final class LegacyBasicSetupSectionFragment extends Fragment {
 
     private void bindTts(View view) {
         ShellConfig.TtsSettings settings = requireConfig().getBasicSetupConfig().getTtsSettings();
-        setSwitch(view, R.id.sTTS, settings.isEnabled());
+        bindMappedSpinner(
+                view,
+                R.id.spStationPlaybackMode,
+                Arrays.asList("混合模式", "文件模式", "TTS模式"),
+                Arrays.asList(
+                        ShellConfig.TtsSettings.STATION_MODE_MIXED,
+                        ShellConfig.TtsSettings.STATION_MODE_FILE,
+                        ShellConfig.TtsSettings.STATION_MODE_TTS
+                ),
+                settings.getStationPlaybackMode()
+        );
         setSeek(view, R.id.sbTTSInnerVolume, settings.getInnerVolume());
         setSeek(view, R.id.sbTTSOutsideVolume, settings.getOuterVolume());
         Button save = view.findViewById(R.id.butAffirm);
@@ -672,14 +682,20 @@ public final class LegacyBasicSetupSectionFragment extends Fragment {
     }
 
     private void saveTtsConfig(View root) {
+        String stationPlaybackMode = readSpinnerValue(
+                root,
+                R.id.spStationPlaybackMode,
+                requireConfig().getBasicSetupConfig().getTtsSettings().getStationPlaybackMode()
+        );
         confirmAction(R.string.tts_ok_tip, 0, () -> persistBasicSetup("legacy-basic-tts-save", buildUpdatedConfig(requireConfig(), new ShellConfig.BasicSetupConfig(
             requireConfig().getBasicSetupConfig().getNewspaperSettings(),
             requireConfig().getBasicSetupConfig().getNetworkSettings(),
             requireConfig().getBasicSetupConfig().getSerialSettings(),
             new ShellConfig.TtsSettings(
-                readSwitch(root, R.id.sTTS, requireConfig().getBasicSetupConfig().getTtsSettings().isEnabled()),
+                !ShellConfig.TtsSettings.STATION_MODE_FILE.equals(stationPlaybackMode),
                 readSeek(root, R.id.sbTTSInnerVolume, requireConfig().getBasicSetupConfig().getTtsSettings().getInnerVolume()),
-                readSeek(root, R.id.sbTTSOutsideVolume, requireConfig().getBasicSetupConfig().getTtsSettings().getOuterVolume())
+                readSeek(root, R.id.sbTTSOutsideVolume, requireConfig().getBasicSetupConfig().getTtsSettings().getOuterVolume()),
+                stationPlaybackMode
             ),
             requireConfig().getBasicSetupConfig().getLanguageSettings(),
             requireConfig().getBasicSetupConfig().getOtherSettings(),

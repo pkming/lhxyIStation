@@ -16,23 +16,18 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/basic_tts_switch"
+            android:text="@string/station_playback_mode"
             tools:ignore="RelativeOverlap"
             android:layout_centerVertical="true"
             android:textColor="@color/c_ffffff"
             android:textSize="22sp" />
 
-        <Switch
-            android:id="@+id/sTTS"
+        <Spinner
+            android:id="@+id/spStationPlaybackMode"
             android:layout_width="wrap_content"
-            android:layout_height="match_parent"
-            android:showText="true"
-            android:switchTextAppearance="@style/SwitchTheme"
-            android:textOff="@string/close"
-            android:textOn="@string/open"
-            android:thumb="@drawable/switch_custom_thumb_selector"
-            android:track="@drawable/switch_custom_track_selector"
-            android:layout_alignParentRight="true" />
+            android:layout_height="wrap_content"
+            android:layout_alignParentRight="true"
+            android:layout_centerVertical="true" />
 
     </RelativeLayout>
 

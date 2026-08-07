@@ -152,7 +152,9 @@ public final class LegacyGpsAutoReportEngine {
                 } else if (attribute != LegacyGpsRouteResource.ATTRIBUTE_LOOP && (lastStationNo + 1) == station.getStationNo()) {
                     operationType = OP_INVALID;
                 }
-            } else if (attribute == LegacyGpsRouteResource.ATTRIBUTE_ANTI_REVERSE && lastStationNo != station.getStationNo()) {
+            } else if (lastStationNo != station.getStationNo()) {
+                // 出站事件已经把 lastStationNo 推进为下一目标站。GPS 在站点边界
+                // 漂回上一站时不能再次进站，否则会形成“进站-出站-重复进站”。
                 operationType = OP_INVALID;
             }
 

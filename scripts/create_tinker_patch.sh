@@ -706,6 +706,9 @@ echo "开始生成 patch"
 mkdir -p "$TOOLS_DIR/logs"
 PATCH_LOG_FILE="$TOOLS_DIR/logs/tinker-patch_${PATCH_VERSION}.log"
 if ! run_java -jar "$CLI_JAR" -old "$OLD_APK" -new "$NEW_APK" -config "$CONFIG_FILE" -out "$OUTPUT_DIR" 2>&1 | tee "$PATCH_LOG_FILE"; then
+    if grep -q "Uses permissions changed" "$PATCH_LOG_FILE"; then
+        fail "检测到 AndroidManifest 权限发生变化。Tinker 补丁无法给已安装的旧 APK 增加系统权限，请先执行 sh apk.sh rebuild --pin-base（同版本已有不同基线时加 --force-pin-base），把生成的完整 APK 安装到设备并作为新基线；后续改动再基于该基线生成 patch。不要使用 ignoreWarning 强行绕过。"
+    fi
     if grep -q "some loader class has been changed in new primary dex" "$PATCH_LOG_FILE"; then
         fail "检测到 loader class 发生变化（例如 ShellApplication）。这类改动不能直接基于当前基线走热更新；请先执行 sh apk.sh rebuild --pin-base，安装新的完整 APK 作为新基线，再继续出后续 Java 补丁。"
     fi

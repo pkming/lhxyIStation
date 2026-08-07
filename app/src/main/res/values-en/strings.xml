@@ -115,6 +115,7 @@ Time: %3$s</string>
     <string name="basic_tts_dispatch">Dispatch Vol</string>
     <string name="basic_tts_shouting">Mic Vol</string>
     <string name="basic_tts_switch">TTS Vol</string>
+    <string name="station_playback_mode">Station mode</string>
     <string name="cancel">Cancel</string>
     <string name="ch_dvr">DVR: Channel</string>
     <string name="ch_gps">GPS: Mode</string>

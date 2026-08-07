@@ -3,7 +3,8 @@
 set -eu
 
 ROOT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-APP_RELEASE_DIR="$ROOT_DIR/app/build/outputs/apk/release"
+BUILD_USER=$(id -un | tr -cd 'A-Za-z0-9._-')
+APP_RELEASE_DIR="$ROOT_DIR/app/build/$BUILD_USER/outputs/apk/release"
 TINKER_DIR="$ROOT_DIR/build/tinker"
 APK_DIR="$ROOT_DIR/apk"
 RELEASE_ARCHIVE_DIR="$APK_DIR/release"

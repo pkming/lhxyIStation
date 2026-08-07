@@ -190,6 +190,41 @@ public class LegacyGpsAutoReportEngineTest {
     }
 
     @Test
+    public void evaluate_doesNotReenterPreviousStationAfterBoundaryDrift() {
+        LegacyGpsAutoReportEngine engine = new LegacyGpsAutoReportEngine();
+        LegacyGpsRouteResource route = new LegacyGpsRouteResource(
+                "L1",
+                LegacyGpsRouteResource.ATTRIBUTE_UP_DOWN,
+                "上行",
+                Arrays.asList(
+                        station(0, "A站", 114.000000d, 22.000000d),
+                        station(1, "B站", 114.010000d, 22.010000d),
+                        station(2, "C站", 114.020000d, 22.020000d)
+                ),
+                Collections.emptyList()
+        );
+
+        engine.evaluate(route, offStationSnapshot(114.000000d, 22.000000d), false);
+        engine.evaluate(route, offStationSnapshot(114.000500d, 22.000500d), false);
+        LegacyGpsAutoReportEngine.AutoReportEvent enterB =
+                engine.evaluate(route, offStationSnapshot(114.010000d, 22.010000d), false);
+        LegacyGpsAutoReportEngine.AutoReportEvent leaveB =
+                engine.evaluate(route, offStationSnapshot(114.010500d, 22.010500d), false);
+        LegacyGpsAutoReportEngine.AutoReportEvent driftBackToB =
+                engine.evaluate(route, offStationSnapshot(114.010000d, 22.010000d), false);
+        LegacyGpsAutoReportEngine.AutoReportEvent enterC =
+                engine.evaluate(route, offStationSnapshot(114.020000d, 22.020000d), false);
+
+        assertEquals(LegacyGpsAutoReportEngine.STATION_TYPE_ENTER, enterB.getStationType());
+        assertEquals("B站", enterB.getStationPoint().getStationName());
+        assertEquals(LegacyGpsAutoReportEngine.STATION_TYPE_LEAVE, leaveB.getStationType());
+        assertEquals("C站", leaveB.getStationPoint().getStationName());
+        assertTrue(driftBackToB.isNone());
+        assertEquals(LegacyGpsAutoReportEngine.STATION_TYPE_ENTER, enterC.getStationType());
+        assertEquals("C站", enterC.getStationPoint().getStationName());
+    }
+
+    @Test
     public void evaluate_triggersReminderUsingMileageWithoutAngleGate() {
         LegacyGpsAutoReportEngine engine = new LegacyGpsAutoReportEngine();
         LegacyGpsRouteResource route = new LegacyGpsRouteResource(
