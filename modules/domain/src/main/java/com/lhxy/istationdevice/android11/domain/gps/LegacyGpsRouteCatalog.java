@@ -60,6 +60,33 @@ public final class LegacyGpsRouteCatalog {
         return loaded;
     }
 
+    /** 严格按旧 lineInfo 的“Line serial”匹配平台下发线路号。 */
+    public synchronized LegacyGpsRouteResource loadByLineNumber(
+            Context context,
+            String lineNumber,
+            String preferredDirectionText
+    ) {
+        File busDir = resolveBusDir(context);
+        if (busDir == null || !busDir.exists()) {
+            return null;
+        }
+        LineInfo lineInfo = resolveLineInfoByNumber(busDir, lineNumber);
+        if (lineInfo == null) {
+            return null;
+        }
+        String directionText = normalizeDirectionText(preferredDirectionText);
+        String cacheKey = normalize(lineInfo.lineName) + "|" + directionText;
+        LegacyGpsRouteResource cached = cache.get(cacheKey);
+        if (cached != null) {
+            return cached;
+        }
+        LegacyGpsRouteResource loaded = loadRoute(busDir, lineInfo.lineName, lineInfo.attribute, directionText);
+        if (loaded != null) {
+            cache.put(cacheKey, loaded);
+        }
+        return loaded;
+    }
+
     /**
      * 清空已解析线路缓存。
      */
@@ -193,6 +220,28 @@ public final class LegacyGpsRouteCatalog {
             }
         }
         return first;
+    }
+
+    private LineInfo resolveLineInfoByNumber(File busDir, String preferredLineNumber) {
+        File lineInfoFile = new File(busDir, "lineInfo.csv");
+        List<List<String>> rows = readCsvRows(lineInfoFile);
+        if (rows.size() <= 1) {
+            return null;
+        }
+        String expected = normalize(preferredLineNumber);
+        for (int index = 1; index < rows.size(); index++) {
+            List<String> row = rows.get(index);
+            if (row.size() < 2) {
+                continue;
+            }
+            String lineName = cell(row, 1);
+            String lineNumber = cell(row, 4);
+            if (lineName.isEmpty() || !normalize(lineNumber).equals(expected)) {
+                continue;
+            }
+            return new LineInfo(lineName, parseInt(cell(row, 3), LegacyGpsRouteResource.ATTRIBUTE_UP_DOWN));
+        }
+        return null;
     }
 
     /**

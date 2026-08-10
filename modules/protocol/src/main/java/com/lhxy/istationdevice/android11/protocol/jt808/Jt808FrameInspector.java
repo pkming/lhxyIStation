@@ -111,6 +111,16 @@ public final class Jt808FrameInspector {
                 return "终端注册应答";
             case 0x8103:
                 return "设置终端参数";
+            case 0x8300:
+                return "平台文本消息";
+            case 0x8B01:
+                return "平台调度计划";
+            case 0x8B02:
+                return "平台调度控制";
+            case 0x8B09:
+                return "职业请求应答";
+            case 0x8B0A:
+                return "平台升级下载命令";
             case 0xDB01:
                 return "AL808 切换线路应答";
             case 0xDB0E:

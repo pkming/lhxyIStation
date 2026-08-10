@@ -73,6 +73,7 @@ public final class TerminalModuleHub {
                 dispatchModule,
                 dvrSerialDispatchUseCase
             );
+        dispatchModule.attachPlatformLineSwitchHandler(stationModule::applyPlatformLineSwitch);
         SignInBusinessModule signInModule =
                 new SignInBusinessModule(protocolReplayUseCase, socketClientAdapter, rfidAdapter, dvrSerialDispatchUseCase);
         dispatchModule.attachStateProviders(signInModule::getSignInState, stationModule::getStationState);

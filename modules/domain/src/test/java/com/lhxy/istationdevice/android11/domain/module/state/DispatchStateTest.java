@@ -69,4 +69,45 @@ public class DispatchStateTest {
         assertEquals(0L, state.getPendingNoticeMsgSerialNo());
         assertEquals("已退出运营，等待重新签到或调度恢复", state.getDispatchMessage());
     }
+
+    @Test
+    public void applyPlatformDispatchPlan_updatesTripTimeAndReminderSettings() {
+        DispatchState state = new DispatchState();
+
+        state.applyPlatformDispatchPlan(40, 3, "090807", 10, 2, 3, "计划第3趟09点08分07秒发车");
+
+        assertTrue(state.isJoinedOperation());
+        assertTrue(state.isDispatchedConfirmed());
+        assertFalse(state.isStartedBus());
+        assertEquals(3, state.getTimesNo());
+        assertEquals("09:08", state.getPlannedDepartureTime());
+        assertEquals(10, state.getOvertimeMinutes());
+        assertEquals(2, state.getOvertimeSpeakIntervalMinutes());
+        assertEquals(3, state.getPrepareSpeakIntervalMinutes());
+    }
+
+    @Test
+    public void cancelPlatformPlan_clearsDepartureAndConfirmation() {
+        DispatchState state = new DispatchState();
+        state.applyPlatformDispatchPlan(40, 3, "090807", 10, 2, 3, "第3趟09点08分07秒");
+
+        state.cancelPlatformPlan();
+
+        assertFalse(state.isDispatchedConfirmed());
+        assertFalse(state.isStartedBus());
+        assertEquals("-", state.getPlannedDepartureTime());
+        assertEquals("取消计划成功", state.getDispatchMessage());
+    }
+
+    @Test
+    public void updateTripMessages_keepsMissingValuesAndUpdatesPresentValues() {
+        DispatchState state = new DispatchState();
+
+        state.updateTripMessages("下趟10:00", "本趟09:00", "-");
+        state.updateTripMessages("-", "-", "明日8趟");
+
+        assertEquals("下趟10:00", state.getNextTrip());
+        assertEquals("本趟09:00", state.getThisTrip());
+        assertEquals("明日8趟", state.getTomorrow());
+    }
 }

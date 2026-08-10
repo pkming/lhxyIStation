@@ -8,6 +8,10 @@ import java.util.Locale;
 public final class Jt808UpgradeCommand {
     public static final int DOWNLOAD_TYPE_SOURCE_FILE = 1;
     public static final int DOWNLOAD_TYPE_APK = 2;
+    public static final int UPGRADE_TYPE_IMMEDIATE = 0;
+    public static final int UPGRADE_TYPE_SCHEDULED = 1;
+    public static final int UPGRADE_TYPE_CANCEL = 2;
+    public static final int UPGRADE_TYPE_RESTART = 3;
 
     private final String terminalId;
     private final int requestSerialNumber;
@@ -98,11 +102,19 @@ public final class Jt808UpgradeCommand {
     }
 
     public boolean isCancelCommand() {
-        return upgradeType == 2;
+        return upgradeType == UPGRADE_TYPE_CANCEL;
     }
 
     public boolean isScheduledCommand() {
-        return upgradeType == 1;
+        return upgradeType == UPGRADE_TYPE_SCHEDULED;
+    }
+
+    public boolean isRestartCommand() {
+        return upgradeType == UPGRADE_TYPE_RESTART;
+    }
+
+    public boolean isSupportedUpgradeType() {
+        return upgradeType >= UPGRADE_TYPE_IMMEDIATE && upgradeType <= UPGRADE_TYPE_RESTART;
     }
 
     public int resolveDownloadType() {

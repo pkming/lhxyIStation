@@ -30,6 +30,10 @@ public final class LegacyGpsFlowUseCase {
         return routeCatalog.load(context, lineName, directionText);
     }
 
+    public LegacyGpsRouteResource loadByLineNumber(Context context, String lineNumber, String directionText) {
+        return routeCatalog.loadByLineNumber(context, lineNumber, directionText);
+    }
+
     /**
      * 解析当前激活线路。
      * <p>

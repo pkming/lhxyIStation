@@ -114,6 +114,18 @@ public final class LegacyUpgradeDownloadAgent {
             return;
         }
 
+        if (!command.isSupportedUpgradeType()) {
+            sendGeneralResponse(channelName, command, 3, traceId);
+            AppLogCenter.log(
+                    LogCategory.BIZ,
+                    LogLevel.WARN,
+                    TAG,
+                    "不支持的升级类型 type=" + command.getUpgradeType() + " / serial=" + command.getRequestSerialHex(),
+                    traceId
+            );
+            return;
+        }
+
         int downloadType = command.resolveDownloadType();
         if (downloadType == 0) {
             sendGeneralResponse(channelName, command, 3, traceId);
@@ -125,8 +137,20 @@ public final class LegacyUpgradeDownloadAgent {
             return;
         }
 
-        sendGeneralResponse(channelName, command, 0, traceId);
         Long scheduledAtMillis = command.isScheduledCommand() ? resolveScheduledAtMillis(command.getScheduleTimeBcd()) : null;
+        if (command.isScheduledCommand() && scheduledAtMillis == null) {
+            sendGeneralResponse(channelName, command, 2, traceId);
+            AppLogCenter.log(
+                    LogCategory.BIZ,
+                    LogLevel.WARN,
+                    TAG,
+                    "计划升级时间不合法 time=" + command.getScheduleTimeBcd() + " / serial=" + command.getRequestSerialHex(),
+                    traceId
+            );
+            return;
+        }
+
+        sendGeneralResponse(channelName, command, 0, traceId);
         enqueueTask(channelName, command, downloadType, scheduledAtMillis, traceId);
     }
 
@@ -167,6 +191,16 @@ public final class LegacyUpgradeDownloadAgent {
             task = new ManagedTask(downloadType, channelName, command, resolveLocalTarget(downloadType), scheduledAtMillis);
             taskByType.put(downloadType, task);
             persistTask(task);
+            if (command.isRestartCommand()) {
+                LegacyHomeStatusRepository.setInfoTips(appContext, "收到重启升级指令，请在合适时间重启设备");
+                AppLogCenter.log(
+                        LogCategory.BIZ,
+                        LogLevel.INFO,
+                        TAG,
+                        "已按重启生效语义登记升级任务 type=" + downloadType + " / serial=" + command.getRequestSerialHex(),
+                        traceId
+                );
+            }
             if (scheduledAtMillis != null && scheduledAtMillis > System.currentTimeMillis()) {
                 long delayMillis = Math.max(0L, scheduledAtMillis - System.currentTimeMillis());
                 task.state = TaskState.SCHEDULED;

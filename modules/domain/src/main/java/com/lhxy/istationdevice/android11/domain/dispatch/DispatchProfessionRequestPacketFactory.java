@@ -24,6 +24,24 @@ public final class DispatchProfessionRequestPacketFactory {
             GpsFixSnapshot gpsSnapshot,
             int professionRequestType
     ) {
+        return buildRequest(
+                shellConfig,
+                dispatchState,
+                signInState,
+                stationState,
+                gpsSnapshot,
+                professionRequestType
+        ).getPayload();
+    }
+
+    public BuiltPacket buildRequest(
+            ShellConfig shellConfig,
+            DispatchState dispatchState,
+            SignInState signInState,
+            StationState stationState,
+            GpsFixSnapshot gpsSnapshot,
+            int professionRequestType
+    ) {
         byte[] body = new byte[88];
         body[0] = (byte) 0x81;
         writeFixedText(body, 1, 36, resolveLineName(shellConfig, stationState));
@@ -34,13 +52,38 @@ public final class DispatchProfessionRequestPacketFactory {
         writeCoordinate(body, 80, validFix ? gpsSnapshot.getLongitudeDecimal() : "0");
         writeCoordinate(body, 84, validFix ? gpsSnapshot.getLatitudeDecimal() : "0");
 
+        int sequence = RANDOM.nextInt(60000);
         byte[] header = buildHeader(
                 88,
                 0x0900,
                 normalizeTerminalId(shellConfig.getBasicSetupConfig().getNetworkSettings().getDispatchId()),
-                RANDOM.nextInt(60000)
+                sequence
         );
-        return wrapFrame(header, body);
+        return new BuiltPacket(sequence, professionRequestType, wrapFrame(header, body));
+    }
+
+    public static final class BuiltPacket {
+        private final int serialNumber;
+        private final int requestType;
+        private final byte[] payload;
+
+        BuiltPacket(int serialNumber, int requestType, byte[] payload) {
+            this.serialNumber = serialNumber;
+            this.requestType = requestType;
+            this.payload = payload.clone();
+        }
+
+        public int getSerialNumber() {
+            return serialNumber;
+        }
+
+        public int getRequestType() {
+            return requestType;
+        }
+
+        public byte[] getPayload() {
+            return payload.clone();
+        }
     }
 
     private byte[] buildHeader(int bodyLength, int messageId, String terminalId, int sequence) {

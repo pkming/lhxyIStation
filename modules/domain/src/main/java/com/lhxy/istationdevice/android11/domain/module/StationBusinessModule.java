@@ -105,6 +105,40 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
         return stationState;
     }
 
+    public boolean applyPlatformLineSwitch(long lineNumber, boolean downDirection, String traceId) {
+        Context context = getContext();
+        if (context == null) {
+            return false;
+        }
+        String directionText = downDirection ? "下行" : "上行";
+        LegacyGpsRouteResource route = gpsFlowUseCase.loadByLineNumber(
+                context,
+                String.valueOf(lineNumber),
+                directionText
+        );
+        if (route == null) {
+            AppLogCenter.log(
+                    LogCategory.BIZ,
+                    LogLevel.WARN,
+                    TAG,
+                    "平台线路切换失败: 未找到 Line serial=" + lineNumber + " / direction=" + directionText,
+                    traceId
+            );
+            return false;
+        }
+        stationState.applyLineProfile(route.getLineName(), route.getDirectionText(), route.stationNames());
+        stationState.setLineAttribute(route.getAttributeLabel());
+        gpsFlowUseCase.reset(route);
+        AppLogCenter.log(
+                LogCategory.BIZ,
+                LogLevel.INFO,
+                TAG,
+                "平台线路切换成功: " + route.getLineName() + " / " + route.getDirectionText(),
+                traceId
+        );
+        return true;
+    }
+
     /**
      * 线路资源变更后清缓存并重新对齐当前线路画像。
      */

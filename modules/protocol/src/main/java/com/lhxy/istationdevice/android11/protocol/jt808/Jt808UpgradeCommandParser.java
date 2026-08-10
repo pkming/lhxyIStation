@@ -6,8 +6,8 @@ import java.nio.charset.Charset;
  * 解析旧 M90 自定义 8B0A 下载命令体。
  */
 public final class Jt808UpgradeCommandParser {
-    private static final int MSG_UPGRADE_COMMAND = 0x8B0A;
-    private static final Charset GBK = Jt808CodecSupport.GB2312;
+    public static final int MESSAGE_ID = 0x8B0A;
+    private static final Charset GBK = Charset.forName("GBK");
 
     private Jt808UpgradeCommandParser() {
     }
@@ -20,7 +20,7 @@ public final class Jt808UpgradeCommandParser {
         if (frame == null) {
             throw new IllegalArgumentException("升级命令帧为空");
         }
-        if (frame.getMessageId() != MSG_UPGRADE_COMMAND) {
+        if (frame.getMessageId() != MESSAGE_ID) {
             throw new IllegalArgumentException("不是 8B0A 升级命令帧");
         }
 
@@ -50,10 +50,10 @@ public final class Jt808UpgradeCommandParser {
         int upgradeType = readByte(body, offset++);
         String scheduleTimeBcd = "";
         String cancelSerialHex = "";
-        if (upgradeType == 1) {
+        if (upgradeType == Jt808UpgradeCommand.UPGRADE_TYPE_SCHEDULED) {
             ensureRemaining(body, offset, 6, "计划升级时间");
             scheduleTimeBcd = bcdString(body, offset, 6);
-        } else if (upgradeType == 2) {
+        } else if (upgradeType == Jt808UpgradeCommand.UPGRADE_TYPE_CANCEL) {
             ensureRemaining(body, offset, 2, "取消流水号");
             cancelSerialHex = String.format("%02X%02X", body[offset] & 0xFF, body[offset + 1] & 0xFF);
         }

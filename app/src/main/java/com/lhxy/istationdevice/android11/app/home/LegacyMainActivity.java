@@ -343,6 +343,10 @@ public final class LegacyMainActivity extends AppCompatActivity {
         applySpeedWarningStyle(overspeed);
         setText(R.id.tvShouting, resolveHomeShouting(config));
         setText(R.id.tvInfoTips, resolveInfoTips());
+        setText(R.id.tvInformation, LegacyHomeStatusRepository.getState(this).getInformation());
+        bindOptionalDispatchText(R.id.tvNextTrip, dispatchState == null ? "-" : dispatchState.getNextTrip());
+        bindOptionalDispatchText(R.id.tvThisTrip, dispatchState == null ? "-" : dispatchState.getThisTrip());
+        bindOptionalDispatchText(R.id.tvTomorrow, dispatchState == null ? "-" : dispatchState.getTomorrow());
         updateLineChoiceShortcutButton();
         bindVehicleStatus(dispatchState, signInState);
         setText(R.id.tvHomeNextStation, resolveStationPreviewLabel());
@@ -835,6 +839,17 @@ public final class LegacyMainActivity extends AppCompatActivity {
         if (view != null) {
             view.setText(value);
         }
+    }
+
+    private void bindOptionalDispatchText(int id, String value) {
+        TextView view = findViewById(id);
+        if (view == null) {
+            return;
+        }
+        String safeValue = value == null ? "" : value.trim();
+        boolean visible = !safeValue.isEmpty() && !"-".equals(safeValue);
+        view.setVisibility(visible ? View.VISIBLE : View.GONE);
+        view.setText(visible ? safeValue : "");
     }
 
     private void runStationAction(String actionKey) {

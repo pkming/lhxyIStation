@@ -3,6 +3,7 @@ package com.lhxy.istationdevice.android11.domain.module;
 import android.content.Context;
 
 import com.lhxy.istationdevice.android11.core.AppLogCenter;
+import com.lhxy.istationdevice.android11.core.LegacyHomeStatusRepository;
 import com.lhxy.istationdevice.android11.core.LegacyInfoMessageRepository;
 import com.lhxy.istationdevice.android11.core.LogCategory;
 import com.lhxy.istationdevice.android11.core.LogLevel;
@@ -23,17 +24,29 @@ import com.lhxy.istationdevice.android11.domain.module.state.DispatchState;
 import com.lhxy.istationdevice.android11.domain.socket.Jt808SocketMonitor;
 import com.lhxy.istationdevice.android11.domain.station.LegacyStationAudioUseCase;
 import com.lhxy.istationdevice.android11.protocol.gps.GpsFixSnapshot;
+import com.lhxy.istationdevice.android11.protocol.jt808.Jt808DispatchControlCommand;
+import com.lhxy.istationdevice.android11.protocol.jt808.Jt808DispatchControlCommandParser;
+import com.lhxy.istationdevice.android11.protocol.jt808.Jt808DispatchPlanCommand;
+import com.lhxy.istationdevice.android11.protocol.jt808.Jt808DispatchPlanCommandParser;
 import com.lhxy.istationdevice.android11.protocol.jt808.Jt808Frame;
+import com.lhxy.istationdevice.android11.protocol.jt808.Jt808GeneralResponse;
 import com.lhxy.istationdevice.android11.protocol.jt808.Jt808LegacyMessages;
 import com.lhxy.istationdevice.android11.protocol.jt808.Jt808PositionSnapshot;
+import com.lhxy.istationdevice.android11.protocol.jt808.Jt808ProfessionResponse;
+import com.lhxy.istationdevice.android11.protocol.jt808.Jt808ProfessionResponseParser;
 import com.lhxy.istationdevice.android11.protocol.jt808.Jt808ReportStationSnapshot;
 import com.lhxy.istationdevice.android11.protocol.jt808.Jt808TerminalProfile;
+import com.lhxy.istationdevice.android11.protocol.jt808.Jt808TextMessageCommand;
+import com.lhxy.istationdevice.android11.protocol.jt808.Jt808TextMessageCommandParser;
 import com.lhxy.istationdevice.android11.protocol.jt808.Jt808Variant;
 
 import java.time.LocalDateTime;
 import java.util.Calendar;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
@@ -50,6 +63,7 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
     private static final int MSG_PLATFORM_GENERAL_RESPONSE = 0x8001;
     private static final int MSG_REGISTER_RESPONSE = 0x8100;
     private static final int MSG_SET_TERMINAL_PARAMETERS = 0x8103;
+    private static final long PLATFORM_TEXT_DISPLAY_MILLIS = 10_000L;
     private final ProtocolReplayUseCase protocolReplayUseCase;
     private final SocketClientAdapter socketClientAdapter;
     private final Jt808SocketMonitor jt808SocketMonitor;
@@ -61,8 +75,13 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
     private final Jt808LegacyMessages jt808Messages = new Jt808LegacyMessages();
     private final DispatchState dispatchState = new DispatchState();
     private final LegacyStationAudioUseCase stationAudioUseCase;
+    private final Map<Integer, Integer> pendingProfessionRequestTypes = new ConcurrentHashMap<>();
+    private PlatformLineSwitchHandler platformLineSwitchHandler;
     private ScheduledExecutorService departureReminderExecutor;
     private ScheduledExecutorService socketReportExecutor;
+    private ScheduledExecutorService platformTextExecutor;
+    private ScheduledFuture<?> pendingPlatformTextClear;
+    private long platformTextGeneration;
     private int socketReportIntervalSeconds;
     private long socketReportCount;
     private long lastSocketReportTimeMs;
@@ -109,6 +128,10 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
 
     public DispatchState getDispatchState() {
         return dispatchState;
+    }
+
+    public void attachPlatformLineSwitchHandler(PlatformLineSwitchHandler handler) {
+        platformLineSwitchHandler = handler;
     }
 
     /**
@@ -254,7 +277,7 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
         try {
             ShellConfig shellConfig = requireShellConfig();
             ShellConfig.SocketChannel socketChannel = shellConfig.requireSocketChannel(shellConfig.getDebugReplay().getJt808SocketKey());
-            byte[] payload = professionRequestPacketFactory.build(
+            DispatchProfessionRequestPacketFactory.BuiltPacket request = professionRequestPacketFactory.buildRequest(
                     shellConfig,
                     dispatchState,
                     resolveSignInState(),
@@ -265,13 +288,15 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
             if (!socketClientAdapter.isConnected(socketChannel.getChannelName())) {
                 socketClientAdapter.connect(socketChannel.toSocketEndpointConfig(), traceId + "-connect");
             }
-            socketClientAdapter.send(socketChannel.getChannelName(), payload, traceId + "-send");
+            pendingProfessionRequestTypes.put(request.getSerialNumber(), request.getRequestType());
+            socketClientAdapter.send(socketChannel.getChannelName(), request.getPayload(), traceId + "-send");
             AppLogCenter.log(
                     LogCategory.BIZ,
                     LogLevel.INFO,
                     TAG,
                     "职业请求已发送 type=" + requestType
                             + " / channel=" + socketChannel.getKey()
+                            + " / serial=" + request.getSerialNumber()
                             + " / state=" + dispatchState.describe(),
                     traceId
             );
@@ -428,6 +453,22 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
                 return;
             }
             int messageId = frame.getMessageId();
+            if (messageId == Jt808TextMessageCommand.MESSAGE_ID) {
+                handlePlatformTextMessage(channelName, frame);
+                return;
+            }
+            if (messageId == Jt808DispatchPlanCommand.MESSAGE_ID) {
+                handlePlatformDispatchPlan(channelName, frame);
+                return;
+            }
+            if (messageId == Jt808DispatchControlCommand.MESSAGE_ID) {
+                handlePlatformDispatchControl(channelName, frame);
+                return;
+            }
+            if (messageId == Jt808ProfessionResponse.MESSAGE_ID) {
+                handleProfessionResponse(frame);
+                return;
+            }
             if (messageId == MSG_REGISTER_RESPONSE) {
                 boolean accepted = isRegisterAccepted(frame.getBody());
                 if (accepted) {
@@ -449,6 +490,335 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
             AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, TAG,
                     "处理调度平台回包失败: " + emptyAsDash(e.getMessage()), "dispatch-platform-rx");
         }
+    }
+
+    private void handlePlatformTextMessage(String channelName, Jt808Frame frame) {
+        String traceId = "dispatch-platform-text-" + frame.getSerialNumber();
+        final Jt808TextMessageCommand command;
+        try {
+            command = Jt808TextMessageCommandParser.parse(frame);
+        } catch (RuntimeException e) {
+            AppLogCenter.log(
+                    LogCategory.ERROR,
+                    LogLevel.WARN,
+                    TAG,
+                    "解析 8300 文本消息失败: " + emptyAsDash(e.getMessage()),
+                    traceId
+            );
+            return;
+        }
+
+        if (command.hasSupportedAction()) {
+            runPlatformTextAction("消息入库", () -> pushInfoMessage(command.getContent()), traceId);
+        }
+        if (command.shouldDisplay()) {
+            runPlatformTextAction("首页展示", () -> publishPlatformText(command.getContent()), traceId);
+        }
+        if (command.shouldSpeak()) {
+            playDispatchNoticeIfPossible(command.getContent(), traceId + "-audio");
+        }
+        try {
+            sendPlatformGeneralResponse(channelName, command, traceId);
+        } catch (RuntimeException e) {
+            AppLogCenter.log(
+                    LogCategory.ERROR,
+                    LogLevel.WARN,
+                    TAG,
+                    "8300 文本消息平台应答失败: " + emptyAsDash(e.getMessage()),
+                    traceId
+            );
+        }
+        AppLogCenter.log(
+                LogCategory.BIZ,
+                LogLevel.INFO,
+                TAG,
+                "已处理 8300 文本消息 flag=0x" + Integer.toHexString(command.getFlag()).toUpperCase()
+                        + " / display=" + yesNo(command.shouldDisplay())
+                        + " / speak=" + yesNo(command.shouldSpeak())
+                        + " / content=" + command.getContent(),
+                traceId
+        );
+    }
+
+    private void handlePlatformDispatchPlan(String channelName, Jt808Frame frame) {
+        String traceId = "dispatch-platform-plan-" + frame.getSerialNumber();
+        final Jt808DispatchPlanCommand command;
+        try {
+            command = Jt808DispatchPlanCommandParser.parse(frame);
+        } catch (RuntimeException e) {
+            AppLogCenter.log(
+                    LogCategory.ERROR,
+                    LogLevel.WARN,
+                    TAG,
+                    "解析 8B01 调度计划失败: " + emptyAsDash(e.getMessage()),
+                    traceId
+            );
+            return;
+        }
+
+        dispatchState.applyPlatformDispatchPlan(
+                command.getRequestSerialNumber(),
+                command.getTimesNo(),
+                command.getDepartureTime(),
+                command.getOvertimeMinutes(),
+                command.getOvertimeSpeakIntervalMinutes(),
+                command.getPrepareSpeakIntervalMinutes(),
+                command.getScheduleText()
+        );
+        playDispatchNoticeIfPossible("收到新的调度信息，请按计划时间发车", traceId + "-audio");
+        try {
+            sendPlatformGeneralResponse(
+                    channelName,
+                    command.getVariant(),
+                    command.getTerminalId(),
+                    command.getRequestSerialNumber(),
+                    Jt808DispatchPlanCommand.MESSAGE_ID,
+                    0,
+                    traceId
+            );
+        } catch (RuntimeException e) {
+            AppLogCenter.log(
+                    LogCategory.ERROR,
+                    LogLevel.WARN,
+                    TAG,
+                    "8B01 调度计划平台应答失败: " + emptyAsDash(e.getMessage()),
+                    traceId
+            );
+        }
+        AppLogCenter.log(
+                LogCategory.BIZ,
+                LogLevel.INFO,
+                TAG,
+                "已处理 8B01 调度计划 timesNo=" + command.getTimesNo()
+                        + " / departure=" + command.getDepartureTime()
+                        + " / ot=" + command.getOvertimeMinutes()
+                        + " / ots=" + command.getOvertimeSpeakIntervalMinutes()
+                        + " / ts=" + command.getPrepareSpeakIntervalMinutes(),
+                traceId
+        );
+    }
+
+    private void handlePlatformDispatchControl(String channelName, Jt808Frame frame) {
+        String traceId = "dispatch-platform-control-" + frame.getSerialNumber();
+        final Jt808DispatchControlCommand command;
+        try {
+            command = Jt808DispatchControlCommandParser.parse(frame);
+        } catch (RuntimeException e) {
+            AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, TAG,
+                    "解析 8B02 调度控制失败: " + emptyAsDash(e.getMessage()), traceId);
+            return;
+        }
+
+        int result;
+        String action;
+        switch (command.getType()) {
+            case Jt808DispatchControlCommand.TYPE_SWITCH_UP:
+            case Jt808DispatchControlCommand.TYPE_SWITCH_DOWN:
+                boolean switched = platformLineSwitchHandler != null
+                        && platformLineSwitchHandler.switchLine(
+                                command.getLineNumber(),
+                                command.getType() == Jt808DispatchControlCommand.TYPE_SWITCH_DOWN,
+                                traceId + "-line-switch"
+                        );
+                result = switched ? 0 : 2;
+                action = switched ? "线路切换成功" : "线路切换失败，未找到对应线路资源";
+                if (switched) {
+                    dispatchState.markPlatformLineSwitch(command.getLineNumber());
+                    playDispatchNoticeIfPossible("线路切换成功", traceId + "-audio");
+                }
+                break;
+            case Jt808DispatchControlCommand.TYPE_CANCEL_PLAN:
+                dispatchState.cancelPlatformPlan();
+                playDispatchNoticeIfPossible("取消计划成功", traceId + "-audio");
+                result = 0;
+                action = "取消计划成功";
+                break;
+            case Jt808DispatchControlCommand.TYPE_UPDATE_TRIPS:
+                dispatchState.updateTripMessages(
+                        command.getNextTrip(),
+                        command.getThisTrip(),
+                        command.getTomorrow()
+                );
+                result = 0;
+                action = "班次信息已更新";
+                break;
+            default:
+                result = 3;
+                action = "不支持的调度控制类型 0x" + Integer.toHexString(command.getType()).toUpperCase();
+                break;
+        }
+        try {
+            sendPlatformGeneralResponse(
+                    channelName,
+                    command.getVariant(),
+                    command.getTerminalId(),
+                    command.getRequestSerialNumber(),
+                    Jt808DispatchControlCommand.MESSAGE_ID,
+                    result,
+                    traceId
+            );
+        } catch (RuntimeException e) {
+            AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, TAG,
+                    "8B02 调度控制平台应答失败: " + emptyAsDash(e.getMessage()), traceId);
+        }
+        AppLogCenter.log(LogCategory.BIZ, result == 0 ? LogLevel.INFO : LogLevel.WARN, TAG,
+                "已处理 8B02 调度控制 type=0x" + Integer.toHexString(command.getType()).toUpperCase()
+                        + " / lineNumber=" + command.getLineNumber()
+                        + " / result=" + result
+                        + " / action=" + action,
+                traceId);
+    }
+
+    private void handleProfessionResponse(Jt808Frame frame) {
+        String traceId = "dispatch-profession-response-" + frame.getSerialNumber();
+        final Jt808ProfessionResponse response;
+        try {
+            response = Jt808ProfessionResponseParser.parse(frame);
+        } catch (RuntimeException e) {
+            AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, TAG,
+                    "解析 8B09 职业请求应答失败: " + emptyAsDash(e.getMessage()), traceId);
+            return;
+        }
+        Integer requestType = pendingProfessionRequestTypes.remove(response.getRequestSerialNumber());
+        if (requestType == null) {
+            AppLogCenter.log(LogCategory.BIZ, LogLevel.WARN, TAG,
+                    "8B09 未找到对应职业请求 serial=" + response.getRequestSerialNumber()
+                            + " / result=" + response.getResult(), traceId);
+            return;
+        }
+        String message = professionRequestLabel(requestType)
+                + (response.isAccepted() ? "同意" : "不同意");
+        dispatchState.markProfessionResponse(requestType, response.isAccepted(), message);
+        playDispatchNoticeIfPossible(message, traceId + "-audio");
+        AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, TAG,
+                "已处理 8B09 职业请求应答 serial=" + response.getRequestSerialNumber()
+                        + " / type=" + requestType
+                        + " / result=" + response.getResult()
+                        + " / message=" + message,
+                traceId);
+    }
+
+    private String professionRequestLabel(int requestType) {
+        switch (requestType) {
+            case 1:
+                return "排班";
+            case 2:
+                return "交班";
+            case 3:
+                return "加油";
+            case 4:
+                return "加气";
+            case 5:
+                return "充电";
+            case 6:
+                return "退出营运";
+            case 7:
+                return "手动开始";
+            case 8:
+                return "手动结束";
+            case 9:
+                return "包车";
+            case 10:
+                return "维修";
+            case 13:
+                return "对讲";
+            default:
+                return "其他请求";
+        }
+    }
+
+    private void runPlatformTextAction(String action, Runnable runnable, String traceId) {
+        try {
+            runnable.run();
+        } catch (RuntimeException e) {
+            AppLogCenter.log(
+                    LogCategory.ERROR,
+                    LogLevel.WARN,
+                    TAG,
+                    "8300 文本消息" + action + "失败，继续处理后续动作: " + emptyAsDash(e.getMessage()),
+                    traceId
+            );
+        }
+    }
+
+    private void sendPlatformGeneralResponse(
+            String channelName,
+            Jt808TextMessageCommand command,
+            String traceId
+    ) {
+        sendPlatformGeneralResponse(
+                channelName,
+                command.getVariant(),
+                command.getTerminalId(),
+                command.getRequestSerialNumber(),
+                Jt808TextMessageCommand.MESSAGE_ID,
+                0,
+                traceId
+        );
+    }
+
+    private void sendPlatformGeneralResponse(
+            String channelName,
+            Jt808Variant requestedVariant,
+            String terminalId,
+            int requestSerialNumber,
+            int responseMessageId,
+            int result,
+            String traceId
+    ) {
+        Jt808Variant variant = requestedVariant == null ? Jt808Variant.JT808 : requestedVariant;
+        socketClientAdapter.send(
+                channelName,
+                jt808Messages.encode(
+                        jt808Messages.createGeneralResponse(
+                                variant,
+                                terminalId,
+                                new Jt808GeneralResponse(
+                                        requestSerialNumber,
+                                        responseMessageId,
+                                        result
+                                )
+                        )
+                ),
+                traceId + "-general-response"
+        );
+    }
+
+    public interface PlatformLineSwitchHandler {
+        boolean switchLine(long lineNumber, boolean downDirection, String traceId);
+    }
+
+    private void publishPlatformText(String content) {
+        Context context = getContext();
+        if (context == null) {
+            return;
+        }
+        LegacyHomeStatusRepository.setInformation(context, content);
+        schedulePlatformTextClear(context);
+    }
+
+    private synchronized void schedulePlatformTextClear(Context context) {
+        platformTextGeneration++;
+        long generation = platformTextGeneration;
+        if (pendingPlatformTextClear != null) {
+            pendingPlatformTextClear.cancel(false);
+        }
+        if (platformTextExecutor == null || platformTextExecutor.isShutdown()) {
+            platformTextExecutor = Executors.newSingleThreadScheduledExecutor(runnable -> {
+                Thread thread = new Thread(runnable, "dispatch-platform-text-clear");
+                thread.setDaemon(true);
+                return thread;
+            });
+        }
+        pendingPlatformTextClear = platformTextExecutor.schedule(() -> {
+            synchronized (DispatchBusinessModule.this) {
+                if (generation != platformTextGeneration) {
+                    return;
+                }
+                LegacyHomeStatusRepository.clearInformation(context);
+                pendingPlatformTextClear = null;
+            }
+        }, PLATFORM_TEXT_DISPLAY_MILLIS, TimeUnit.MILLISECONDS);
     }
 
     private boolean isRegisterAccepted(byte[] body) {

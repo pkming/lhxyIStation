@@ -24,6 +24,14 @@ public final class DispatchState {
     private int replayCount;
     private long lineGuid = 1001L;
     private int timesNo = 1;
+    private int overtimeMinutes = -1;
+    private int overtimeSpeakIntervalMinutes = -1;
+    private int prepareSpeakIntervalMinutes = -1;
+    private String nextTrip = "-";
+    private String thisTrip = "-";
+    private String tomorrow = "-";
+    private int lastProfessionRequestType;
+    private boolean lastProfessionAccepted;
     private long lastMsgSerialNo = 1L;
     private long pendingNoticeMsgSerialNo;
     private String pendingNoticeMessage = "-";
@@ -135,9 +143,71 @@ public final class DispatchState {
         lastUpdateTimeMillis = System.currentTimeMillis();
     }
 
+    public void applyPlatformDispatchPlan(
+            long msgSerialNo,
+            int timesNo,
+            String departureTime,
+            int overtimeMinutes,
+            int overtimeSpeakIntervalMinutes,
+            int prepareSpeakIntervalMinutes,
+            String scheduleText
+    ) {
+        activeProtocol = "JT808/AL808";
+        lastMsgSerialNo = Math.max(1L, msgSerialNo);
+        this.timesNo = Math.max(0, timesNo);
+        this.overtimeMinutes = overtimeMinutes;
+        this.overtimeSpeakIntervalMinutes = overtimeSpeakIntervalMinutes;
+        this.prepareSpeakIntervalMinutes = prepareSpeakIntervalMinutes;
+        joinedOperation = true;
+        dispatchedConfirmed = true;
+        startedBus = false;
+        requestedCharge = false;
+        reportedVehicleFailure = false;
+        scheduleNo = this.timesNo <= 0 ? "-" : String.valueOf(this.timesNo);
+        plannedDepartureTime = normalizeCompactTime(departureTime);
+        dispatchMessage = "收到新的调度信息，请按计划时间发车"
+                + ("-".equals(emptyAsDash(scheduleText)) ? "" : " / " + emptyAsDash(scheduleText));
+        lastUpdateTimeMillis = System.currentTimeMillis();
+    }
+
     public void acknowledgeNotice() {
         pendingNoticeAcked = true;
         dispatchMessage = "已确认下发公告，等待后续调度";
+        lastUpdateTimeMillis = System.currentTimeMillis();
+    }
+
+    public void cancelPlatformPlan() {
+        dispatchedConfirmed = false;
+        startedBus = false;
+        plannedDepartureTime = "-";
+        plannedArrivalTime = "-";
+        dispatchMessage = "取消计划成功";
+        lastUpdateTimeMillis = System.currentTimeMillis();
+    }
+
+    public void updateTripMessages(String nextTrip, String thisTrip, String tomorrow) {
+        if (!"-".equals(emptyAsDash(nextTrip))) {
+            this.nextTrip = emptyAsDash(nextTrip);
+        }
+        if (!"-".equals(emptyAsDash(thisTrip))) {
+            this.thisTrip = emptyAsDash(thisTrip);
+        }
+        if (!"-".equals(emptyAsDash(tomorrow))) {
+            this.tomorrow = emptyAsDash(tomorrow);
+        }
+        lastUpdateTimeMillis = System.currentTimeMillis();
+    }
+
+    public void markPlatformLineSwitch(long lineNumber) {
+        lineGuid = Math.max(0L, lineNumber);
+        dispatchMessage = "线路切换成功";
+        lastUpdateTimeMillis = System.currentTimeMillis();
+    }
+
+    public void markProfessionResponse(int requestType, boolean accepted, String message) {
+        lastProfessionRequestType = requestType;
+        lastProfessionAccepted = accepted;
+        dispatchMessage = emptyAsDash(message);
         lastUpdateTimeMillis = System.currentTimeMillis();
     }
 
@@ -191,6 +261,38 @@ public final class DispatchState {
 
     public int getTimesNo() {
         return timesNo;
+    }
+
+    public int getOvertimeMinutes() {
+        return overtimeMinutes;
+    }
+
+    public int getOvertimeSpeakIntervalMinutes() {
+        return overtimeSpeakIntervalMinutes;
+    }
+
+    public int getPrepareSpeakIntervalMinutes() {
+        return prepareSpeakIntervalMinutes;
+    }
+
+    public String getNextTrip() {
+        return nextTrip;
+    }
+
+    public String getThisTrip() {
+        return thisTrip;
+    }
+
+    public String getTomorrow() {
+        return tomorrow;
+    }
+
+    public int getLastProfessionRequestType() {
+        return lastProfessionRequestType;
+    }
+
+    public boolean isLastProfessionAccepted() {
+        return lastProfessionAccepted;
     }
 
     public long getLastMsgSerialNo() {
@@ -265,6 +367,12 @@ public final class DispatchState {
                 + "\n- scheduleNo=" + emptyAsDash(scheduleNo)
                 + "\n- departure=" + emptyAsDash(plannedDepartureTime)
                 + "\n- arrival=" + emptyAsDash(plannedArrivalTime)
+                + "\n- dispatchTiming=ot:" + overtimeMinutes
+                + " / ots:" + overtimeSpeakIntervalMinutes
+                + " / ts:" + prepareSpeakIntervalMinutes
+                + "\n- trips=this:" + emptyAsDash(thisTrip)
+                + " / next:" + emptyAsDash(nextTrip)
+                + " / tomorrow:" + emptyAsDash(tomorrow)
                 + "\n- pendingNotice=" + emptyAsDash(pendingNoticeMessage)
                 + " / acked=" + (pendingNoticeAcked ? "是" : "否")
                 + "\n- socketReportChannel=" + emptyAsDash(socketReportChannelName)

@@ -16,6 +16,7 @@ public final class LegacyHomeStatusRepository {
     private static final String KEY_INFO_TIPS = "info_tips";
     private static final String KEY_INFO_OPERATION = "info_operation";
     private static final String KEY_INFO_OPERATION_MSG = "info_operation_msg";
+    private static final String KEY_INFORMATION = "information";
     private static final String KEY_SHOUTING = "shouting";
 
     private LegacyHomeStatusRepository() {
@@ -28,6 +29,7 @@ public final class LegacyHomeStatusRepository {
                 prefs.getString(KEY_INFO_TIPS, ""),
                 prefs.getInt(KEY_INFO_OPERATION, InfoOperation.NONE),
                 prefs.getInt(KEY_INFO_OPERATION_MSG, 0),
+                prefs.getString(KEY_INFORMATION, ""),
                 prefs.getString(KEY_SHOUTING, "")
         );
     }
@@ -60,6 +62,14 @@ public final class LegacyHomeStatusRepository {
                 .apply();
     }
 
+    public static void setInformation(@NonNull Context context, @NonNull String text) {
+        prefs(context).edit().putString(KEY_INFORMATION, safe(text)).apply();
+    }
+
+    public static void clearInformation(@NonNull Context context) {
+        prefs(context).edit().remove(KEY_INFORMATION).apply();
+    }
+
     public static void setShouting(@NonNull Context context, @NonNull String text) {
         prefs(context).edit().putString(KEY_SHOUTING, safe(text)).apply();
     }
@@ -77,6 +87,7 @@ public final class LegacyHomeStatusRepository {
             if (KEY_INFO_TIPS.equals(key)
                     || KEY_INFO_OPERATION.equals(key)
                     || KEY_INFO_OPERATION_MSG.equals(key)
+                    || KEY_INFORMATION.equals(key)
                     || KEY_SHOUTING.equals(key)) {
                 listener.onHomeStatusChanged();
             }
@@ -107,12 +118,14 @@ public final class LegacyHomeStatusRepository {
         private final String manualInfoTips;
         private final int infoOperation;
         private final int infoOperationMessage;
+        private final String information;
         private final String shouting;
 
-        Snapshot(String manualInfoTips, int infoOperation, int infoOperationMessage, String shouting) {
+        Snapshot(String manualInfoTips, int infoOperation, int infoOperationMessage, String information, String shouting) {
             this.manualInfoTips = manualInfoTips == null ? "" : manualInfoTips.trim();
             this.infoOperation = infoOperation;
             this.infoOperationMessage = infoOperationMessage;
+            this.information = information == null ? "" : information.trim();
             this.shouting = shouting == null ? "" : shouting.trim();
         }
 
@@ -129,6 +142,10 @@ public final class LegacyHomeStatusRepository {
 
         public int getInfoOperationMessage() {
             return infoOperationMessage;
+        }
+
+        public String getInformation() {
+            return information;
         }
 
         public String getShouting() {
