@@ -27,6 +27,9 @@ public final class LegacyGpsAutoReportEngine {
     private String activeRouteKey = "";
     private int lastStationNo;
     private boolean stationInner = true;
+    // 记录上一次离开的站点编号，防止离站后 GPS 抖动回到同一站坐标时重复播报。
+    // 每次成功进站后清零，切线路/reset 时也清零。
+    private int lastLeftStationNo = -1;
     private int lastReminderNo = -1;
     private boolean reminderActive;
     private boolean initSite = true;
@@ -39,6 +42,7 @@ public final class LegacyGpsAutoReportEngine {
         activeRouteKey = routeKey == null ? "" : routeKey;
         lastStationNo = 0;
         stationInner = true;
+        lastLeftStationNo = -1;
         lastReminderNo = -1;
         reminderActive = false;
         initSite = true;
@@ -120,6 +124,8 @@ public final class LegacyGpsAutoReportEngine {
                     operationType = OP_INVALID;
                 } else if (stationInner) {
                     if (station.getStationNo() + 1 < route.getStations().size()) {
+                        // 记录刚离开的站点，防止 GPS 抖动回到该坐标范围时重复触发进站播报。
+                        lastLeftStationNo = station.getStationNo();
                         station = route.getStations().get(station.getStationNo() + 1);
                         clearDirectionVotes();
                     } else {
@@ -152,10 +158,15 @@ public final class LegacyGpsAutoReportEngine {
                 } else if (attribute != LegacyGpsRouteResource.ATTRIBUTE_LOOP && (lastStationNo + 1) == station.getStationNo()) {
                     operationType = OP_INVALID;
                 }
-            } else if (lastStationNo != station.getStationNo()) {
-                // 出站事件已经把 lastStationNo 推进为下一目标站。GPS 在站点边界
-                // 漂回上一站时不能再次进站，否则会形成“进站-出站-重复进站”。
-                operationType = OP_INVALID;
+            } else {
+                if (attribute == LegacyGpsRouteResource.ATTRIBUTE_ANTI_REVERSE && lastStationNo != station.getStationNo()) {
+                    operationType = OP_INVALID;
+                }
+                // 刚离开该站后 GPS 抖回同一坐标范围，抑制重复进站播报。
+                // 只要成功进入任意一个新站后 lastLeftStationNo 即清零。
+                if (operationType == OP_STATION && station.getStationNo() == lastLeftStationNo) {
+                    operationType = OP_INVALID;
+                }
             }
 
             if (operationType == OP_STATION && angleEnabled && station.getStationNo() < route.getStations().size() - 1) {
@@ -178,6 +189,9 @@ public final class LegacyGpsAutoReportEngine {
 
         lastStationNo = station.getStationNo();
         stationInner = stationType == STATION_TYPE_ENTER;
+        if (stationType == STATION_TYPE_ENTER) {
+            lastLeftStationNo = -1; // 成功进站后解除同站重入抑制
+        }
         lastReminderNo = -1;
         reminderActive = false;
         return AutoReportEvent.station(station, stationType, distance);
