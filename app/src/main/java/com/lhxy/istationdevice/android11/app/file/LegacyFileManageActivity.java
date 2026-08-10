@@ -54,11 +54,13 @@ import java.text.DateFormat;
  * 旧版文件管理页骨架。
  */
 public final class LegacyFileManageActivity extends LegacyBaseActivity {
+    private static final String ONSITE_REBOOT_PACKAGE = "com.lianhexinye.rebootm90";
     private static final long HOT_UPDATE_TIMEOUT_MILLIS = 3L * 60L * 1000L;
     private static final long HOT_UPDATE_POLL_INTERVAL_MILLIS = 5_000L;
     private static final int HOT_UPDATE_RESET_RESTART_REQUEST_CODE = 1002;
     private static final long HOT_UPDATE_RESET_RESTART_DELAY_MILLIS = 300L;
     private boolean pendingImportAfterStorageGrant;
+    private boolean pendingUpgradeAfterStorageGrant;
 
     private BroadcastReceiver storageReceiver;
     private SharedPreferences.OnSharedPreferenceChangeListener hotUpdateStateListener;
@@ -106,6 +108,10 @@ public final class LegacyFileManageActivity extends LegacyBaseActivity {
         if (pendingImportAfterStorageGrant && hasSharedStorageAccess()) {
             pendingImportAfterStorageGrant = false;
             promptImportCandidateSelection();
+        }
+        if (pendingUpgradeAfterStorageGrant && hasSharedStorageAccess()) {
+            pendingUpgradeAfterStorageGrant = false;
+            showUpgradeConfirmation();
         }
     }
 
@@ -286,11 +292,91 @@ public final class LegacyFileManageActivity extends LegacyBaseActivity {
         if (button == null) {
             return;
         }
-        button.setOnClickListener(v -> new AlertDialog.Builder(this)
+        button.setOnClickListener(v -> {
+            File apkFile = LocalUpgradeApkFinder.findBest(this);
+            if (apkFile == null && !ensureSharedStorageAccessForUpgrade()) {
+                return;
+            }
+            showUpgradeConfirmation();
+        });
+    }
+
+    private boolean ensureSharedStorageAccessForUpgrade() {
+        if (hasSharedStorageAccess()) {
+            return true;
+        }
+        pendingUpgradeAfterStorageGrant = true;
+        new AlertDialog.Builder(this)
+                .setMessage(R.string.file_upgrade_storage_permission_tip)
+                .setPositiveButton(R.string.confirm, (dialog, which) -> openSharedStorageSettings())
+                .setNegativeButton(android.R.string.cancel, (dialog, which) -> pendingUpgradeAfterStorageGrant = false)
+                .show();
+        return false;
+    }
+
+    private void showUpgradeConfirmation() {
+        new AlertDialog.Builder(this)
                 .setMessage(R.string.file_upgrade_tip)
-                .setPositiveButton(R.string.confirm, (dialog, which) -> runUpgradeAsync())
+                .setPositiveButton(R.string.confirm, (dialog, which) -> {
+                    launchOnsiteUpgradeCompanion();
+                    runUpgradeAsync();
+                })
                 .setNegativeButton(android.R.string.cancel, null)
-                .show());
+                .show();
+    }
+
+    private void launchOnsiteUpgradeCompanion() {
+        Intent launchIntent = getPackageManager().getLaunchIntentForPackage(ONSITE_REBOOT_PACKAGE);
+        if (launchIntent == null) {
+            AppLogCenter.log(
+                    com.lhxy.istationdevice.android11.core.LogCategory.DEVICE,
+                    com.lhxy.istationdevice.android11.core.LogLevel.WARN,
+                    "LegacyFileManageActivity",
+                    "现场升级辅助程序未安装，继续执行 APK 安装 package=" + ONSITE_REBOOT_PACKAGE,
+                    "legacy-file-manage-reboot-helper"
+            );
+            return;
+        }
+        launchIntent.putExtra("seleLanguage", resolveOnsiteLanguageIndex());
+        try {
+            startActivity(launchIntent);
+            AppLogCenter.log(
+                    com.lhxy.istationdevice.android11.core.LogCategory.DEVICE,
+                    com.lhxy.istationdevice.android11.core.LogLevel.INFO,
+                    "LegacyFileManageActivity",
+                    "已启动现场升级辅助程序 package=" + ONSITE_REBOOT_PACKAGE,
+                    "legacy-file-manage-reboot-helper"
+            );
+        } catch (RuntimeException e) {
+            AppLogCenter.log(
+                    com.lhxy.istationdevice.android11.core.LogCategory.ERROR,
+                    com.lhxy.istationdevice.android11.core.LogLevel.WARN,
+                    "LegacyFileManageActivity",
+                    "现场升级辅助程序启动失败，继续执行 APK 安装: " + safeTrim(e.getMessage()),
+                    "legacy-file-manage-reboot-helper"
+            );
+        }
+    }
+
+    private String resolveOnsiteLanguageIndex() {
+        try {
+            String languageCode = ShellConfigRepository.get(this)
+                    .getBasicSetupConfig()
+                    .getLanguageSettings()
+                    .getLanguageCode();
+            if ("zh_cn".equalsIgnoreCase(languageCode)) {
+                return "1";
+            }
+            if ("zh_tw".equalsIgnoreCase(languageCode)) {
+                return "2";
+            }
+            if ("auto".equalsIgnoreCase(languageCode)) {
+                return "0";
+            }
+            return "3";
+        } catch (RuntimeException ignored) {
+            return "0";
+        }
     }
 
     private void bindExportLogAction() {
@@ -659,8 +745,13 @@ public final class LegacyFileManageActivity extends LegacyBaseActivity {
         }
         File apkFile = LocalUpgradeApkFinder.findBest(this);
         if (apkFile == null) {
-            upgradeFile.setText("");
-            applyButtonState(upgradeButton, false);
+            boolean needsPermission = !hasSharedStorageAccess();
+            if (needsPermission) {
+                upgradeFile.setText(R.string.file_upgrade_storage_permission_hint);
+            } else {
+                upgradeFile.setText("");
+            }
+            applyButtonState(upgradeButton, needsPermission);
             return;
         }
         upgradeFile.setText(getString(R.string.file_upgrade_find, apkFile.getName()));

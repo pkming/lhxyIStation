@@ -383,6 +383,8 @@ Time: %3$s</string>
     <string name="file_import_load_tip">Importing station data. Please do not perform other operations...</string>
     <string name="file_export_load_tip">Exporting station data. Please do not perform other operations...</string>
     <string name="file_upgrade_load_tip">Upgrading app. Please do not perform other operations...</string>
+    <string name="file_upgrade_storage_permission_tip">USB upgrade needs access to BusRes/ApkRes/M90.apk. Allow this app to access all files on the next screen, then return to continue.</string>
+    <string name="file_upgrade_storage_permission_hint">Grant storage access to scan the USB upgrade package</string>
     <string name="file_import_complete_suss">Station data imported successfully. Please remove the USB drive.</string>
     <string name="file_import_complete_fail">Station data import failed. Please try again.</string>
     <string name="file_import_complete_fail1">No importable station data found.</string>

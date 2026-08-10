@@ -259,6 +259,8 @@
     <string name="file_reset_hot_update_confirm">重置并重启</string>
     <string name="file_reset_hot_update_load_tip">正在重置热更新并重启应用&#8230;</string>
     <string name="file_upgrade_not_found">未找到本地升级包</string>
+    <string name="file_upgrade_storage_permission_tip">U盘升级需要读取 BusRes/ApkRes/M90.apk。请在下一页允许本应用访问所有文件，然后返回继续升级。</string>
+    <string name="file_upgrade_storage_permission_hint">请授权存储访问后扫描U盘升级包</string>
     <string name="file_import_diagnostics_title">导入诊断</string>
     <string name="file_import_diagnostics_summary">%1$s
 OK：%2$d 项  警告：%3$d 项  失败：%4$d 项

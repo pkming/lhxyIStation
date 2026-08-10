@@ -4,10 +4,8 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.view.MenuItem;
 import android.view.View;
-import android.widget.Toast;
 
 import com.lhxy.istationdevice.android11.app.R;
-import com.lhxy.istationdevice.android11.app.ShellApplication;
 import com.lhxy.istationdevice.android11.app.auth.LegacyPasswordActivity;
 import com.lhxy.istationdevice.android11.app.common.LegacyBaseActivity;
 import com.lhxy.istationdevice.android11.app.dispatch.LegacyDispatchCenterActivity;
@@ -49,29 +47,12 @@ public final class LegacyMenuActivity extends LegacyBaseActivity {
     private void bindMenuEntries() {
         bindEntry(R.id.lyLineSele, LegacyLineChoiceActivity.class);
         bindEntry(R.id.lySiteLearn, LegacySiteCollectionActivity.class);
-        bindFileManageEntry();
+        bindEntry(R.id.lyFileManage, LegacyFileManageActivity.class);
         bindEntry(R.id.lySystemSet, LegacyBasicSetupActivity.class);
         bindEntry(R.id.lyVoiceCall, LegacyPasswordActivity.class);
         bindEntry(R.id.lyDispatchingCenter, LegacyDispatchCenterActivity.class);
         bindEntry(R.id.lyInfoBrowsing, LegacyInfoBrowsActivity.class);
         bindEntry(R.id.lySysInfo, LegacySystemInfoActivity.class);
-    }
-
-    /**
-     * 文件管理入口带超级密码门禁，不满足权限时直接拦截。
-     */
-    private void bindFileManageEntry() {
-        View view = findViewById(R.id.lyFileManage);
-        if (view == null) {
-            return;
-        }
-        view.setOnClickListener(v -> {
-            if (!ShellApplication.isUserPassword) {
-                startActivityForResult(new Intent(this, LegacyFileManageActivity.class), REQUEST_SET_CODE);
-                return;
-            }
-            Toast.makeText(this, R.string.legacy_password_super_required, Toast.LENGTH_SHORT).show();
-        });
     }
 
     /**
