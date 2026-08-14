@@ -59,7 +59,7 @@ public final class TerminalModuleHub {
         DeviceFoundationUseCase deviceFoundationUseCase = new DeviceFoundationUseCase();
         DvrSerialDispatchUseCase dvrSerialDispatchUseCase = new DvrSerialDispatchUseCase(serialPortAdapter);
         DispatchBusinessModule dispatchModule =
-            new DispatchBusinessModule(protocolReplayUseCase, socketClientAdapter, gpioAdapter, jt808SocketMonitor, dvrSerialDispatchUseCase, gpsSerialMonitor);
+            new DispatchBusinessModule(protocolReplayUseCase, socketClientAdapter, serialPortAdapter, gpioAdapter, jt808SocketMonitor, dvrSerialDispatchUseCase, gpsSerialMonitor);
         // GPS 使用 byte[] 串口读取链路；V32 原生 read() 返回 String，遇到脏字节会触发 CheckJNI abort。
         GpsBusinessModule gpsModule =
             new GpsBusinessModule(gpsSerialPortAdapter, gpsSerialMonitor, systemOps);

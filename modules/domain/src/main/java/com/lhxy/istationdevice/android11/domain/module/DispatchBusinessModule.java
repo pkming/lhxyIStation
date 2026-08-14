@@ -8,6 +8,7 @@ import com.lhxy.istationdevice.android11.core.LegacyInfoMessageRepository;
 import com.lhxy.istationdevice.android11.core.LogCategory;
 import com.lhxy.istationdevice.android11.core.LogLevel;
 import com.lhxy.istationdevice.android11.deviceapi.GpioAdapter;
+import com.lhxy.istationdevice.android11.deviceapi.SerialPortAdapter;
 import com.lhxy.istationdevice.android11.deviceapi.SocketClientAdapter;
 import com.lhxy.istationdevice.android11.domain.ProtocolReplayUseCase;
 import com.lhxy.istationdevice.android11.domain.config.ShellConfig;
@@ -23,6 +24,7 @@ import com.lhxy.istationdevice.android11.domain.module.state.StationState;
 import com.lhxy.istationdevice.android11.domain.module.state.DispatchState;
 import com.lhxy.istationdevice.android11.domain.socket.Jt808SocketMonitor;
 import com.lhxy.istationdevice.android11.domain.station.LegacyStationAudioUseCase;
+import com.lhxy.istationdevice.android11.domain.station.LegacyStationDisplayUseCase;
 import com.lhxy.istationdevice.android11.protocol.gps.GpsFixSnapshot;
 import com.lhxy.istationdevice.android11.protocol.jt808.Jt808DispatchControlCommand;
 import com.lhxy.istationdevice.android11.protocol.jt808.Jt808DispatchControlCommandParser;
@@ -35,13 +37,21 @@ import com.lhxy.istationdevice.android11.protocol.jt808.Jt808PositionSnapshot;
 import com.lhxy.istationdevice.android11.protocol.jt808.Jt808ProfessionResponse;
 import com.lhxy.istationdevice.android11.protocol.jt808.Jt808ProfessionResponseParser;
 import com.lhxy.istationdevice.android11.protocol.jt808.Jt808ReportStationSnapshot;
+import com.lhxy.istationdevice.android11.protocol.jt808.Jt808SetTerminalParametersCommand;
+import com.lhxy.istationdevice.android11.protocol.jt808.Jt808SetTerminalParametersCommandParser;
 import com.lhxy.istationdevice.android11.protocol.jt808.Jt808TerminalProfile;
 import com.lhxy.istationdevice.android11.protocol.jt808.Jt808TextMessageCommand;
 import com.lhxy.istationdevice.android11.protocol.jt808.Jt808TextMessageCommandParser;
+import com.lhxy.istationdevice.android11.protocol.jt808.Jt808VehicleOperationCommand;
+import com.lhxy.istationdevice.android11.protocol.jt808.Jt808VehicleOperationCommandParser;
 import com.lhxy.istationdevice.android11.protocol.jt808.Jt808Variant;
+import com.lhxy.istationdevice.android11.protocol.jt808.Jt808PassthroughMessage;
+import com.lhxy.istationdevice.android11.protocol.jt808.Jt808PassthroughMessageEncoder;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
@@ -63,6 +73,12 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
     private static final int MSG_PLATFORM_GENERAL_RESPONSE = 0x8001;
     private static final int MSG_REGISTER_RESPONSE = 0x8100;
     private static final int MSG_SET_TERMINAL_PARAMETERS = 0x8103;
+    private static final int MSG_PLATFORM_TEXT_MESSAGE = 0x8300;
+    private static final int MSG_PLATFORM_DISPATCH_PLAN = 0x8B01;
+    private static final int MSG_PLATFORM_DISPATCH_CONTROL = 0x8B02;
+    private static final int MSG_VEHICLE_OPERATION = 0x8B05;
+    private static final int MSG_PROFESSION_RESPONSE = 0x8B09;
+    private static final int MSG_PLATFORM_UPGRADE = 0x8B0A;
     private static final long PLATFORM_TEXT_DISPLAY_MILLIS = 10_000L;
     private final ProtocolReplayUseCase protocolReplayUseCase;
     private final SocketClientAdapter socketClientAdapter;
@@ -75,6 +91,8 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
     private final Jt808LegacyMessages jt808Messages = new Jt808LegacyMessages();
     private final DispatchState dispatchState = new DispatchState();
     private final LegacyStationAudioUseCase stationAudioUseCase;
+    private final LegacyStationDisplayUseCase stationDisplayUseCase;
+    private final SerialPortAdapter serialPortAdapter;
     private final Map<Integer, Integer> pendingProfessionRequestTypes = new ConcurrentHashMap<>();
     private PlatformLineSwitchHandler platformLineSwitchHandler;
     private ScheduledExecutorService departureReminderExecutor;
@@ -97,6 +115,7 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
     public DispatchBusinessModule(
             ProtocolReplayUseCase protocolReplayUseCase,
             SocketClientAdapter socketClientAdapter,
+            SerialPortAdapter serialPortAdapter,
             GpioAdapter gpioAdapter,
             Jt808SocketMonitor jt808SocketMonitor,
             DvrSerialDispatchUseCase dvrSerialDispatchUseCase,
@@ -104,10 +123,12 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
     ) {
         this.protocolReplayUseCase = protocolReplayUseCase;
         this.socketClientAdapter = socketClientAdapter;
+        this.serialPortAdapter = serialPortAdapter;
         this.jt808SocketMonitor = jt808SocketMonitor;
         this.dvrSerialDispatchUseCase = dvrSerialDispatchUseCase;
         this.gpsSerialMonitor = gpsSerialMonitor;
         this.stationAudioUseCase = new LegacyStationAudioUseCase(gpioAdapter);
+        this.stationDisplayUseCase = new LegacyStationDisplayUseCase(serialPortAdapter);
         this.jt808SocketMonitor.registerFrameListener(FRAME_LISTENER_KEY, this::handleSocketFrame);
     }
 
@@ -483,7 +504,11 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
                 dispatchState.markPlatformResponse(messageId, isGeneralResponseAccepted(frame.getBody()));
                 return;
             }
-            if (messageId == MSG_SET_TERMINAL_PARAMETERS || (messageId & 0x8000) == 0x8000) {
+            if (messageId == MSG_SET_TERMINAL_PARAMETERS) {
+                handleSetTerminalParameters(channelName, frame);
+                return;
+            }
+            if ((messageId & 0x8000) == 0x8000) {
                 dispatchState.markPlatformResponse(messageId, true);
             }
         } catch (Exception e) {
@@ -515,8 +540,14 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
             runPlatformTextAction("首页展示", () -> publishPlatformText(command.getContent()), traceId);
         }
         if (command.shouldSpeak()) {
-            playDispatchNoticeIfPossible(command.getContent(), traceId + "-audio");
+            playPlatformTextMessage(command, traceId + "-audio");
         }
+        
+        // RS485转发（乘客端或明确标记需要转发）
+        if (command.shouldSendRs485() || command.isToPassenger()) {
+            runPlatformTextAction("RS485转发", () -> sendTextToRs485Device(command, traceId + "-rs485"), traceId);
+        }
+        
         try {
             sendPlatformGeneralResponse(channelName, command, traceId);
         } catch (RuntimeException e) {
@@ -533,9 +564,12 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
                 LogLevel.INFO,
                 TAG,
                 "已处理 8300 文本消息 flag=0x" + Integer.toHexString(command.getFlag()).toUpperCase()
-                        + " / display=" + yesNo(command.shouldDisplay())
-                        + " / speak=" + yesNo(command.shouldSpeak())
-                        + " / content=" + command.getContent(),
+                        + " / 目标=" + command.getTargetEndpoint()
+                        + " / 紧急=" + yesNo(command.isEmergency())
+                        + " / 展示=" + yesNo(command.shouldDisplay())
+                        + " / 播报=" + yesNo(command.shouldSpeak())
+                        + " / RS485=" + yesNo(command.shouldSendRs485() || command.isToPassenger())
+                        + " / 内容=" + command.getContent(),
                 traceId
         );
     }
@@ -752,6 +786,22 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
                 command.getTerminalId(),
                 command.getRequestSerialNumber(),
                 Jt808TextMessageCommand.MESSAGE_ID,
+                0,
+                traceId
+        );
+    }
+
+    private void sendPlatformGeneralResponse(
+            String channelName,
+            Jt808SetTerminalParametersCommand command,
+            String traceId
+    ) {
+        sendPlatformGeneralResponse(
+                channelName,
+                command.getVariant(),
+                command.getTerminalId(),
+                command.getRequestSerialNumber(),
+                Jt808SetTerminalParametersCommand.MESSAGE_ID,
                 0,
                 traceId
         );
@@ -1237,6 +1287,36 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
         }
     }
 
+    /**
+     * 播放平台文本消息语音（根据目标端选择音频路由）
+     */
+    private void playPlatformTextMessage(Jt808TextMessageCommand command, String traceId) {
+        try {
+            Context context = getContext();
+            if (context == null) {
+                return;
+            }
+            ShellConfig shellConfig = requireShellConfig();
+            
+            // 根据目标端选择音频路由
+            if (command.isToDriver()) {
+                // 司机端：小喇叭播放
+                stationAudioUseCase.playDispatchNoticeToDriver(context, shellConfig, command.getContent());
+                AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, TAG, "司机端文本语音: 小喇叭播放", traceId);
+            } else if (command.isToPassenger()) {
+                // 乘客端：内音播放
+                stationAudioUseCase.playDispatchNoticeToPassenger(context, shellConfig, command.getContent());
+                AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, TAG, "乘客端文本语音: 内音播放", traceId);
+            } else {
+                // 未指定目标端：默认调度播报（小喇叭，对标现场版）
+                stationAudioUseCase.playDispatchNotice(context, shellConfig, command.getContent());
+                AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, TAG, "文本语音: 默认调度播报", traceId);
+            }
+        } catch (Exception e) {
+            AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, TAG, "文本语音播放失败: " + e.getMessage(), traceId);
+        }
+    }
+
     private void playDispatchNoticeIfPossible(String message, String traceId) {
         try {
             Context context = getContext();
@@ -1246,6 +1326,132 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
             stationAudioUseCase.playDispatchNotice(context, requireShellConfig(), message);
         } catch (Exception ignore) {
             AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, TAG, "调度公告语音播放失败: " + ignore.getMessage(), traceId);
+        }
+    }
+    
+    /**
+     * 通过RS485发送文本消息到第三方设备
+     */
+    private void sendTextToRs485Device(Jt808TextMessageCommand command, String traceId) {
+        try {
+            Context context = getContext();
+            if (context == null) {
+                return;
+            }
+            ShellConfig shellConfig = requireShellConfig();
+            
+            // 将文本消息转换为单行列表发送
+            List<String> messages = new ArrayList<>();
+            messages.add(command.getContent());
+            
+            boolean success = stationDisplayUseCase.sendLedAdvertisement(shellConfig, messages, traceId);
+            if (success) {
+                AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, TAG, 
+                    "RS485转发成功: \"" + command.getContent() + "\"", traceId);
+            } else {
+                AppLogCenter.log(LogCategory.BIZ, LogLevel.WARN, TAG, 
+                    "RS485转发失败: 不支持的协议或设备未连接", traceId);
+            }
+        } catch (Exception e) {
+            AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, TAG, 
+                "RS485转发异常: " + e.getMessage(), traceId);
+        }
+    }
+    
+    /**
+     * 处理0x8103设置终端参数
+     */
+    private void handleSetTerminalParameters(String channelName, Jt808Frame frame) {
+        String traceId = "dispatch-set-params-" + frame.getSerialNumber();
+        final Jt808SetTerminalParametersCommand command;
+        try {
+            command = Jt808SetTerminalParametersCommandParser.parse(frame);
+        } catch (RuntimeException e) {
+            AppLogCenter.log(
+                    LogCategory.ERROR,
+                    LogLevel.WARN,
+                    TAG,
+                    "解析 8103 参数设置失败: " + emptyAsDash(e.getMessage()),
+                    traceId
+            );
+            return;
+        }
+
+        AppLogCenter.log(
+                LogCategory.BIZ,
+                LogLevel.INFO,
+                TAG,
+                "收到参数设置: 参数数量=" + command.getParameterCount(),
+                traceId
+        );
+
+        // 应用参数
+        applyTerminalParameters(command, traceId);
+
+        // 回复平台通用应答
+        try {
+            sendPlatformGeneralResponse(channelName, command, traceId);
+        } catch (RuntimeException e) {
+            AppLogCenter.log(
+                    LogCategory.ERROR,
+                    LogLevel.WARN,
+                    TAG,
+                    "8103 参数设置平台应答失败: " + emptyAsDash(e.getMessage()),
+                    traceId
+            );
+        }
+
+        dispatchState.markPlatformResponse(frame.getMessageId(), true);
+    }
+
+    /**
+     * 应用终端参数到配置
+     */
+    private void applyTerminalParameters(Jt808SetTerminalParametersCommand command, String traceId) {
+        Context context = getContext();
+        if (context == null) {
+            return;
+        }
+
+        boolean needRestart = false;
+
+        // 心跳间隔（0x0001）
+        Integer heartbeatInterval = command.getParameterAsDword(Jt808SetTerminalParametersCommand.PARAM_HEARTBEAT_INTERVAL);
+        if (heartbeatInterval != null && heartbeatInterval > 0 && heartbeatInterval <= 3600) {
+            AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, TAG, 
+                "应用参数: 心跳间隔=" + heartbeatInterval + "秒", traceId);
+            // TODO: 更新ShellConfig并重启心跳定时器
+            needRestart = true;
+        }
+
+        // GPS定位汇报间隔（0x0029）
+        Integer gpsInterval = command.getParameterAsDword(Jt808SetTerminalParametersCommand.PARAM_GPS_URGENT_REPORT_INTERVAL);
+        if (gpsInterval != null && gpsInterval > 0 && gpsInterval <= 3600) {
+            AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, TAG, 
+                "应用参数: GPS间隔=" + gpsInterval + "秒", traceId);
+            // TODO: 更新ShellConfig并调整GPS上报频率
+        }
+
+        // 超速持续时间（0x0055）
+        Integer overspeedDuration = command.getParameterAsDword(Jt808SetTerminalParametersCommand.PARAM_OVERSPEED_DURATION);
+        if (overspeedDuration != null && overspeedDuration > 0) {
+            AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, TAG, 
+                "应用参数: 超速持续时间=" + overspeedDuration + "秒", traceId);
+            // TODO: 更新超速监控参数
+        }
+
+        // 超速预警差值（0x0056，单位：1/10 km/h）
+        Integer overspeedThreshold = command.getParameterAsDword(Jt808SetTerminalParametersCommand.PARAM_OVERSPEED_ALARM_SPEED_DIFF);
+        if (overspeedThreshold != null && overspeedThreshold > 0) {
+            int thresholdKmh = overspeedThreshold / 10;
+            AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, TAG, 
+                "应用参数: 超速阈值=" + thresholdKmh + "km/h", traceId);
+            // TODO: 更新超速监控阈值
+        }
+
+        if (needRestart) {
+            AppLogCenter.log(LogCategory.BIZ, LogLevel.WARN, TAG, 
+                "参数更新需要重启Socket连接以生效", traceId);
         }
     }
 

@@ -172,7 +172,7 @@ public final class LegacyStationAudioUseCase {
         synchronized (GLOBAL_LOCK) {
             stopLocked();
             disablePinsLocked();
-            enablePinsLocked(shellConfig, true, false, true);
+            enablePinsLocked(shellConfig, false, true, true);  // 修正：外音 + 小喇叭（司机端）
             applyAudioVolume(appContext, shellConfig, VOLUME_MODE_DISPATCH, false);
             PlaybackPlan plan = new PlaybackPlan();
             plan.appContext = appContext;
@@ -182,6 +182,58 @@ public final class LegacyStationAudioUseCase {
             activePlan = plan;
             ensureRequestIdLocked(plan);
             logPlanMessage(LogCategory.BIZ, LogLevel.INFO, plan, "调度语音准备 TTS: " + compactText(message), "station-audio-dispatch");
+            speakLocked(appContext, message);
+        }
+    }
+
+    /**
+     * 播放调度公告语音到司机端（小喇叭）
+     */
+    public void playDispatchNoticeToDriver(Context context, ShellConfig shellConfig, String message) {
+        if (context == null || shellConfig == null || message == null || message.trim().isEmpty() || "-".equals(message.trim())) {
+            AppLogCenter.log(LogCategory.BIZ, LogLevel.WARN, TAG, "司机端语音跳过: message=" + compactText(message), "station-audio-driver-skip");
+            return;
+        }
+        Context appContext = context.getApplicationContext();
+        synchronized (GLOBAL_LOCK) {
+            stopLocked();
+            disablePinsLocked();
+            enablePinsLocked(shellConfig, false, true, true);  // 外音 + 小喇叭
+            applyAudioVolume(appContext, shellConfig, VOLUME_MODE_DISPATCH, false);
+            PlaybackPlan plan = new PlaybackPlan();
+            plan.appContext = appContext;
+            plan.shellConfig = shellConfig;
+            plan.trigger = "dispatch-notice-driver";
+            plan.ttsText = message;
+            activePlan = plan;
+            ensureRequestIdLocked(plan);
+            logPlanMessage(LogCategory.BIZ, LogLevel.INFO, plan, "司机端语音 TTS: " + compactText(message), "station-audio-driver");
+            speakLocked(appContext, message);
+        }
+    }
+
+    /**
+     * 播放调度公告语音到乘客端（内音）
+     */
+    public void playDispatchNoticeToPassenger(Context context, ShellConfig shellConfig, String message) {
+        if (context == null || shellConfig == null || message == null || message.trim().isEmpty() || "-".equals(message.trim())) {
+            AppLogCenter.log(LogCategory.BIZ, LogLevel.WARN, TAG, "乘客端语音跳过: message=" + compactText(message), "station-audio-passenger-skip");
+            return;
+        }
+        Context appContext = context.getApplicationContext();
+        synchronized (GLOBAL_LOCK) {
+            stopLocked();
+            disablePinsLocked();
+            enablePinsLocked(shellConfig, true, false, false);  // 内音（不走小喇叭）
+            applyAudioVolume(appContext, shellConfig, VOLUME_MODE_DISPATCH, false);
+            PlaybackPlan plan = new PlaybackPlan();
+            plan.appContext = appContext;
+            plan.shellConfig = shellConfig;
+            plan.trigger = "dispatch-notice-passenger";
+            plan.ttsText = message;
+            activePlan = plan;
+            ensureRequestIdLocked(plan);
+            logPlanMessage(LogCategory.BIZ, LogLevel.INFO, plan, "乘客端语音 TTS: " + compactText(message), "station-audio-passenger");
             speakLocked(appContext, message);
         }
     }

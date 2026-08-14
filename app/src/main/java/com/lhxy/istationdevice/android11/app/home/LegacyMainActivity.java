@@ -52,6 +52,7 @@ import com.lhxy.istationdevice.android11.core.LogCategory;
 import com.lhxy.istationdevice.android11.core.LogLevel;
 import com.lhxy.istationdevice.android11.domain.config.ShellConfig;
 import com.lhxy.istationdevice.android11.domain.config.ShellConfigRepository;
+import com.lhxy.istationdevice.android11.domain.module.CameraDvrBusinessModule;
 import com.lhxy.istationdevice.android11.domain.module.DispatchBusinessModule;
 import com.lhxy.istationdevice.android11.domain.module.ModuleRunResult;
 import com.lhxy.istationdevice.android11.domain.module.SignInBusinessModule;
@@ -87,6 +88,7 @@ public final class LegacyMainActivity extends AppCompatActivity {
     private static final int DVR_TOUCH_WIDTH = 1280;
     private static final int DVR_TOUCH_HEIGHT = 800;
     private static final long HOME_MONITOR_SWITCH_DEBOUNCE_MS = 600L;
+    private static final long HOME_MONITOR_GPIO_POLL_MS = 350L;  // GPIO监听周期：350ms（对标现场版M90）
     private static final int SHOUTING_ROUTE_OUTER = 1;
     private static final int SHOUTING_ROUTE_INNER = 2;
     private static final int SHOUTING_ROUTE_BOTH = 3;
@@ -133,6 +135,8 @@ public final class LegacyMainActivity extends AppCompatActivity {
     private int homeShoutingTrackBufferSize;
     private boolean homeShoutingPermissionRequested;
     private SharedPreferences.OnSharedPreferenceChangeListener homeStatusListener;
+    private Thread homeMonitorGpioThread;  // GPIO监听线程
+    private volatile boolean homeMonitorGpioRunning;  // GPIO监听运行标志
     private final Runnable clockTicker = new Runnable() {
         @Override
         public void run() {
@@ -161,6 +165,7 @@ public final class LegacyMainActivity extends AppCompatActivity {
                 state -> runOnUiThread(() -> bindPassengerCounters(state))
         );
         startClockTicker();
+        startHomeMonitorGpioThread();  // 启动GPIO监听线程
         refreshHomeState();
         openHomeMonitorPreviewIfReady();
     }
@@ -181,6 +186,7 @@ public final class LegacyMainActivity extends AppCompatActivity {
         unregisterHomeStatusListener();
         super.onPause();
         stopClockTicker();
+        stopHomeMonitorGpioThread();  // 停止GPIO监听线程
     }
 
     @Override
@@ -190,6 +196,7 @@ public final class LegacyMainActivity extends AppCompatActivity {
         shellRuntime.getPassengerCounterMonitor().setStateListener(null);
         unregisterHomeStatusListener();
         homeActionExecutor.shutdownNow();
+        stopHomeMonitorGpioThread();  // 确保停止GPIO监听线程
         super.onDestroy();
     }
 
@@ -472,16 +479,30 @@ public final class LegacyMainActivity extends AppCompatActivity {
         homeMonitorPreviewOpening = false;
         homeMonitorPreviewOpened = false;
         homeMonitorCameraKey = null;
-        if (cameraKey != null && !cameraKey.trim().isEmpty() && wasOpened) {
+        
+        // 对标现场版M90：切换前关闭所有摄像头通道，避免资源冲突
+        if (wasOpened) {
             try {
-                shellRuntime.getCameraAdapter().close(cameraKey, homeMonitorOwnerToken, TraceIds.next("legacy-home-monitor-close-" + cameraKey));
-                AppLogCenter.log(
-                        LogCategory.UI,
-                        LogLevel.INFO,
-                        "LegacyMainActivity",
-                        "首页监控预览已关闭 camera=" + cameraKey,
-                        TraceIds.next("legacy-home-monitor-close")
-                );
+                // 关闭所有可能的摄像头通道
+                String[] allCameraKeys = {"middle_door", "reverse", "av_out"};
+                for (String key : allCameraKeys) {
+                    try {
+                        shellRuntime.getCameraAdapter().close(key, homeMonitorOwnerToken, 
+                            TraceIds.next("legacy-home-monitor-close-all-" + key));
+                    } catch (Exception ignore) {
+                        // 某些摄像头可能本来就没打开，忽略关闭失败
+                    }
+                }
+                
+                if (cameraKey != null && !cameraKey.trim().isEmpty()) {
+                    AppLogCenter.log(
+                            LogCategory.UI,
+                            LogLevel.INFO,
+                            "LegacyMainActivity",
+                            "首页监控预览已关闭（关闭所有通道） camera=" + cameraKey,
+                            TraceIds.next("legacy-home-monitor-close")
+                    );
+                }
             } catch (Exception ignore) {
                 // Keep the home page responsive even if preview teardown fails.
             }
@@ -625,8 +646,41 @@ public final class LegacyMainActivity extends AppCompatActivity {
         }
         if (!primaryKey.isEmpty() && !secondaryKey.isEmpty()) {
             try {
-                int primary = shellRuntime.getGpioAdapter().read(primaryKey, TraceIds.next("legacy-home-monitor-primary"));
-                int secondary = shellRuntime.getGpioAdapter().read(secondaryKey, TraceIds.next("legacy-home-monitor-secondary"));
+                // 对标现场版M90防抖机制：50ms双重读取验证（MainActivity.java 1354-1372行）
+                // 第1次读取
+                int primary1 = shellRuntime.getGpioAdapter().read(primaryKey, TraceIds.next("legacy-home-monitor-primary-1"));
+                int secondary1 = shellRuntime.getGpioAdapter().read(secondaryKey, TraceIds.next("legacy-home-monitor-secondary-1"));
+                
+                // 等待50ms（对标现场版：5次×10ms循环）
+                try {
+                    Thread.sleep(50L);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return currentHomeMonitorMode != null ? currentHomeMonitorMode : HomeMonitorMode.DVR;
+                }
+                
+                // 第2次读取
+                int primary2 = shellRuntime.getGpioAdapter().read(primaryKey, TraceIds.next("legacy-home-monitor-primary-2"));
+                int secondary2 = shellRuntime.getGpioAdapter().read(secondaryKey, TraceIds.next("legacy-home-monitor-secondary-2"));
+                
+                // 两次读取必须完全一致才认为状态稳定（对标现场版1368-1372行）
+                if (primary1 != primary2 || secondary1 != secondary2) {
+                    // GPIO信号不稳定，保持当前模式
+                    AppLogCenter.log(
+                            LogCategory.UI,
+                            LogLevel.DEBUG,
+                            "LegacyMainActivity",
+                            String.format("GPIO信号不稳定，忽略切换 (第1次: %d/%d, 第2次: %d/%d)", 
+                                primary1, secondary1, primary2, secondary2),
+                            TraceIds.next("home-monitor-gpio-unstable")
+                    );
+                    return currentHomeMonitorMode != null ? currentHomeMonitorMode : HomeMonitorMode.DVR;
+                }
+                
+                // GPIO信号稳定，解析视频模式（对标现场版1373-1428行）
+                int primary = primary2;
+                int secondary = secondary2;
+                
                 if (primary == 1 && secondary == 0) {
                     return HomeMonitorMode.MIDDLE_DOOR;
                 }
@@ -1718,4 +1772,68 @@ public final class LegacyMainActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * 启动GPIO监听线程（对标现场版M90的MonitorThread）
+     */
+    private void startHomeMonitorGpioThread() {
+        stopHomeMonitorGpioThread();
+        homeMonitorGpioRunning = true;
+        homeMonitorGpioThread = new Thread(() -> {
+            String traceId = TraceIds.next("home-monitor-gpio-thread");
+            AppLogCenter.log(LogCategory.UI, LogLevel.INFO, "LegacyMainActivity", "GPIO监听线程已启动", traceId);
+            
+            while (homeMonitorGpioRunning && !Thread.currentThread().isInterrupted()) {
+                try {
+                    // 每350ms触发一次刷新，让updateHomeDvrPanel去读取GPIO并决定视频模式
+                    runOnUiThread(() -> {
+                        ShellConfig config = shellRuntime.getActiveConfig();
+                        if (config != null) {
+                            updateHomeDvrPanel(config);
+                        }
+                    });
+                    
+                    // 主循环间隔350ms（对标现场版）
+                    Thread.sleep(HOME_MONITOR_GPIO_POLL_MS);
+                    
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                } catch (Exception e) {
+                    AppLogCenter.log(LogCategory.ERROR, LogLevel.ERROR, "LegacyMainActivity", 
+                        "GPIO监听异常: " + e.getMessage(), traceId);
+                    try {
+                        Thread.sleep(HOME_MONITOR_GPIO_POLL_MS);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
+            }
+            
+            AppLogCenter.log(LogCategory.UI, LogLevel.INFO, "LegacyMainActivity", "GPIO监听线程已停止", traceId);
+        }, "home-monitor-gpio-thread");
+        
+        homeMonitorGpioThread.setDaemon(true);
+        homeMonitorGpioThread.start();
+    }
+
+    /**
+     * 停止GPIO监听线程
+     */
+    private void stopHomeMonitorGpioThread() {
+        homeMonitorGpioRunning = false;
+        if (homeMonitorGpioThread != null) {
+            homeMonitorGpioThread.interrupt();
+            try {
+                homeMonitorGpioThread.join(500);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            homeMonitorGpioThread = null;
+        }
+    }
+
+    /**
+     * 根据GPIO值解析视频模式（对标现场版逻辑）
+     */
 }
