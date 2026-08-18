@@ -1,0 +1,142 @@
+package android.telephony;
+
+import android.net.LinkQualityInfo;
+import android.os.Parcel;
+import android.os.Parcelable;
+
+/* JADX INFO: loaded from: classes.dex */
+public abstract class CellInfo implements Parcelable {
+    public static final Parcelable.Creator<CellInfo> CREATOR = new Parcelable.Creator<CellInfo>() { // from class: android.telephony.CellInfo.1
+        /* JADX WARN: Can't rename method to resolve collision */
+        @Override // android.os.Parcelable.Creator
+        public CellInfo createFromParcel(Parcel parcel) {
+            int i = parcel.readInt();
+            if (i == 1) {
+                return CellInfoGsm.createFromParcelBody(parcel);
+            }
+            if (i == 2) {
+                return CellInfoCdma.createFromParcelBody(parcel);
+            }
+            if (i == 3) {
+                return CellInfoLte.createFromParcelBody(parcel);
+            }
+            if (i == 4) {
+                return CellInfoWcdma.createFromParcelBody(parcel);
+            }
+            throw new RuntimeException("Bad CellInfo Parcel");
+        }
+
+        /* JADX WARN: Can't rename method to resolve collision */
+        @Override // android.os.Parcelable.Creator
+        public CellInfo[] newArray(int i) {
+            return new CellInfo[i];
+        }
+    };
+    public static final int TIMESTAMP_TYPE_ANTENNA = 1;
+    public static final int TIMESTAMP_TYPE_JAVA_RIL = 4;
+    public static final int TIMESTAMP_TYPE_MODEM = 2;
+    public static final int TIMESTAMP_TYPE_OEM_RIL = 3;
+    public static final int TIMESTAMP_TYPE_UNKNOWN = 0;
+    protected static final int TYPE_CDMA = 2;
+    protected static final int TYPE_GSM = 1;
+    protected static final int TYPE_LTE = 3;
+    protected static final int TYPE_WCDMA = 4;
+    private boolean mRegistered;
+    private long mTimeStamp;
+    private int mTimeStampType;
+
+    private static String timeStampTypeToString(int i) {
+        return i != 1 ? i != 2 ? i != 3 ? i != 4 ? "unknown" : "java_ril" : "oem_ril" : "modem" : "antenna";
+    }
+
+    @Override // android.os.Parcelable
+    public int describeContents() {
+        return 0;
+    }
+
+    @Override // android.os.Parcelable
+    public abstract void writeToParcel(Parcel parcel, int i);
+
+    protected CellInfo() {
+        this.mRegistered = false;
+        this.mTimeStampType = 0;
+        this.mTimeStamp = LinkQualityInfo.UNKNOWN_LONG;
+    }
+
+    protected CellInfo(CellInfo cellInfo) {
+        this.mRegistered = cellInfo.mRegistered;
+        this.mTimeStampType = cellInfo.mTimeStampType;
+        this.mTimeStamp = cellInfo.mTimeStamp;
+    }
+
+    public boolean isRegistered() {
+        return this.mRegistered;
+    }
+
+    public void setRegisterd(boolean z) {
+        this.mRegistered = z;
+    }
+
+    public long getTimeStamp() {
+        return this.mTimeStamp;
+    }
+
+    public void setTimeStamp(long j) {
+        this.mTimeStamp = j;
+    }
+
+    public int getTimeStampType() {
+        return this.mTimeStampType;
+    }
+
+    public void setTimeStampType(int i) {
+        if (i < 0 || i > 4) {
+            this.mTimeStampType = 0;
+        } else {
+            this.mTimeStampType = i;
+        }
+    }
+
+    public int hashCode() {
+        return ((!this.mRegistered ? 1 : 0) * 31) + (((int) (this.mTimeStamp / 1000)) * 31) + (this.mTimeStampType * 31);
+    }
+
+    public boolean equals(Object obj) {
+        if (obj == null) {
+            return false;
+        }
+        if (this == obj) {
+            return true;
+        }
+        try {
+            CellInfo cellInfo = (CellInfo) obj;
+            if (this.mRegistered == cellInfo.mRegistered && this.mTimeStamp == cellInfo.mTimeStamp) {
+                return this.mTimeStampType == cellInfo.mTimeStampType;
+            }
+            return false;
+        } catch (ClassCastException unused) {
+            return false;
+        }
+    }
+
+    public String toString() {
+        StringBuffer stringBuffer = new StringBuffer();
+        stringBuffer.append("mRegistered=").append(this.mRegistered ? "YES" : "NO");
+        stringBuffer.append(" mTimeStampType=").append(timeStampTypeToString(this.mTimeStampType));
+        stringBuffer.append(" mTimeStamp=").append(this.mTimeStamp).append("ns");
+        return stringBuffer.toString();
+    }
+
+    protected void writeToParcel(Parcel parcel, int i, int i2) {
+        parcel.writeInt(i2);
+        parcel.writeInt(this.mRegistered ? 1 : 0);
+        parcel.writeInt(this.mTimeStampType);
+        parcel.writeLong(this.mTimeStamp);
+    }
+
+    protected CellInfo(Parcel parcel) {
+        this.mRegistered = parcel.readInt() == 1;
+        this.mTimeStampType = parcel.readInt();
+        this.mTimeStamp = parcel.readLong();
+    }
+}

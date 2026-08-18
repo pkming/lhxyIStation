@@ -171,6 +171,10 @@ public final class LegacyStationAudioUseCase {
         Context appContext = context.getApplicationContext();
         synchronized (GLOBAL_LOCK) {
             stopLocked();
+            
+            // 暂停首页GPIO监听，避免音频GPIO写入时触发视频切换
+            pauseHomeMonitorGpio(appContext);
+            
             disablePinsLocked();
             enablePinsLocked(shellConfig, false, false, true);  // 修正：只启用小喇叭（司机端）
             applyAudioVolume(appContext, shellConfig, VOLUME_MODE_DISPATCH, false);
@@ -197,6 +201,10 @@ public final class LegacyStationAudioUseCase {
         Context appContext = context.getApplicationContext();
         synchronized (GLOBAL_LOCK) {
             stopLocked();
+            
+            // 暂停首页GPIO监听，避免音频GPIO写入时触发视频切换
+            pauseHomeMonitorGpio(appContext);
+            
             disablePinsLocked();
             enablePinsLocked(shellConfig, false, false, true);  // 只启用小喇叭（司机端）
             applyAudioVolume(appContext, shellConfig, VOLUME_MODE_DISPATCH, false);
@@ -1450,6 +1458,12 @@ public final class LegacyStationAudioUseCase {
         writePinIfPresent(plan.shellConfig, "inner_audio", 0);
         writePinIfPresent(plan.shellConfig, "outer_audio", 0);
         writePinIfPresent(plan.shellConfig, "inner_speaker", 0);
+        
+        // 恢复首页GPIO监听
+        if (plan.appContext != null) {
+            resumeHomeMonitorGpio(plan.appContext);
+        }
+        
         activePlan = null;
     }
 
@@ -1485,6 +1499,38 @@ public final class LegacyStationAudioUseCase {
             AppLogCenter.log(LogCategory.DEVICE, LogLevel.INFO, TAG, "音频 GPIO 写入 pin=" + pinKey + " / value=" + value, "station-audio-gpio");
         } catch (Exception ignore) {
             AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, TAG, "音频 GPIO 写入失败 pin=" + pinKey + " / value=" + value + " / error=" + ignore.getMessage(), "station-audio-gpio");
+        }
+    }
+    
+    /**
+     * 暂停首页GPIO监听（音频播放期间避免GPIO冲突）
+     */
+    private void pauseHomeMonitorGpio(Context context) {
+        try {
+            Class<?> activityClass = Class.forName("com.lhxy.istationdevice.android11.app.home.LegacyMainActivity");
+            if (activityClass.isInstance(context)) {
+                java.lang.reflect.Method method = activityClass.getMethod("pauseHomeMonitorGpio");
+                method.invoke(context);
+            }
+        } catch (Exception e) {
+            // 忽略反射调用失败，不影响播放功能
+            AppLogCenter.log(LogCategory.BIZ, LogLevel.DEBUG, TAG, "暂停GPIO监听失败: " + e.getMessage(), "station-audio-gpio-pause");
+        }
+    }
+    
+    /**
+     * 恢复首页GPIO监听（音频播放结束后）
+     */
+    private void resumeHomeMonitorGpio(Context context) {
+        try {
+            Class<?> activityClass = Class.forName("com.lhxy.istationdevice.android11.app.home.LegacyMainActivity");
+            if (activityClass.isInstance(context)) {
+                java.lang.reflect.Method method = activityClass.getMethod("resumeHomeMonitorGpio");
+                method.invoke(context);
+            }
+        } catch (Exception e) {
+            // 忽略反射调用失败，不影响播放功能
+            AppLogCenter.log(LogCategory.BIZ, LogLevel.DEBUG, TAG, "恢复GPIO监听失败: " + e.getMessage(), "station-audio-gpio-resume");
         }
     }
 

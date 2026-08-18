@@ -4,10 +4,24 @@ package com.lhxy.istationdevice.android11.protocol.jt808;
  * JT808 帧解码器。
  */
 public final class Jt808FrameDecoder {
+    /**
+     * 宽松校验模式（对标现场版M90行为）。
+     * true: 校验失败时记录警告日志但继续解析（兼容缺少校验码的平台）
+     * false: 校验失败时抛出异常（严格遵循JT808协议规范）
+     * 
+     * 注意：M90不验证校验码，导致可以接收无校验码/错误校验码的消息。
+     * 本宽松模式仅作为临时兼容措施，生产环境建议修复平台端后关闭。
+     */
+    private static final boolean LENIENT_CHECKSUM_MODE = true;
+
     private Jt808FrameDecoder() {
     }
 
     public static Jt808Frame decode(byte[] rawFrame) {
+        return decode(rawFrame, null);
+    }
+
+    public static Jt808Frame decode(byte[] rawFrame, String traceId) {
         if (rawFrame == null || rawFrame.length < 2) {
             throw new IllegalArgumentException("原始帧为空或长度不足");
         }
@@ -27,7 +41,17 @@ public final class Jt808FrameDecoder {
             checksum ^= payload[index];
         }
         if (checksum != payload[payload.length - 1]) {
-            throw new IllegalArgumentException("JT808 校验失败");
+            if (LENIENT_CHECKSUM_MODE) {
+                // 宽松模式：输出警告但继续解析（对标M90行为）
+                System.err.println("[WARN][Jt808FrameDecoder] JT808 校验失败，宽松模式允许继续解析 / " +
+                    "calc=0x" + String.format("%02X", checksum & 0xFF) + 
+                    " / frame=0x" + String.format("%02X", payload[payload.length - 1] & 0xFF) +
+                    " / traceId=" + (traceId != null ? traceId : "null") +
+                    " / 对标M90不验证校验码");
+            } else {
+                // 严格模式：抛出异常（符合JT808协议规范）
+                throw new IllegalArgumentException("JT808 校验失败");
+            }
         }
 
         int messageId = readWord(payload, 0);

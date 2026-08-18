@@ -1,0 +1,16 @@
+package android.app.backup;
+
+/* JADX INFO: loaded from: classes.dex */
+public abstract class RestoreObserver {
+    public void onUpdate(int i, String str) {
+    }
+
+    public void restoreFinished(int i) {
+    }
+
+    public void restoreSetsAvailable(RestoreSet[] restoreSetArr) {
+    }
+
+    public void restoreStarting(int i) {
+    }
+}

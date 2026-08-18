@@ -202,7 +202,7 @@ public final class Jt808SocketMonitor {
 
         Jt808Frame decodedFrame;
         try {
-            decodedFrame = Jt808FrameDecoder.decode(rawFrame);
+            decodedFrame = Jt808FrameDecoder.decode(rawFrame, traceId + "-socket-frame");
         } catch (RuntimeException e) {
             AppLogCenter.log(
                     LogCategory.ERROR,

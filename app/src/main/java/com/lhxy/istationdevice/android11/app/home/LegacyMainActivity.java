@@ -89,6 +89,9 @@ public final class LegacyMainActivity extends AppCompatActivity {
     private static final int DVR_TOUCH_HEIGHT = 800;
     private static final long HOME_MONITOR_SWITCH_DEBOUNCE_MS = 600L;
     private static final long HOME_MONITOR_GPIO_POLL_MS = 350L;  // GPIO监听周期：350ms（对标现场版M90）
+    
+    // GPIO监听暂停标志（用于音频播放期间避免GPIO冲突）
+    private volatile boolean homeMonitorGpioPaused = false;
     private static final int SHOUTING_ROUTE_OUTER = 1;
     private static final int SHOUTING_ROUTE_INNER = 2;
     private static final int SHOUTING_ROUTE_BOTH = 3;
@@ -1784,13 +1787,16 @@ public final class LegacyMainActivity extends AppCompatActivity {
             
             while (homeMonitorGpioRunning && !Thread.currentThread().isInterrupted()) {
                 try {
-                    // 每350ms触发一次刷新，让updateHomeDvrPanel去读取GPIO并决定视频模式
-                    runOnUiThread(() -> {
-                        ShellConfig config = shellRuntime.getActiveConfig();
-                        if (config != null) {
-                            updateHomeDvrPanel(config);
-                        }
-                    });
+                    // 如果GPIO监听被暂停（音频播放期间），跳过本次轮询
+                    if (!homeMonitorGpioPaused) {
+                        // 每350ms触发一次刷新，让updateHomeDvrPanel去读取GPIO并决定视频模式
+                        runOnUiThread(() -> {
+                            ShellConfig config = shellRuntime.getActiveConfig();
+                            if (config != null) {
+                                updateHomeDvrPanel(config);
+                            }
+                        });
+                    }
                     
                     // 主循环间隔350ms（对标现场版）
                     Thread.sleep(HOME_MONITOR_GPIO_POLL_MS);
@@ -1831,6 +1837,24 @@ public final class LegacyMainActivity extends AppCompatActivity {
             }
             homeMonitorGpioThread = null;
         }
+    }
+    
+    /**
+     * 暂停GPIO监听（音频播放期间调用，避免GPIO冲突）
+     */
+    public void pauseHomeMonitorGpio() {
+        homeMonitorGpioPaused = true;
+        AppLogCenter.log(LogCategory.UI, LogLevel.INFO, "LegacyMainActivity", 
+            "GPIO监听已暂停（音频播放期间）", "home-monitor-gpio-pause");
+    }
+    
+    /**
+     * 恢复GPIO监听（音频播放结束后调用）
+     */
+    public void resumeHomeMonitorGpio() {
+        homeMonitorGpioPaused = false;
+        AppLogCenter.log(LogCategory.UI, LogLevel.INFO, "LegacyMainActivity", 
+            "GPIO监听已恢复", "home-monitor-gpio-resume");
     }
 
     /**

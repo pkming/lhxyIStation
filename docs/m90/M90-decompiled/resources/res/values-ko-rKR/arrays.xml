@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <array name="arraybaud">
+        <item>9600</item>
+        <item>19200</item>
+        <item>38400</item>
+        <item>51200</item>
+        <item>57600</item>
+        <item>115200</item>
+    </array>
+    <array name="arrayport">
+        <item>RS232–1</item>
+        <item>RS232–2</item>
+        <item>RS485</item>
+    </array>
+    <array name="arrayprotocol232">
+        <item>없다</item>
+        <item>DVR</item>
+        <item>POS</item>
+    </array>
+    <array name="arrayprotocoldispatch">
+        <item>없다</item>
+        <item>ALINK</item>
+        <item>CC808</item>
+    </array>
+    <array name="arrayprotocoltype">
+        <item>없다</item>
+        <item>통달하다</item>
+        <item>항무</item>
+        <item>해양</item>
+        <item>LED프로그래밍판</item>
+        <item>HW3</item>
+        <item>JHY</item>
+    </array>
+    <array name="channelport">
+        <item>VIN1-AHD</item>
+        <item>VIN4-AUTO</item>
+    </array>
+    <array name="gpsportbaud">
+        <item>9600</item>
+        <item>115200</item>
+    </array>
+</resources>

@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <array name="WheelArrayDefault">
+        <item>AigeStudio</item>
+        <item>Aige</item>
+        <item>爱哥</item>
+        <item>الحب  اخي</item>
+        <item>jeg elsker</item>
+        <item>사랑해요 형</item>
+        <item>Amor de irmão</item>
+        <item>armastan</item>
+        <item>愛の兄</item>
+        <item>обичам те</item>
+        <item>любовь - братa</item>
+        <item>miłość bracie</item>
+        <item>Liebe</item>
+        <item>Lamour</item>
+        <item>rakastan sinua</item>
+        <item>láska..</item>
+        <item>dragostea.</item>
+        <item>jag älskar</item>
+        <item>ljubezen, brat.</item>
+        <item>愛哥</item>
+        <item>ชอบพี่</item>
+        <item>αγάπη μου</item>
+        <item>a szerelem.</item>
+        <item>Amore, fratello.</item>
+    </array>
+    <array name="WheelArrayWeek">
+        <item>Monday</item>
+        <item>Tuesday</item>
+        <item>Wednesday</item>
+        <item>Thursday</item>
+        <item>Friday</item>
+        <item>Saturday</item>
+        <item>Sunday</item>
+    </array>
+    <array name="arraybaud">
+        <item>9600</item>
+        <item>19200</item>
+        <item>38400</item>
+        <item>51200</item>
+        <item>57600</item>
+        <item>115200</item>
+    </array>
+    <array name="arrayport">
+        <item>RS232–1</item>
+        <item>RS232–2</item>
+        <item>RS485</item>
+    </array>
+    <array name="arrayprotocol232">
+        <item>无</item>
+        <item>DVR</item>
+        <item>POS</item>
+    </array>
+    <array name="arrayprotocoldispatch">
+        <item>无</item>
+        <item>ALINK</item>
+        <item>CC808</item>
+    </array>
+    <array name="arrayprotocoltype">
+        <item>无</item>
+        <item>通达</item>
+        <item>恒舞</item>
+        <item>武汉乐的</item>
+        <item>海梁</item>
+        <item>LED导程牌</item>
+        <item>LHXY</item>
+        <item>HW3</item>
+        <item>JHY</item>
+    </array>
+    <array name="channelport">
+        <item>VIN1-AHD</item>
+        <item>VIN4-AUTO</item>
+    </array>
+    <array name="gpsportbaud">
+        <item>9600</item>
+        <item>115200</item>
+    </array>
+</resources>
