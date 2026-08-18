@@ -172,7 +172,7 @@ public final class LegacyStationAudioUseCase {
         synchronized (GLOBAL_LOCK) {
             stopLocked();
             disablePinsLocked();
-            enablePinsLocked(shellConfig, false, true, true);  // 修正：外音 + 小喇叭（司机端）
+            enablePinsLocked(shellConfig, false, false, true);  // 修正：只启用小喇叭（司机端）
             applyAudioVolume(appContext, shellConfig, VOLUME_MODE_DISPATCH, false);
             PlaybackPlan plan = new PlaybackPlan();
             plan.appContext = appContext;
@@ -198,7 +198,7 @@ public final class LegacyStationAudioUseCase {
         synchronized (GLOBAL_LOCK) {
             stopLocked();
             disablePinsLocked();
-            enablePinsLocked(shellConfig, false, true, true);  // 外音 + 小喇叭
+            enablePinsLocked(shellConfig, false, false, true);  // 只启用小喇叭（司机端）
             applyAudioVolume(appContext, shellConfig, VOLUME_MODE_DISPATCH, false);
             PlaybackPlan plan = new PlaybackPlan();
             plan.appContext = appContext;
@@ -1432,6 +1432,13 @@ public final class LegacyStationAudioUseCase {
         writePinIfPresent(shellConfig, "inner_audio", innerEnabled ? 1 : 0);
         writePinIfPresent(shellConfig, "outer_audio", outerEnabled ? 1 : 0);
         writePinIfPresent(shellConfig, "inner_speaker", innerSpeakerEnabled ? 1 : 0);
+        
+        // 音频 GPIO 写入后等待 100ms，避免电气干扰影响视频监控的 GPIO 读取
+        try {
+            Thread.sleep(100L);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     private void disablePinsLocked() {
