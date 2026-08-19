@@ -89,9 +89,14 @@ public final class LegacyMainActivity extends AppCompatActivity {
     private static final int DVR_TOUCH_HEIGHT = 800;
     private static final long HOME_MONITOR_SWITCH_DEBOUNCE_MS = 600L;
     private static final long HOME_MONITOR_GPIO_POLL_MS = 350L;  // GPIO监听周期：350ms（对标现场版M90）
+    private static final int HOME_MONITOR_GPIO_STABLE_THRESHOLD = 3;  // GPIO连续稳定次数阈值
     
     // GPIO监听暂停标志（用于音频播放期间避免GPIO冲突）
     private volatile boolean homeMonitorGpioPaused = false;
+    
+    // GPIO稳定性检测
+    private HomeMonitorMode lastGpioResolvedMode = null;  // 上次GPIO解析的模式
+    private int gpioStableCount = 0;  // GPIO连续稳定次数计数器
     private static final int SHOUTING_ROUTE_OUTER = 1;
     private static final int SHOUTING_ROUTE_INNER = 2;
     private static final int SHOUTING_ROUTE_BOTH = 3;
@@ -668,7 +673,8 @@ public final class LegacyMainActivity extends AppCompatActivity {
                 
                 // 两次读取必须完全一致才认为状态稳定（对标现场版1368-1372行）
                 if (primary1 != primary2 || secondary1 != secondary2) {
-                    // GPIO信号不稳定，保持当前模式
+                    // GPIO信号不稳定，重置稳定计数器（但保留lastGpioResolvedMode，避免下次误判为新模式）
+                    gpioStableCount = 0;
                     AppLogCenter.log(
                             LogCategory.UI,
                             LogLevel.DEBUG,
@@ -684,16 +690,49 @@ public final class LegacyMainActivity extends AppCompatActivity {
                 int primary = primary2;
                 int secondary = secondary2;
                 
+                HomeMonitorMode resolvedMode;
                 if (primary == 1 && secondary == 0) {
-                    return HomeMonitorMode.MIDDLE_DOOR;
+                    resolvedMode = HomeMonitorMode.MIDDLE_DOOR;
+                } else if (primary == 0 && secondary == 1) {
+                    resolvedMode = HomeMonitorMode.REVERSE;
+                } else if (primary == 0 && secondary == 0) {
+                    resolvedMode = HomeMonitorMode.REVERSE_PRIORITY;
+                } else {
+                    resolvedMode = HomeMonitorMode.DVR;
                 }
-                if (primary == 0 && secondary == 1) {
-                    return HomeMonitorMode.REVERSE;
+                
+                // 连续稳定性检测：必须连续N次解析到相同模式才允许切换
+                if (resolvedMode == lastGpioResolvedMode) {
+                    gpioStableCount++;
+                    if (gpioStableCount >= HOME_MONITOR_GPIO_STABLE_THRESHOLD) {
+                        // 已连续稳定，允许切换
+                        return resolvedMode;
+                    } else {
+                        // 稳定中，但尚未达到阈值，保持当前模式
+                        AppLogCenter.log(
+                                LogCategory.UI,
+                                LogLevel.DEBUG,
+                                "LegacyMainActivity",
+                                String.format("GPIO稳定中 mode=%s / count=%d/%d / 保持当前模式", 
+                                    monitorModeLabel(resolvedMode), gpioStableCount, HOME_MONITOR_GPIO_STABLE_THRESHOLD),
+                                TraceIds.next("home-monitor-gpio-stabilizing")
+                        );
+                        return currentHomeMonitorMode != null ? currentHomeMonitorMode : HomeMonitorMode.DVR;
+                    }
+                } else {
+                    // 模式变化，重置计数器
+                    lastGpioResolvedMode = resolvedMode;
+                    gpioStableCount = 1;
+                    AppLogCenter.log(
+                            LogCategory.UI,
+                            LogLevel.DEBUG,
+                            "LegacyMainActivity",
+                            String.format("GPIO模式变化，重置计数器 newMode=%s / count=1/%d", 
+                                monitorModeLabel(resolvedMode), HOME_MONITOR_GPIO_STABLE_THRESHOLD),
+                            TraceIds.next("home-monitor-gpio-mode-changed")
+                    );
+                    return currentHomeMonitorMode != null ? currentHomeMonitorMode : HomeMonitorMode.DVR;
                 }
-                if (primary == 0 && secondary == 0) {
-                    return HomeMonitorMode.REVERSE_PRIORITY;
-                }
-                return HomeMonitorMode.DVR;
             } catch (Exception ignore) {
                 // Fall back to the configured default camera mode when monitor GPIOs are absent or unreadable.
             }

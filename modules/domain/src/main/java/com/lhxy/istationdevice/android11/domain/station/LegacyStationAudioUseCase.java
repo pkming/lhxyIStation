@@ -1149,6 +1149,12 @@ public final class LegacyStationAudioUseCase {
                     logPlanMessage(LogCategory.ERROR, LogLevel.WARN, activePlan, "TTS 设置中文失败: " + ignore.getMessage(), "station-audio-tts-init");
                 }
                 try {
+                    textToSpeech.setPitch(1.0f);
+                    textToSpeech.setSpeechRate(1.0f);
+                } catch (Exception ignore) {
+                    logPlanMessage(LogCategory.ERROR, LogLevel.WARN, activePlan, "TTS 设置音调语速失败: " + ignore.getMessage(), "station-audio-tts-init");
+                }
+                try {
                     textToSpeech.setOnUtteranceProgressListener(new UtteranceProgressListener() {
                         @Override
                         public void onStart(String utteranceId) {
