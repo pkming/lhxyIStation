@@ -56,6 +56,15 @@ public final class ShellAppStartup {
         File sourceRoot = stationResourceArchiveUseCase.resolveManagedSourceRoot(application);
         File lineInfoFile = new File(sourceRoot, "Bus/lineInfo.csv");
         if (lineInfoFile.exists() && lineInfoFile.isFile()) {
+            LegacyLineCatalog.LineProfile defaultLineProfile = resolveDefaultLineProfile(application);
+            if (defaultLineProfile != null) {
+                logDefaultResourceReady(traceId);
+            } else {
+                logDefaultResourceFailure(
+                        "托管资源已存在，但未找到默认线路 " + DEFAULT_LINE_NAME,
+                        traceId
+                );
+            }
             return;
         }
         try {
@@ -63,12 +72,10 @@ public final class ShellAppStartup {
             if (result.isSuccess()) {
                 LegacyLineCatalog.LineProfile defaultLineProfile = resolveDefaultLineProfile(application);
                 if (defaultLineProfile == null) {
-                    AppLogCenter.log(
-                            LogCategory.ERROR,
-                            LogLevel.WARN,
-                            "ShellApplication",
-                            "内置报站资源未找到默认线路 " + DEFAULT_LINE_NAME + "，沿用资源导入结果: " + result.getLineName(),
-                            traceId + "-station-resource-bootstrap"
+                    logDefaultResourceFailure(
+                            "内置报站资源未找到默认线路 " + DEFAULT_LINE_NAME
+                                    + "，沿用资源导入结果: " + result.getLineName(),
+                            traceId
                     );
                 }
                 ShellConfig updated = StationResourceConfigApplier.applyImportResult(
@@ -80,6 +87,9 @@ public final class ShellAppStartup {
                         defaultLineProfile == null ? "-" : defaultLineProfile.getLineAttribute()
                 );
                 ShellConfigRepository.save(application, updated);
+                if (defaultLineProfile != null) {
+                    logDefaultResourceReady(traceId);
+                }
                 AppLogCenter.log(
                         LogCategory.BIZ,
                         LogLevel.INFO,
@@ -90,23 +100,34 @@ public final class ShellAppStartup {
                         traceId + "-station-resource-bootstrap"
                 );
             } else {
-                AppLogCenter.log(
-                        LogCategory.ERROR,
-                        LogLevel.WARN,
-                        "ShellApplication",
-                        "自动初始化报站资源失败: " + result.getSummary() + " / " + result.getDetail(),
-                        traceId + "-station-resource-bootstrap"
+                logDefaultResourceFailure(
+                        result.getSummary() + " / " + result.getDetail(),
+                        traceId
                 );
             }
         } catch (Exception e) {
-            AppLogCenter.log(
-                    LogCategory.ERROR,
-                    LogLevel.WARN,
-                    "ShellApplication",
-                    "自动初始化报站资源异常: " + e.getMessage(),
-                    traceId + "-station-resource-bootstrap"
-            );
+            logDefaultResourceFailure("初始化异常: " + e.getMessage(), traceId);
         }
+    }
+
+    private static void logDefaultResourceReady(String traceId) {
+        AppLogCenter.log(
+                LogCategory.BIZ,
+                LogLevel.INFO,
+                "ShellApplication",
+                "默认资源已加载，" + DEFAULT_LINE_NAME + "已就绪。",
+                traceId + "-station-resource-bootstrap"
+        );
+    }
+
+    private static void logDefaultResourceFailure(String reason, String traceId) {
+        AppLogCenter.log(
+                LogCategory.ERROR,
+                LogLevel.WARN,
+                "ShellApplication",
+                "默认资源加载失败，原因：" + reason,
+                traceId + "-station-resource-bootstrap"
+        );
     }
 
     private static LegacyLineCatalog.LineProfile resolveDefaultLineProfile(Application application) {
