@@ -13,6 +13,7 @@ def templateConfigFile = new File(runtimeConfigDir, "terminal-config.template.js
 def localConfigFile = new File(runtimeConfigDir, "terminal-config.local.json")
 def ossTemplateConfigFile = new File(runtimeConfigDir, "oss-config.template.properties")
 def ossLocalConfigFile = new File(runtimeConfigDir, "oss-config.local.properties")
+def defaultStationResourceDir = new File(rootProject.projectDir, "docs/SourceFile")
 def onsiteEnglishStationResourceFile = new File(rootProject.projectDir, "docs/最新现场文件/BusRes/BusImport/SourceFile.zip")
 def fallbackStationResourceFile = new File(rootProject.projectDir, "docs/SourceFile.zip")
 def sourceStationResourceDir = new File(rootProject.projectDir, "source/SourceFile")
@@ -114,6 +115,26 @@ tasks.register("prepareBundledStationResources") {
         File targetZip = new File(targetDir, "SourceFile.zip")
         if (targetZip.exists()) {
             targetZip.delete()
+        }
+        if (defaultStationResourceDir.exists()) {
+            if (!generatedStationArchiveDir.exists()) {
+                generatedStationArchiveDir.mkdirs()
+            }
+            if (generatedStationArchiveFile.exists()) {
+                generatedStationArchiveFile.delete()
+            }
+            ant.zip(destfile: generatedStationArchiveFile) {
+                fileset(dir: defaultStationResourceDir.parentFile) {
+                    include(name: "SourceFile/**")
+                    exclude(name: "SourceFile/*.zip")
+                    exclude(name: "SourceFile/*.rar")
+                }
+            }
+            copy {
+                from(generatedStationArchiveFile)
+                into(targetDir)
+            }
+            return
         }
         if (onsiteEnglishStationResourceFile.exists()) {
             copy {

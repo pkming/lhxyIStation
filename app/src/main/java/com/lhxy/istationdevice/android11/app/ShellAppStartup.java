@@ -12,12 +12,15 @@ import com.lhxy.istationdevice.android11.domain.config.ShellConfigRepository;
 import com.lhxy.istationdevice.android11.domain.config.ShellConfigValidator;
 import com.lhxy.istationdevice.android11.domain.file.StationResourceArchiveUseCase;
 import com.lhxy.istationdevice.android11.domain.file.StationResourceConfigApplier;
+import com.lhxy.istationdevice.android11.app.line.LegacyLineCatalog;
 import com.lhxy.istationdevice.android11.runtime.ShellRuntime;
 
 import java.io.File;
 import java.util.List;
 
 public final class ShellAppStartup {
+    private static final String DEFAULT_LINE_NAME = "L1";
+
     private ShellAppStartup() {
     }
 
@@ -58,10 +61,23 @@ public final class ShellAppStartup {
         try {
             StationResourceArchiveUseCase.OperationResult result = stationResourceArchiveUseCase.importStationResources(application);
             if (result.isSuccess()) {
+                LegacyLineCatalog.LineProfile defaultLineProfile = resolveDefaultLineProfile(application);
+                if (defaultLineProfile == null) {
+                    AppLogCenter.log(
+                            LogCategory.ERROR,
+                            LogLevel.WARN,
+                            "ShellApplication",
+                            "内置报站资源未找到默认线路 " + DEFAULT_LINE_NAME + "，沿用资源导入结果: " + result.getLineName(),
+                            traceId + "-station-resource-bootstrap"
+                    );
+                }
                 ShellConfig updated = StationResourceConfigApplier.applyImportResult(
                         application,
                         ShellConfigRepository.get(application),
-                        result
+                        result,
+                        defaultLineProfile == null ? result.getLineName() : defaultLineProfile.getLineName(),
+                        "上行",
+                        defaultLineProfile == null ? "-" : defaultLineProfile.getLineAttribute()
                 );
                 ShellConfigRepository.save(application, updated);
                 AppLogCenter.log(
@@ -91,5 +107,15 @@ public final class ShellAppStartup {
                     traceId + "-station-resource-bootstrap"
             );
         }
+    }
+
+    private static LegacyLineCatalog.LineProfile resolveDefaultLineProfile(Application application) {
+        List<LegacyLineCatalog.LineProfile> profiles = LegacyLineCatalog.all(application);
+        for (LegacyLineCatalog.LineProfile profile : profiles) {
+            if (profile.matchesLineName(DEFAULT_LINE_NAME)) {
+                return profile;
+            }
+        }
+        return null;
     }
 }

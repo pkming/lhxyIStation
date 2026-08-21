@@ -16,6 +16,17 @@ public final class StationResourceConfigApplier {
     }
 
     public static ShellConfig applyImportResult(Context context, ShellConfig current, StationResourceArchiveUseCase.OperationResult result) {
+        return applyImportResult(context, current, result, null, null, null);
+    }
+
+    public static ShellConfig applyImportResult(
+            Context context,
+            ShellConfig current,
+            StationResourceArchiveUseCase.OperationResult result,
+            String preferredLineName,
+            String preferredDirectionText,
+            String preferredLineAttribute
+    ) {
         if (current == null || result == null) {
             return current;
         }
@@ -45,7 +56,9 @@ public final class StationResourceConfigApplier {
                         new ShellConfig.ResourceImportSettings(
                                 true,
                                 result.getArchiveFile() == null ? "-" : result.getArchiveFile().getAbsolutePath(),
-                                result.getLineName(),
+                                overrideOrCurrent(preferredLineName, result.getLineName()),
+                                overrideOrCurrent(preferredDirectionText, "-"),
+                                overrideOrCurrent(preferredLineAttribute, "-"),
                                 System.currentTimeMillis()
                         ),
                         buildProtocolLinkageWithResourceOverrides(
