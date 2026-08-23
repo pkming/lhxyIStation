@@ -39,6 +39,8 @@ public final class LegacyStationAudioUseCase {
     private static final int VOLUME_MODE_NEWSPAPER = 0;
     private static final int VOLUME_MODE_TTS = 1;
     private static final int VOLUME_MODE_DISPATCH = 2;
+    private static final long INNER_SPEAKER_ROUTE_TIMEOUT_MILLIS = 800L;
+    private static final long INNER_SPEAKER_ROUTE_SETTLE_MILLIS = 120L;
     private static final String LANGUAGE_MANDARIN = "voiceD";
     private static final String LANGUAGE_ENGLISH = "voiceE";
     private static final String LANGUAGE_DIALECT = "voiceF";
@@ -177,6 +179,7 @@ public final class LegacyStationAudioUseCase {
             
             disablePinsLocked();
             enablePinsLocked(shellConfig, false, false, true);  // 修正：只启用小喇叭（司机端）
+            waitForInnerSpeakerRouteLocked(appContext);
             applyAudioVolume(appContext, shellConfig, VOLUME_MODE_DISPATCH, false);
             PlaybackPlan plan = new PlaybackPlan();
             plan.appContext = appContext;
@@ -207,6 +210,7 @@ public final class LegacyStationAudioUseCase {
             
             disablePinsLocked();
             enablePinsLocked(shellConfig, false, false, true);  // 只启用小喇叭（司机端）
+            waitForInnerSpeakerRouteLocked(appContext);
             applyAudioVolume(appContext, shellConfig, VOLUME_MODE_DISPATCH, false);
             PlaybackPlan plan = new PlaybackPlan();
             plan.appContext = appContext;
@@ -1075,8 +1079,30 @@ public final class LegacyStationAudioUseCase {
             return;
         }
         pendingSpeechText = null;
+        String speechText = normalizeSpeechText(normalized);
         logPlanMessage(LogCategory.BIZ, LogLevel.INFO, activePlan, "开始 TTS: " + compactText(normalized), "station-audio-tts");
-        textToSpeech.speak(normalized, TextToSpeech.QUEUE_FLUSH, (Bundle) null, buildUtteranceIdLocked(activePlan));
+        if (!speechText.equals(normalized)) {
+            logPlanMessage(LogCategory.BIZ, LogLevel.DEBUG, activePlan, "TTS 文本已规范化: " + compactText(speechText), "station-audio-tts-normalized");
+        }
+        textToSpeech.speak(speechText, TextToSpeech.QUEUE_FLUSH, (Bundle) null, buildUtteranceIdLocked(activePlan));
+    }
+
+    /**
+     * 中文 TTS 对连续大写 ASCII 字母可能不出声，分隔后让引擎按字母逐个播报。
+     */
+    private String normalizeSpeechText(String text) {
+        StringBuilder builder = new StringBuilder(text.length() + 8);
+        boolean previousAsciiLetter = false;
+        for (int index = 0; index < text.length(); index++) {
+            char value = text.charAt(index);
+            boolean asciiLetter = (value >= 'A' && value <= 'Z') || (value >= 'a' && value <= 'z');
+            if (asciiLetter && previousAsciiLetter) {
+                builder.append(' ');
+            }
+            builder.append(value);
+            previousAsciiLetter = asciiLetter;
+        }
+        return builder.toString();
     }
 
     private String firstPath(List<File> playlist) {
@@ -1441,6 +1467,40 @@ public final class LegacyStationAudioUseCase {
         );
     }
 
+    /**
+     * GPIO 切换后，系统还需要一段时间更新有线耳机状态和媒体输出路由。
+     * TTS 若在更新前启动，音频轨会被送到旧的耳机路由，小喇叭听不到声音。
+     */
+    private void waitForInnerSpeakerRouteLocked(Context context) {
+        AudioManager audioManager = context == null
+                ? null
+                : (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
+        long deadline = System.currentTimeMillis() + INNER_SPEAKER_ROUTE_TIMEOUT_MILLIS;
+        boolean wiredHeadset = audioManager != null && audioManager.isWiredHeadsetOn();
+        while (audioManager != null && wiredHeadset && System.currentTimeMillis() < deadline) {
+            try {
+                Thread.sleep(50L);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            }
+            wiredHeadset = audioManager.isWiredHeadsetOn();
+        }
+        try {
+            Thread.sleep(INNER_SPEAKER_ROUTE_SETTLE_MILLIS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        AppLogCenter.log(
+                LogCategory.DEVICE,
+                LogLevel.INFO,
+                TAG,
+                "小喇叭路由等待结束 wiredHeadset=" + wiredHeadset
+                        + " / timeout=" + (System.currentTimeMillis() >= deadline),
+                "station-audio-route"
+        );
+    }
+
     private void enablePinsLocked(ShellConfig shellConfig, boolean innerEnabled, boolean outerEnabled, boolean innerSpeakerEnabled) {
         writePinIfPresent(shellConfig, "headphone_detect_power", innerSpeakerEnabled ? 0 : 1);
         writePinIfPresent(shellConfig, "inner_audio", innerEnabled ? 1 : 0);
@@ -1514,10 +1574,8 @@ public final class LegacyStationAudioUseCase {
     private void pauseHomeMonitorGpio(Context context) {
         try {
             Class<?> activityClass = Class.forName("com.lhxy.istationdevice.android11.app.home.LegacyMainActivity");
-            if (activityClass.isInstance(context)) {
-                java.lang.reflect.Method method = activityClass.getMethod("pauseHomeMonitorGpio");
-                method.invoke(context);
-            }
+            java.lang.reflect.Method method = activityClass.getMethod("pauseActiveHomeMonitorGpio");
+            method.invoke(null);
         } catch (Exception e) {
             // 忽略反射调用失败，不影响播放功能
             AppLogCenter.log(LogCategory.BIZ, LogLevel.DEBUG, TAG, "暂停GPIO监听失败: " + e.getMessage(), "station-audio-gpio-pause");
@@ -1530,10 +1588,8 @@ public final class LegacyStationAudioUseCase {
     private void resumeHomeMonitorGpio(Context context) {
         try {
             Class<?> activityClass = Class.forName("com.lhxy.istationdevice.android11.app.home.LegacyMainActivity");
-            if (activityClass.isInstance(context)) {
-                java.lang.reflect.Method method = activityClass.getMethod("resumeHomeMonitorGpio");
-                method.invoke(context);
-            }
+            java.lang.reflect.Method method = activityClass.getMethod("resumeActiveHomeMonitorGpio");
+            method.invoke(null);
         } catch (Exception e) {
             // 忽略反射调用失败，不影响播放功能
             AppLogCenter.log(LogCategory.BIZ, LogLevel.DEBUG, TAG, "恢复GPIO监听失败: " + e.getMessage(), "station-audio-gpio-resume");

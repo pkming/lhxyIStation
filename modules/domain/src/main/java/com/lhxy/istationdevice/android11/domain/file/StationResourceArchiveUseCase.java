@@ -316,6 +316,10 @@ public final class StationResourceArchiveUseCase {
         return scanCandidates(baseDirs, Collections.emptyList()).getImportCandidates();
     }
 
+    List<ImportCandidate> scanImportCandidatesForTest(List<File> baseDirs, List<File> bundledFiles) {
+        return scanCandidates(baseDirs, bundledFiles).getImportCandidates();
+    }
+
     private CandidateScan scanCandidates(List<File> baseDirs, List<File> bundledFiles) {
         List<String> allCandidatePaths = new ArrayList<>();
         List<ImportCandidate> importCandidates = new ArrayList<>();
@@ -517,16 +521,16 @@ public final class StationResourceArchiveUseCase {
         if (candidate == null) {
             return Integer.MAX_VALUE;
         }
-        if (SOURCE_LABEL_LEGACY_IMPORT.equals(candidate.getSourceLabel())) {
+        if (candidate.isBundledAsset() || SOURCE_LABEL_BUNDLED.equals(candidate.getSourceLabel())) {
             return 0;
         }
-        if (SOURCE_LABEL_ROOT_COMPAT.equals(candidate.getSourceLabel())) {
+        if (SOURCE_LABEL_LEGACY_IMPORT.equals(candidate.getSourceLabel())) {
             return 1;
         }
-        if (SOURCE_LABEL_APP_IMPORT.equals(candidate.getSourceLabel())) {
+        if (SOURCE_LABEL_ROOT_COMPAT.equals(candidate.getSourceLabel())) {
             return 2;
         }
-        if (candidate.isBundledAsset() || SOURCE_LABEL_BUNDLED.equals(candidate.getSourceLabel())) {
+        if (SOURCE_LABEL_APP_IMPORT.equals(candidate.getSourceLabel())) {
             return 3;
         }
         return 4;

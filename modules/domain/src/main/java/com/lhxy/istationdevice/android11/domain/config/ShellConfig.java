@@ -1148,7 +1148,7 @@ public final class ShellConfig {
                 String adwordsUser,
                 int adwordsInterval
         ) {
-            this.dispatchId = dispatchId == null ? "18612345677" : dispatchId;
+            this.dispatchId = dispatchId == null ? "18612345678" : dispatchId;
             this.longInterval = longInterval;
             this.infoInterval = infoInterval;
             this.speedingInterval = speedingInterval;
@@ -1159,7 +1159,7 @@ public final class ShellConfig {
         }
 
         public static NetworkSettings defaults() {
-            return new NetworkSettings("18612345677", 30, 5, 10, true, "1", "admin", 10);
+            return new NetworkSettings("18612345678", 30, 5, 10, true, "1", "admin", 10);
         }
 
         public String getDispatchId() { return dispatchId; }

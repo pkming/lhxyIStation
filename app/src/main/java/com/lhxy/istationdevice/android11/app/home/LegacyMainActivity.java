@@ -85,14 +85,20 @@ import java.util.concurrent.Executors;
  * 查找关键字：旧首页入口、状态刷新、首页监控预览、服务键和快捷入口。
  */
 public final class LegacyMainActivity extends AppCompatActivity {
+    private static volatile LegacyMainActivity activeHomeActivity;
     private static final int DVR_TOUCH_WIDTH = 1280;
     private static final int DVR_TOUCH_HEIGHT = 800;
     private static final long HOME_MONITOR_SWITCH_DEBOUNCE_MS = 600L;
+    private static final long HOME_MONITOR_STARTUP_RESET_MS = 1_500L;
     private static final long HOME_MONITOR_GPIO_POLL_MS = 350L;  // GPIO监听周期：350ms（对标现场版M90）
     private static final int HOME_MONITOR_GPIO_STABLE_THRESHOLD = 3;  // GPIO连续稳定次数阈值
     
     // GPIO监听暂停标志（用于音频播放期间避免GPIO冲突）
     private volatile boolean homeMonitorGpioPaused = false;
+    private boolean homeMonitorGpioRecoveryPending;
+    private boolean startupMonitorGpioBaselineCaptured;
+    private int startupMonitorPrimary = Integer.MIN_VALUE;
+    private int startupMonitorSecondary = Integer.MIN_VALUE;
     
     // GPIO稳定性检测
     private HomeMonitorMode lastGpioResolvedMode = null;  // 上次GPIO解析的模式
@@ -131,6 +137,7 @@ public final class LegacyMainActivity extends AppCompatActivity {
     private boolean homeMonitorPreviewOpened;
     private String homeMonitorCameraKey;
     private long lastHomeMonitorSwitchTimeMs;
+    private long homeMonitorStartupResetUntilMs;
     private final String homeMonitorOwnerToken = "legacy-home-monitor@" + Integer.toHexString(System.identityHashCode(this));
     private HomeMonitorMode currentHomeMonitorMode = HomeMonitorMode.DVR;
     private HomeMonitorMode lastLoggedHomeMonitorMode;
@@ -167,11 +174,13 @@ public final class LegacyMainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        activeHomeActivity = this;
         applyImmersiveFullscreen();
         registerHomeStatusListener();
         shellRuntime.getPassengerCounterMonitor().setStateListener(
                 state -> runOnUiThread(() -> bindPassengerCounters(state))
         );
+        resetHomeMonitorAtStartup();
         startClockTicker();
         startHomeMonitorGpioThread();  // 启动GPIO监听线程
         refreshHomeState();
@@ -190,6 +199,9 @@ public final class LegacyMainActivity extends AppCompatActivity {
     protected void onPause() {
         applyHomeShoutingIdle();
         closeHomeMonitorPreview(false);
+        if (activeHomeActivity == this) {
+            activeHomeActivity = null;
+        }
         shellRuntime.getPassengerCounterMonitor().setStateListener(null);
         unregisterHomeStatusListener();
         super.onPause();
@@ -201,6 +213,9 @@ public final class LegacyMainActivity extends AppCompatActivity {
     protected void onDestroy() {
         applyHomeShoutingIdle();
         releaseHomeShoutingAudio();
+        if (activeHomeActivity == this) {
+            activeHomeActivity = null;
+        }
         shellRuntime.getPassengerCounterMonitor().setStateListener(null);
         unregisterHomeStatusListener();
         homeActionExecutor.shutdownNow();
@@ -380,6 +395,15 @@ public final class LegacyMainActivity extends AppCompatActivity {
     }
 
     private void updateHomeDvrPanel(@NonNull ShellConfig config) {
+        if (homeMonitorGpioPaused) {
+            return;
+        }
+        if (System.currentTimeMillis() < homeMonitorStartupResetUntilMs) {
+            currentHomeMonitorMode = HomeMonitorMode.DVR;
+            applyHomeMonitorMode(HomeMonitorMode.DVR);
+            updateHomeMonitorSurfaceVisibility(HomeMonitorMode.DVR, config.getCameraConfig().getMode() == DeviceMode.REAL);
+            return;
+        }
         currentHomeMonitorMode = resolveHomeMonitorMode(config);
         logHomeMonitorModeIfChanged(currentHomeMonitorMode, config);
         applyHomeMonitorMode(currentHomeMonitorMode);
@@ -409,6 +433,30 @@ public final class LegacyMainActivity extends AppCompatActivity {
             return;
         }
         openHomeMonitorPreviewIfReady();
+    }
+
+    /**
+     * 每次回到首页先恢复默认 DVR 布局，给 GPIO 留出稳定时间，避免启动瞬间沿用误判状态。
+     */
+    private void resetHomeMonitorAtStartup() {
+        homeMonitorGpioPaused = false;
+        homeMonitorGpioRecoveryPending = false;
+        startupMonitorGpioBaselineCaptured = false;
+        startupMonitorPrimary = Integer.MIN_VALUE;
+        startupMonitorSecondary = Integer.MIN_VALUE;
+        lastGpioResolvedMode = null;
+        gpioStableCount = 0;
+        homeMonitorStartupResetUntilMs = System.currentTimeMillis() + HOME_MONITOR_STARTUP_RESET_MS;
+        currentHomeMonitorMode = HomeMonitorMode.DVR;
+        applyHomeMonitorMode(HomeMonitorMode.DVR);
+        closeHomeMonitorPreview(false);
+        AppLogCenter.log(
+                LogCategory.UI,
+                LogLevel.INFO,
+                "LegacyMainActivity",
+                "首页监控启动重置为 DVR，等待 GPIO 稳定",
+                "legacy-home-monitor-startup-reset"
+        );
     }
 
     private void openHomeMonitorPreviewIfReady() {
@@ -689,7 +737,29 @@ public final class LegacyMainActivity extends AppCompatActivity {
                 // GPIO信号稳定，解析视频模式（对标现场版1373-1428行）
                 int primary = primary2;
                 int secondary = secondary2;
-                
+
+                // Keep the startup GPIO level as a baseline. Only a later edge may switch away from DVR.
+                if (!startupMonitorGpioBaselineCaptured) {
+                    startupMonitorPrimary = primary;
+                    startupMonitorSecondary = secondary;
+                    startupMonitorGpioBaselineCaptured = true;
+                    lastGpioResolvedMode = null;
+                    gpioStableCount = 0;
+                    AppLogCenter.log(
+                            LogCategory.UI,
+                            LogLevel.INFO,
+                            "LegacyMainActivity",
+                            "记录首页监控启动 GPIO 基线 primary=" + primary + " / secondary=" + secondary + "，保持 DVR",
+                            TraceIds.next("home-monitor-gpio-startup-baseline")
+                    );
+                    return HomeMonitorMode.DVR;
+                }
+                if (primary == startupMonitorPrimary && secondary == startupMonitorSecondary) {
+                    lastGpioResolvedMode = null;
+                    gpioStableCount = 0;
+                    return HomeMonitorMode.DVR;
+                }
+
                 HomeMonitorMode resolvedMode;
                 if (primary == 1 && secondary == 0) {
                     resolvedMode = HomeMonitorMode.MIDDLE_DOOR;
@@ -699,6 +769,13 @@ public final class LegacyMainActivity extends AppCompatActivity {
                     resolvedMode = HomeMonitorMode.REVERSE_PRIORITY;
                 } else {
                     resolvedMode = HomeMonitorMode.DVR;
+                }
+
+                if (homeMonitorGpioRecoveryPending) {
+                    homeMonitorGpioRecoveryPending = false;
+                    lastGpioResolvedMode = resolvedMode;
+                    gpioStableCount = HOME_MONITOR_GPIO_STABLE_THRESHOLD;
+                    return resolvedMode;
                 }
                 
                 // 连续稳定性检测：必须连续N次解析到相同模式才允许切换
@@ -1892,8 +1969,33 @@ public final class LegacyMainActivity extends AppCompatActivity {
      */
     public void resumeHomeMonitorGpio() {
         homeMonitorGpioPaused = false;
+        homeMonitorGpioRecoveryPending = true;
+        lastGpioResolvedMode = null;
+        gpioStableCount = 0;
         AppLogCenter.log(LogCategory.UI, LogLevel.INFO, "LegacyMainActivity", 
             "GPIO监听已恢复", "home-monitor-gpio-resume");
+        clockHandler.postDelayed(() -> {
+            if (!homeMonitorGpioPaused && !isFinishing() && !isDestroyed()) {
+                refreshHomeState();
+            }
+        }, HOME_MONITOR_SWITCH_DEBOUNCE_MS);
+    }
+
+    /**
+     * 音频模块只持有 Application 上下文，因此通过当前可见首页转发 GPIO 暂停请求。
+     */
+    public static void pauseActiveHomeMonitorGpio() {
+        LegacyMainActivity activity = activeHomeActivity;
+        if (activity != null && !activity.isFinishing() && !activity.isDestroyed()) {
+            activity.pauseHomeMonitorGpio();
+        }
+    }
+
+    public static void resumeActiveHomeMonitorGpio() {
+        LegacyMainActivity activity = activeHomeActivity;
+        if (activity != null && !activity.isFinishing() && !activity.isDestroyed()) {
+            activity.resumeHomeMonitorGpio();
+        }
     }
 
     /**

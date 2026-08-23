@@ -1,0 +1,146 @@
+WARNING: A restricted method in java.lang.System has been called
+WARNING: java.lang.System::load has been called by net.rubygrapefruit.platform.internal.NativeLibraryLoader in an unnamed module (file:/C:/Users/Administrator/.gradle/wrapper/dists/gradle-8.6-bin/afr5mpiioh2wthjmwnkmdsd5w/gradle-8.6/lib/native-platform-0.22-milestone-25.jar)
+WARNING: Use --enable-native-access=ALL-UNNAMED to avoid a warning for callers in this module
+WARNING: Restricted methods will be blocked in a future release unless native access is enabled
+
+> Task :app:prepareBundledStationResources
+> Task :app:prepareOssRuntimeConfig
+> Task :app:prepareShellRuntimeConfig
+> Task :app:preBuild
+> Task :app:preDebugBuild
+> Task :app:dataBindingMergeDependencyArtifactsDebug
+> Task :app:generateDebugResValues
+> Task :app:generateDebugResources
+> Task :modules:core:preBuild UP-TO-DATE
+> Task :modules:core:preDebugBuild UP-TO-DATE
+> Task :modules:core:generateDebugResValues
+> Task :modules:core:generateDebugResources
+> Task :modules:core:packageDebugResources
+> Task :modules:debug-tools:preBuild UP-TO-DATE
+> Task :modules:debug-tools:preDebugBuild UP-TO-DATE
+> Task :modules:debug-tools:generateDebugResValues
+> Task :modules:debug-tools:generateDebugResources
+> Task :modules:debug-tools:packageDebugResources
+> Task :modules:device-api:preBuild UP-TO-DATE
+> Task :modules:device-api:preDebugBuild UP-TO-DATE
+> Task :modules:device-api:generateDebugResValues
+> Task :modules:device-api:generateDebugResources
+> Task :modules:device-api:packageDebugResources
+> Task :modules:device-m90:preBuild UP-TO-DATE
+> Task :modules:device-m90:preDebugBuild UP-TO-DATE
+> Task :modules:device-m90:generateDebugResValues
+> Task :modules:device-m90:generateDebugResources
+> Task :modules:device-m90:packageDebugResources
+> Task :modules:domain:preBuild UP-TO-DATE
+> Task :modules:domain:preDebugBuild UP-TO-DATE
+> Task :modules:domain:generateDebugResValues
+> Task :modules:domain:generateDebugResources
+> Task :modules:domain:packageDebugResources
+> Task :modules:protocol:preBuild UP-TO-DATE
+> Task :modules:protocol:preDebugBuild UP-TO-DATE
+> Task :modules:protocol:generateDebugResValues
+> Task :modules:protocol:generateDebugResources
+> Task :modules:protocol:packageDebugResources
+> Task :modules:runtime:preBuild UP-TO-DATE
+> Task :modules:runtime:preDebugBuild UP-TO-DATE
+> Task :modules:runtime:generateDebugResValues
+> Task :modules:runtime:generateDebugResources
+> Task :modules:runtime:packageDebugResources
+> Task :app:mergeDebugResources
+> Task :app:packageDebugResources
+> Task :modules:core:parseDebugLocalResources
+> Task :app:parseDebugLocalResources
+> Task :modules:debug-tools:dataBindingMergeDependencyArtifactsDebug
+> Task :modules:debug-tools:parseDebugLocalResources
+> Task :modules:device-m90:parseDebugLocalResources
+> Task :modules:device-api:parseDebugLocalResources
+> Task :modules:domain:parseDebugLocalResources
+> Task :modules:protocol:parseDebugLocalResources
+> Task :modules:runtime:parseDebugLocalResources
+> Task :app:javaPreCompileDebug
+> Task :modules:debug-tools:generateDebugRFile
+> Task :modules:core:generateDebugRFile
+> Task :modules:runtime:generateDebugRFile
+> Task :modules:device-m90:generateDebugRFile
+> Task :modules:protocol:generateDebugRFile
+> Task :modules:device-api:generateDebugRFile
+> Task :modules:domain:generateDebugRFile
+> Task :modules:debug-tools:writeDebugAarMetadata
+> Task :modules:core:writeDebugAarMetadata
+> Task :modules:debug-tools:dataBindingGenBaseClassesDebug
+> Task :app:dataBindingGenBaseClassesDebug
+> Task :modules:device-api:writeDebugAarMetadata
+> Task :modules:device-m90:writeDebugAarMetadata
+> Task :modules:domain:writeDebugAarMetadata
+> Task :modules:protocol:writeDebugAarMetadata
+> Task :modules:runtime:writeDebugAarMetadata
+> Task :app:mapDebugSourceSetPaths
+> Task :app:createDebugCompatibleScreenManifests
+> Task :app:extractDeepLinksDebug
+> Task :modules:core:extractDeepLinksDebug
+> Task :app:checkDebugAarMetadata
+> Task :modules:debug-tools:extractDeepLinksDebug
+> Task :modules:device-api:extractDeepLinksDebug
+> Task :modules:device-m90:extractDeepLinksDebug
+> Task :modules:domain:extractDeepLinksDebug
+> Task :modules:device-api:processDebugManifest
+> Task :modules:device-m90:processDebugManifest
+> Task :modules:protocol:extractDeepLinksDebug
+> Task :modules:core:processDebugManifest
+> Task :modules:debug-tools:processDebugManifest
+> Task :modules:domain:processDebugManifest
+> Task :modules:runtime:extractDeepLinksDebug
+> Task :modules:protocol:processDebugManifest
+
+> Task :modules:runtime:processDebugManifest
+package="com.lhxy.istationdevice.android11.runtime" found in source AndroidManifest.xml: G:\lhxyproduct\lhxyIStation\modules\runtime\src\main\AndroidManifest.xml.
+Setting the namespace via the package attribute in the source AndroidManifest.xml is no longer supported, and the value is ignored.
+Recommendation: remove package="com.lhxy.istationdevice.android11.runtime" from the source AndroidManifest.xml: G:\lhxyproduct\lhxyIStation\modules\runtime\src\main\AndroidManifest.xml.
+
+> Task :modules:core:compileDebugLibraryResources
+> Task :app:processDebugMainManifest
+> Task :app:processDebugManifest
+> Task :modules:device-api:compileDebugLibraryResources
+> Task :modules:device-m90:compileDebugLibraryResources
+> Task :modules:domain:compileDebugLibraryResources
+> Task :modules:debug-tools:compileDebugLibraryResources
+> Task :modules:protocol:compileDebugLibraryResources
+> Task :modules:runtime:compileDebugLibraryResources
+> Task :modules:core:javaPreCompileDebug
+> Task :modules:debug-tools:javaPreCompileDebug
+> Task :modules:device-api:javaPreCompileDebug
+> Task :modules:core:compileDebugJavaWithJavac
+> Task :modules:device-m90:javaPreCompileDebug
+> Task :modules:domain:javaPreCompileDebug
+> Task :modules:protocol:javaPreCompileDebug
+> Task :modules:runtime:javaPreCompileDebug
+> Task :modules:core:bundleLibCompileToJarDebug
+> Task :app:processDebugManifestForPackage
+> Task :modules:device-api:compileDebugJavaWithJavac
+> Task :modules:device-api:bundleLibCompileToJarDebug
+> Task :modules:protocol:compileDebugJavaWithJavac
+> Task :modules:protocol:bundleLibCompileToJarDebug
+> Task :app:processDebugResources
+
+> Task :modules:domain:compileDebugJavaWithJavac
+注: 某些输入文件使用或覆盖了已过时的 API。
+注: 有关详细信息, 请使用 -Xlint:deprecation 重新编译。
+
+> Task :modules:domain:bundleLibCompileToJarDebug
+
+> Task :modules:device-m90:compileDebugJavaWithJavac
+注: G:\lhxyproduct\lhxyIStation\modules\device-m90\src\main\java\com\lhxy\istationdevice\android11\devicem90\M90RealCameraAdapter.java使用或覆盖了已过时的 API。
+注: 有关详细信息, 请使用 -Xlint:deprecation 重新编译。
+
+> Task :modules:device-m90:bundleLibCompileToJarDebug
+> Task :modules:runtime:compileDebugJavaWithJavac
+> Task :modules:runtime:bundleLibCompileToJarDebug
+> Task :modules:debug-tools:compileDebugJavaWithJavac
+> Task :modules:debug-tools:bundleLibCompileToJarDebug
+
+> Task :app:compileDebugJavaWithJavac
+注: 某些输入文件使用或覆盖了已过时的 API。
+注: 有关详细信息, 请使用 -Xlint:deprecation 重新编译。
+
+BUILD SUCCESSFUL in 27s
+106 actionable tasks: 106 executed

@@ -254,6 +254,37 @@ public class StationResourceArchiveUseCaseTest {
     }
 
     @Test
+    public void scanImportCandidates_prioritizesBundledSourceFile() throws Exception {
+        File workspaceDir = Files.createTempDirectory("station-bundled-candidate-scan").toFile();
+        File baseDir = new File(workspaceDir, "storage/udisk/Android/data/demo/files");
+        if (!baseDir.mkdirs() && !baseDir.isDirectory()) {
+            throw new IllegalStateException("无法创建测试目录");
+        }
+        File legacyImportDir = new File(workspaceDir, "storage/udisk/BusRes/BusImport");
+        if (!legacyImportDir.mkdirs() && !legacyImportDir.isDirectory()) {
+            throw new IllegalStateException("无法创建测试目录");
+        }
+        File oldPackage = new File(legacyImportDir, "SourceFile.zip");
+        Files.write(oldPackage.toPath(), new byte[]{0x50, 0x4B, 0x03, 0x04});
+
+        File bundledPackage = new File(workspaceDir, "bundled-imports/SourceFile.zip");
+        if (!bundledPackage.getParentFile().mkdirs() && !bundledPackage.getParentFile().isDirectory()) {
+            throw new IllegalStateException("无法创建测试目录");
+        }
+        Files.write(bundledPackage.toPath(), new byte[]{0x50, 0x4B, 0x03, 0x04});
+
+        StationResourceArchiveUseCase useCase = new StationResourceArchiveUseCase();
+        List<StationResourceArchiveUseCase.ImportCandidate> candidates = useCase.scanImportCandidatesForTest(
+                java.util.Collections.singletonList(baseDir),
+                java.util.Collections.singletonList(bundledPackage)
+        );
+
+        assertTrue(candidates.size() >= 2);
+        assertTrue(candidates.get(0).isBundledAsset());
+        assertTrue(candidates.get(0).getAbsolutePath().equals(bundledPackage.getAbsolutePath()));
+    }
+
+    @Test
     public void buildImportDiagnostics_reportsDetailedStationRowIssues() throws Exception {
         File extractedDir = Files.createTempDirectory("station-archive-row-issues").toFile();
         File lineDir = new File(extractedDir, "SourceFile/Bus/A1");

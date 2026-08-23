@@ -1,0 +1,245 @@
+WARNING: A restricted method in java.lang.System has been called
+WARNING: java.lang.System::load has been called by net.rubygrapefruit.platform.internal.NativeLibraryLoader in an unnamed module (file:/C:/Users/Administrator/.gradle/wrapper/dists/gradle-8.6-bin/afr5mpiioh2wthjmwnkmdsd5w/gradle-8.6/lib/native-platform-0.22-milestone-25.jar)
+WARNING: Use --enable-native-access=ALL-UNNAMED to avoid a warning for callers in this module
+WARNING: Restricted methods will be blocked in a future release unless native access is enabled
+
+> Task :app:prepareBundledStationResources
+> Task :app:prepareOssRuntimeConfig
+> Task :app:prepareShellRuntimeConfig
+> Task :app:preBuild
+> Task :app:preDebugBuild
+> Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
+> Task :app:dataBindingMergeDependencyArtifactsDebug
+> Task :app:generateDebugResValues
+> Task :app:generateDebugResources
+> Task :modules:core:preBuild UP-TO-DATE
+> Task :modules:core:preDebugBuild UP-TO-DATE
+> Task :modules:core:generateDebugResValues
+> Task :modules:core:generateDebugResources
+> Task :modules:core:packageDebugResources
+> Task :modules:debug-tools:preBuild UP-TO-DATE
+> Task :modules:debug-tools:preDebugBuild UP-TO-DATE
+> Task :modules:debug-tools:generateDebugResValues
+> Task :modules:debug-tools:generateDebugResources
+> Task :modules:debug-tools:packageDebugResources
+> Task :modules:device-api:preBuild UP-TO-DATE
+> Task :modules:device-api:preDebugBuild UP-TO-DATE
+> Task :modules:device-api:generateDebugResValues
+> Task :modules:device-api:generateDebugResources
+> Task :modules:device-api:packageDebugResources
+> Task :modules:device-m90:preBuild UP-TO-DATE
+> Task :modules:device-m90:preDebugBuild UP-TO-DATE
+> Task :modules:device-m90:generateDebugResValues
+> Task :modules:device-m90:generateDebugResources
+> Task :modules:device-m90:packageDebugResources
+> Task :modules:domain:preBuild UP-TO-DATE
+> Task :modules:domain:preDebugBuild UP-TO-DATE
+> Task :modules:domain:generateDebugResValues
+> Task :modules:domain:generateDebugResources
+> Task :modules:domain:packageDebugResources
+> Task :modules:protocol:preBuild UP-TO-DATE
+> Task :modules:protocol:preDebugBuild UP-TO-DATE
+> Task :modules:protocol:generateDebugResValues
+> Task :modules:protocol:generateDebugResources
+> Task :modules:protocol:packageDebugResources
+> Task :modules:runtime:preBuild UP-TO-DATE
+> Task :modules:runtime:preDebugBuild UP-TO-DATE
+> Task :modules:runtime:generateDebugResValues
+> Task :modules:runtime:generateDebugResources
+> Task :modules:runtime:packageDebugResources
+> Task :app:mergeDebugResources
+> Task :app:packageDebugResources
+> Task :modules:core:parseDebugLocalResources
+> Task :modules:debug-tools:dataBindingMergeDependencyArtifactsDebug
+> Task :modules:core:generateDebugRFile
+> Task :modules:debug-tools:parseDebugLocalResources
+> Task :modules:device-api:parseDebugLocalResources
+> Task :modules:device-m90:parseDebugLocalResources
+> Task :modules:device-api:generateDebugRFile
+> Task :modules:device-m90:generateDebugRFile
+> Task :modules:domain:parseDebugLocalResources
+> Task :modules:protocol:parseDebugLocalResources
+> Task :modules:domain:generateDebugRFile
+> Task :modules:protocol:generateDebugRFile
+> Task :modules:runtime:parseDebugLocalResources
+> Task :app:javaPreCompileDebug
+> Task :modules:debug-tools:writeDebugAarMetadata
+> Task :modules:core:writeDebugAarMetadata
+> Task :modules:debug-tools:generateDebugRFile
+> Task :modules:runtime:generateDebugRFile
+> Task :modules:device-api:writeDebugAarMetadata
+> Task :app:parseDebugLocalResources
+> Task :modules:debug-tools:dataBindingGenBaseClassesDebug
+> Task :app:dataBindingGenBaseClassesDebug
+> Task :modules:device-m90:writeDebugAarMetadata
+> Task :modules:protocol:writeDebugAarMetadata
+> Task :modules:domain:writeDebugAarMetadata
+> Task :modules:runtime:writeDebugAarMetadata
+> Task :app:mapDebugSourceSetPaths
+> Task :app:checkDebugAarMetadata
+> Task :app:createDebugCompatibleScreenManifests
+> Task :app:extractDeepLinksDebug
+> Task :modules:core:extractDeepLinksDebug
+> Task :modules:debug-tools:extractDeepLinksDebug
+> Task :modules:core:processDebugManifest
+> Task :modules:device-api:extractDeepLinksDebug
+> Task :modules:debug-tools:processDebugManifest
+> Task :modules:device-m90:extractDeepLinksDebug
+> Task :modules:domain:extractDeepLinksDebug
+> Task :modules:device-api:processDebugManifest
+> Task :modules:protocol:extractDeepLinksDebug
+> Task :modules:device-m90:processDebugManifest
+> Task :modules:runtime:extractDeepLinksDebug
+> Task :modules:domain:processDebugManifest
+> Task :modules:protocol:processDebugManifest
+
+> Task :modules:runtime:processDebugManifest
+package="com.lhxy.istationdevice.android11.runtime" found in source AndroidManifest.xml: G:\lhxyproduct\lhxyIStation\modules\runtime\src\main\AndroidManifest.xml.
+Setting the namespace via the package attribute in the source AndroidManifest.xml is no longer supported, and the value is ignored.
+Recommendation: remove package="com.lhxy.istationdevice.android11.runtime" from the source AndroidManifest.xml: G:\lhxyproduct\lhxyIStation\modules\runtime\src\main\AndroidManifest.xml.
+
+> Task :modules:core:compileDebugLibraryResources
+> Task :app:processDebugMainManifest
+> Task :app:processDebugManifest
+> Task :app:processDebugManifestForPackage
+> Task :modules:debug-tools:compileDebugLibraryResources
+> Task :modules:device-api:compileDebugLibraryResources
+> Task :modules:device-m90:compileDebugLibraryResources
+> Task :modules:domain:compileDebugLibraryResources
+> Task :modules:protocol:compileDebugLibraryResources
+> Task :modules:runtime:compileDebugLibraryResources
+> Task :modules:core:javaPreCompileDebug
+> Task :modules:core:compileDebugJavaWithJavac
+> Task :modules:debug-tools:javaPreCompileDebug
+> Task :modules:device-api:javaPreCompileDebug
+> Task :modules:device-m90:javaPreCompileDebug
+> Task :modules:domain:javaPreCompileDebug
+> Task :modules:protocol:javaPreCompileDebug
+> Task :modules:runtime:javaPreCompileDebug
+> Task :modules:core:bundleLibCompileToJarDebug
+> Task :app:mergeDebugShaders
+> Task :modules:device-api:compileDebugJavaWithJavac
+> Task :modules:device-api:bundleLibCompileToJarDebug
+> Task :modules:protocol:compileDebugJavaWithJavac
+> Task :app:compileDebugShaders NO-SOURCE
+> Task :app:generateDebugAssets UP-TO-DATE
+> Task :modules:protocol:bundleLibCompileToJarDebug
+> Task :modules:core:mergeDebugShaders
+> Task :app:processDebugResources
+
+> Task :modules:domain:compileDebugJavaWithJavac
+注: 某些输入文件使用或覆盖了已过时的 API。
+注: 有关详细信息, 请使用 -Xlint:deprecation 重新编译。
+
+> Task :modules:core:compileDebugShaders NO-SOURCE
+> Task :modules:core:generateDebugAssets UP-TO-DATE
+> Task :modules:domain:bundleLibCompileToJarDebug
+> Task :modules:core:packageDebugAssets
+
+> Task :modules:device-m90:compileDebugJavaWithJavac
+注: G:\lhxyproduct\lhxyIStation\modules\device-m90\src\main\java\com\lhxy\istationdevice\android11\devicem90\M90RealCameraAdapter.java使用或覆盖了已过时的 API。
+注: 有关详细信息, 请使用 -Xlint:deprecation 重新编译。
+
+> Task :modules:debug-tools:mergeDebugShaders
+> Task :modules:debug-tools:compileDebugShaders NO-SOURCE
+> Task :modules:debug-tools:generateDebugAssets UP-TO-DATE
+> Task :modules:device-m90:bundleLibCompileToJarDebug
+> Task :modules:debug-tools:packageDebugAssets
+> Task :modules:runtime:compileDebugJavaWithJavac
+> Task :modules:runtime:bundleLibCompileToJarDebug
+> Task :modules:device-api:mergeDebugShaders
+> Task :modules:debug-tools:compileDebugJavaWithJavac
+> Task :modules:device-api:compileDebugShaders NO-SOURCE
+> Task :modules:device-api:generateDebugAssets UP-TO-DATE
+> Task :modules:debug-tools:bundleLibCompileToJarDebug
+> Task :modules:device-api:packageDebugAssets
+
+> Task :app:compileDebugJavaWithJavac
+注: 某些输入文件使用或覆盖了已过时的 API。
+注: 有关详细信息, 请使用 -Xlint:deprecation 重新编译。
+
+> Task :modules:device-m90:mergeDebugShaders
+> Task :modules:device-m90:compileDebugShaders NO-SOURCE
+> Task :modules:device-m90:generateDebugAssets UP-TO-DATE
+> Task :modules:device-m90:packageDebugAssets
+> Task :modules:domain:mergeDebugShaders
+> Task :modules:domain:compileDebugShaders NO-SOURCE
+> Task :modules:domain:generateDebugAssets UP-TO-DATE
+> Task :modules:domain:packageDebugAssets
+> Task :modules:protocol:mergeDebugShaders
+> Task :modules:protocol:compileDebugShaders NO-SOURCE
+> Task :modules:protocol:generateDebugAssets UP-TO-DATE
+> Task :modules:protocol:packageDebugAssets
+> Task :modules:runtime:mergeDebugShaders
+> Task :modules:runtime:compileDebugShaders NO-SOURCE
+> Task :modules:runtime:generateDebugAssets UP-TO-DATE
+> Task :modules:runtime:packageDebugAssets
+> Task :app:mergeDebugAssets
+> Task :modules:runtime:bundleLibRuntimeToJarDebug
+> Task :modules:debug-tools:bundleLibRuntimeToJarDebug
+> Task :app:desugarDebugFileDependencies
+> Task :modules:device-m90:bundleLibRuntimeToJarDebug
+> Task :modules:device-api:bundleLibRuntimeToJarDebug
+> Task :modules:core:bundleLibRuntimeToJarDebug
+> Task :modules:protocol:bundleLibRuntimeToJarDebug
+> Task :modules:domain:bundleLibRuntimeToJarDebug
+> Task :app:compressDebugAssets
+> Task :app:dexBuilderDebug
+> Task :app:processDebugJavaRes NO-SOURCE
+> Task :modules:core:processDebugJavaRes NO-SOURCE
+> Task :modules:debug-tools:processDebugJavaRes NO-SOURCE
+> Task :modules:device-api:processDebugJavaRes NO-SOURCE
+> Task :modules:device-m90:processDebugJavaRes NO-SOURCE
+> Task :modules:domain:processDebugJavaRes NO-SOURCE
+> Task :modules:protocol:processDebugJavaRes NO-SOURCE
+> Task :modules:runtime:processDebugJavaRes NO-SOURCE
+> Task :app:mergeDebugGlobalSynthetics
+> Task :app:mergeDebugStartupProfile
+> Task :modules:runtime:bundleLibRuntimeToDirDebug
+> Task :app:checkDebugDuplicateClasses
+> Task :modules:debug-tools:bundleLibRuntimeToDirDebug
+> Task :modules:device-m90:bundleLibRuntimeToDirDebug
+> Task :modules:device-api:bundleLibRuntimeToDirDebug
+> Task :app:mergeDebugJniLibFolders
+> Task :modules:core:bundleLibRuntimeToDirDebug
+> Task :modules:core:mergeDebugJniLibFolders
+> Task :modules:core:mergeDebugNativeLibs NO-SOURCE
+> Task :modules:core:copyDebugJniLibsProjectOnly
+> Task :modules:debug-tools:mergeDebugJniLibFolders
+> Task :modules:debug-tools:mergeDebugNativeLibs NO-SOURCE
+> Task :modules:debug-tools:copyDebugJniLibsProjectOnly
+> Task :modules:device-api:mergeDebugJniLibFolders
+> Task :modules:device-api:mergeDebugNativeLibs NO-SOURCE
+> Task :modules:device-api:copyDebugJniLibsProjectOnly
+> Task :modules:device-m90:mergeDebugJniLibFolders
+> Task :modules:domain:mergeDebugJniLibFolders
+> Task :modules:domain:mergeDebugNativeLibs NO-SOURCE
+> Task :modules:domain:copyDebugJniLibsProjectOnly
+> Task :modules:protocol:mergeDebugJniLibFolders
+> Task :modules:protocol:mergeDebugNativeLibs NO-SOURCE
+> Task :modules:protocol:copyDebugJniLibsProjectOnly
+> Task :modules:runtime:mergeDebugJniLibFolders
+> Task :modules:runtime:mergeDebugNativeLibs NO-SOURCE
+> Task :modules:device-m90:mergeDebugNativeLibs
+> Task :modules:runtime:copyDebugJniLibsProjectOnly
+> Task :modules:device-m90:copyDebugJniLibsProjectOnly
+> Task :modules:protocol:bundleLibRuntimeToDirDebug
+> Task :app:mergeProjectDexDebug
+> Task :app:validateSigningDebug
+> Task :app:writeDebugAppMetadata
+> Task :app:writeDebugSigningConfigVersions
+> Task :modules:domain:bundleLibRuntimeToDirDebug
+> Task :app:mergeDebugNativeLibs
+> Task :app:mergeDebugJavaResource
+
+> Task :app:stripDebugDebugSymbols
+Unable to strip the following libraries, packaging them as they are: lib7-Zip-JBinding.so, libgps_serial_port.so, libi2c-port.so, libjhy_serial_port.so.
+
+> Task :app:mergeLibDexDebug
+> Task :app:mergeExtDexDebug
+> Task :app:packageDebug
+> Task :app:createDebugApkListingFileRedirect
+> Task :app:assembleDebug
+
+BUILD SUCCESSFUL in 49s
+169 actionable tasks: 169 executed
