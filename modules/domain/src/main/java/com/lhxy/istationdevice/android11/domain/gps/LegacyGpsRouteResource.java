@@ -13,6 +13,7 @@ public final class LegacyGpsRouteResource {
     public static final int ATTRIBUTE_ANTI_REVERSE = 3;
 
     private final String lineName;
+    private final int lineNumber;
     private final int lineAttribute;
     private final String directionText;
     private final List<StationPoint> stations;
@@ -25,7 +26,19 @@ public final class LegacyGpsRouteResource {
             List<StationPoint> stations,
             List<ReminderPoint> reminders
     ) {
+        this(lineName, 0, lineAttribute, directionText, stations, reminders);
+    }
+
+    public LegacyGpsRouteResource(
+            String lineName,
+            int lineNumber,
+            int lineAttribute,
+            String directionText,
+            List<StationPoint> stations,
+            List<ReminderPoint> reminders
+    ) {
         this.lineName = lineName == null ? "-" : lineName.trim();
+        this.lineNumber = Math.max(0, lineNumber);
         this.lineAttribute = normalizeLineAttribute(lineAttribute);
         this.directionText = directionText == null ? "上行" : directionText.trim();
         this.stations = Collections.unmodifiableList(new ArrayList<>(stations == null ? Collections.emptyList() : stations));
@@ -34,6 +47,10 @@ public final class LegacyGpsRouteResource {
 
     public String getLineName() {
         return lineName;
+    }
+
+    public int getLineNumber() {
+        return lineNumber;
     }
 
     public int getLineAttribute() {
@@ -95,6 +112,7 @@ public final class LegacyGpsRouteResource {
         private final double latitudeDecimal;
         private final String angle;
         private final String altitude;
+        private final String siteCode;
         private final String stationAdvert;
         private final String departureAdvert;
         private final String stationPrompt;
@@ -116,6 +134,7 @@ public final class LegacyGpsRouteResource {
                 double latitudeDecimal,
                 String angle,
                 String altitude,
+                String siteCode,
                 String stationAdvert,
                 String departureAdvert,
                 String stationPrompt,
@@ -136,6 +155,7 @@ public final class LegacyGpsRouteResource {
             this.latitudeDecimal = latitudeDecimal;
             this.angle = angle == null ? "" : angle.trim();
             this.altitude = altitude == null ? "" : altitude.trim();
+            this.siteCode = siteCode == null ? "" : siteCode.trim();
             this.stationAdvert = stationAdvert == null ? "" : stationAdvert.trim();
             this.departureAdvert = departureAdvert == null ? "" : departureAdvert.trim();
             this.stationPrompt = stationPrompt == null ? "" : stationPrompt.trim();
@@ -146,6 +166,52 @@ public final class LegacyGpsRouteResource {
             this.mileage = mileage;
             this.majorStation = majorStation == null ? "" : majorStation.trim();
             this.voiceNot = voiceNot == null ? "" : voiceNot.trim();
+        }
+
+        /** Compatibility constructor for synthetic stations that do not have a legacy UID. */
+        public StationPoint(
+                int stationNo,
+                String stationSound,
+                String stationName,
+                String longitudeRaw,
+                String latitudeRaw,
+                double longitudeDecimal,
+                double latitudeDecimal,
+                String angle,
+                String altitude,
+                String stationAdvert,
+                String departureAdvert,
+                String stationPrompt,
+                String departurePrompt,
+                String stationExpansion,
+                String departureExpansion,
+                String speedLimit,
+                double mileage,
+                String majorStation,
+                String voiceNot
+        ) {
+            this(
+                    stationNo,
+                    stationSound,
+                    stationName,
+                    longitudeRaw,
+                    latitudeRaw,
+                    longitudeDecimal,
+                    latitudeDecimal,
+                    angle,
+                    altitude,
+                    "",
+                    stationAdvert,
+                    departureAdvert,
+                    stationPrompt,
+                    departurePrompt,
+                    stationExpansion,
+                    departureExpansion,
+                    speedLimit,
+                    mileage,
+                    majorStation,
+                    voiceNot
+            );
         }
 
         public int getStationNo() {
@@ -182,6 +248,18 @@ public final class LegacyGpsRouteResource {
 
         public String getAltitude() {
             return altitude;
+        }
+
+        public String getSiteCode() {
+            return siteCode;
+        }
+
+        /**
+         * Returns the station code used by the platform. Legacy Chinese route
+         * exports omit UID, but the platform accepts the stable station number.
+         */
+        public String getCompatibleSiteCode() {
+            return siteCode.isEmpty() ? String.valueOf(stationNo) : siteCode;
         }
 
         public String getStationAdvert() {

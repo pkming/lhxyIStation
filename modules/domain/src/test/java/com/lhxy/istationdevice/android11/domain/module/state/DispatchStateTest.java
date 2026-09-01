@@ -9,6 +9,11 @@ import org.junit.Test;
 public class DispatchStateTest {
 
     @Test
+    public void defaultsToNoPlannedTripLikeLegacyPreferences() {
+        assertEquals(0, new DispatchState().getTimesNo());
+    }
+
+    @Test
     public void confirmDispatch_marksConfirmedWithoutStartingBus() {
         DispatchState state = new DispatchState();
 

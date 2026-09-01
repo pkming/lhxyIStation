@@ -10,6 +10,8 @@ import com.lhxy.istationdevice.android11.domain.ProtocolReplayUseCase;
 import com.lhxy.istationdevice.android11.domain.config.ShellConfig;
 import com.lhxy.istationdevice.android11.domain.dispatch.DvrSerialDispatchUseCase;
 import com.lhxy.istationdevice.android11.domain.module.state.SignInState;
+import com.lhxy.istationdevice.android11.protocol.jt808.Cc808LegacyMessages;
+import com.lhxy.istationdevice.android11.protocol.jt808.Jt808Frame;
 
 /**
  * 签到模块
@@ -28,6 +30,7 @@ public final class SignInBusinessModule extends AbstractTerminalBusinessModule {
     private final SocketClientAdapter socketClientAdapter;
     private final RfidAdapter rfidAdapter;
     private final DvrSerialDispatchUseCase dvrSerialDispatchUseCase;
+    private final Cc808LegacyMessages cc808Messages = new Cc808LegacyMessages();
     private final Object signInLock = new Object();
     private final Object autoPollLock = new Object();
     private final long autoPollIntervalMs;
@@ -221,6 +224,10 @@ public final class SignInBusinessModule extends AbstractTerminalBusinessModule {
     private ModuleRunResult sendAttendanceAfterStateChange(String traceId, String successSummary, String successDetail) {
         try {
             ShellConfig shellConfig = requireShellConfig();
+            if (isCc808(shellConfig)) {
+                sendCc808Attendance(shellConfig, traceId + "-socket-attendance");
+                return success(successSummary, successDetail + "，并已发送 CC808 0x0B05 考勤帧");
+            }
             if (dvrSerialDispatchUseCase.canUse(shellConfig)) {
                 dvrSerialDispatchUseCase.sendDriverAttendance(
                         shellConfig,
@@ -244,6 +251,11 @@ public final class SignInBusinessModule extends AbstractTerminalBusinessModule {
     ) {
         synchronized (signInLock) {
             signInState.applyCard(cardNo);
+            if (isCc808(shellConfig)) {
+                lastAttendanceReplayCount = 0;
+                sendCc808Attendance(shellConfig, traceId + "-socket-attendance");
+                return new ProcessReadCardResult(true, 0, detailText() + " / CC808 0x0B05");
+            }
             if (dvrSerialDispatchUseCase.canUse(shellConfig)) {
                 lastAttendanceReplayCount = 0;
                 dvrSerialDispatchUseCase.sendDriverAttendance(
@@ -264,6 +276,54 @@ public final class SignInBusinessModule extends AbstractTerminalBusinessModule {
 
     private String detailText() {
         return "RFID 卡号=" + signInState.getCardNo() + " / " + signInState.getAttendanceMode();
+    }
+
+    private boolean isCc808(ShellConfig shellConfig) {
+        return shellConfig != null
+                && "CC808".equalsIgnoreCase(shellConfig.getBasicSetupConfig().getNetworkSettings().getDispatchProtocol());
+    }
+
+    private void sendCc808Attendance(ShellConfig shellConfig, String traceId) {
+        ShellConfig.SocketChannel channel = shellConfig.requireSocketChannel(
+                shellConfig.getDebugReplay().getJt808SocketKey()
+        );
+        if (!socketClientAdapter.isConnected(channel.getChannelName())) {
+            socketClientAdapter.connect(channel.toSocketEndpointConfig(), traceId + "-connect");
+        }
+        String lineName = shellConfig.getBasicSetupConfig().getResourceImportSettings().getLineName();
+        int lineNumber = parseLineNumber(lineName);
+        int driverStatus = signInState.isSignedIn() ? 0 : 1;
+        Jt808Frame frame = cc808Messages.createDriverAttendance(
+                shellConfig.getBasicSetupConfig().getNetworkSettings().getDispatchId(),
+                lineNumber,
+                signInState.getCardNo(),
+                compactNowTime(),
+                driverStatus,
+                0
+        );
+        socketClientAdapter.send(channel.getChannelName(), cc808Messages.encode(frame), traceId + "-send");
+        safeLog(LogCategory.BIZ, LogLevel.INFO,
+                "CC808 driver attendance sent line=" + lineNumber + " / status=" + driverStatus, traceId);
+    }
+
+    private int parseLineNumber(String lineName) {
+        if (lineName == null) {
+            return 0;
+        }
+        String digits = lineName.replaceAll("[^0-9]", "");
+        if (digits.isEmpty()) {
+            return 0;
+        }
+        try {
+            return Integer.parseInt(digits);
+        } catch (NumberFormatException ignore) {
+            return 0;
+        }
+    }
+
+    private String compactNowTime() {
+        return new java.text.SimpleDateFormat("yyMMddHHmmss", java.util.Locale.getDefault())
+                .format(new java.util.Date());
     }
 
     private boolean shouldAutoPoll(ShellConfig shellConfig) {

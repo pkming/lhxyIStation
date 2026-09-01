@@ -41,10 +41,13 @@ public final class LegacyGpsRouteCatalog {
     ) {
         File busDir = resolveBusDir(context);
         if (busDir == null || !busDir.exists()) {
+            logResolution("线路资源目录不存在 line=" + preferredLineName);
             return null;
         }
         LineInfo lineInfo = resolveLineInfo(busDir, preferredLineName);
         if (lineInfo == null) {
+            logResolution("lineInfo.csv 未匹配 line=" + preferredLineName
+                    + " / file=" + new File(busDir, "lineInfo.csv").getAbsolutePath());
             return null;
         }
         String directionText = normalizeDirectionText(preferredDirectionText);
@@ -53,11 +56,39 @@ public final class LegacyGpsRouteCatalog {
         if (cached != null) {
             return cached;
         }
-        LegacyGpsRouteResource loaded = loadRoute(busDir, lineInfo.lineName, lineInfo.attribute, directionText);
+        LegacyGpsRouteResource loaded = loadRoute(
+                busDir, lineInfo.lineName, lineInfo.lineNumber, lineInfo.attribute, directionText);
         if (loaded != null) {
             cache.put(cacheKey, loaded);
+            logResolution("线路资源已加载 line=" + lineInfo.lineName
+                    + " / lineNumber=" + lineInfo.lineNumber
+                    + " / direction=" + directionText
+                    + " / stations=" + loaded.getStations().size());
+        } else {
+            logResolution("线路站点文件加载失败 line=" + lineInfo.lineName
+                    + " / lineNumber=" + lineInfo.lineNumber
+                    + " / direction=" + directionText
+                    + " / busDir=" + busDir.getAbsolutePath());
         }
         return loaded;
+    }
+
+    /**
+     * Reads the platform line serial independently of station CSV parsing.
+     * This prevents a valid lineInfo.csv serial from being replaced by a
+     * numeric suffix parsed from a display name such as L1.
+     */
+    public synchronized int resolveLineNumber(Context context, String preferredLineName) {
+        File busDir = resolveBusDir(context);
+        if (busDir == null || !busDir.exists()) {
+            return 0;
+        }
+        LineInfo lineInfo = resolveLineInfo(busDir, preferredLineName);
+        int lineNumber = lineInfo == null ? 0 : lineInfo.lineNumber;
+        logResolution("线路号解析 line=" + preferredLineName
+                + " / lineNumber=" + lineNumber
+                + " / lineInfo=" + new File(busDir, "lineInfo.csv").getAbsolutePath());
+        return lineNumber;
     }
 
     /** 严格按旧 lineInfo 的“Line serial”匹配平台下发线路号。 */
@@ -80,7 +111,8 @@ public final class LegacyGpsRouteCatalog {
         if (cached != null) {
             return cached;
         }
-        LegacyGpsRouteResource loaded = loadRoute(busDir, lineInfo.lineName, lineInfo.attribute, directionText);
+        LegacyGpsRouteResource loaded = loadRoute(
+                busDir, lineInfo.lineName, lineInfo.lineNumber, lineInfo.attribute, directionText);
         if (loaded != null) {
             cache.put(cacheKey, loaded);
         }
@@ -98,6 +130,16 @@ public final class LegacyGpsRouteCatalog {
      * 读取某条线路的站点和提醒点 CSV。
      */
     private LegacyGpsRouteResource loadRoute(File busDir, String lineName, int attribute, String directionText) {
+        return loadRoute(busDir, lineName, 0, attribute, directionText);
+    }
+
+    private LegacyGpsRouteResource loadRoute(
+            File busDir,
+            String lineName,
+            int lineNumber,
+            int attribute,
+            String directionText
+    ) {
         File lineDir = new File(busDir, lineName);
         String suffix = directionText.contains("下") ? "X" : "S";
         File stationFile = new File(lineDir, lineName + suffix + ".csv");
@@ -121,6 +163,18 @@ public final class LegacyGpsRouteCatalog {
             }
             Coordinate longitude = parseCoordinate(cell(row, 3), true);
             Coordinate latitude = parseCoordinate(cell(row, 4), false);
+            // The field-exported legacy CSV has 18 columns and puts UID at index 6.
+            // Some later exports add Altitude, making the same layout 19 columns with
+            // UID at index 7. The older Chinese 16-column layout has no UID column.
+            boolean legacyUidLayout = row.size() >= 18;
+            boolean legacyDetailedLayout = row.size() >= 19;
+            String altitude = legacyDetailedLayout ? cell(row, 6) : "";
+            String siteCode = legacyUidLayout ? cell(row, legacyDetailedLayout ? 7 : 6) : "";
+            int adOffset = legacyDetailedLayout ? 2 : legacyUidLayout ? 1 : 0;
+            int speedLimitIndex = legacyDetailedLayout ? 14 : legacyUidLayout ? 13 : 12;
+            int mileageIndex = legacyDetailedLayout ? 16 : legacyUidLayout ? 15 : 13;
+            int majorStationIndex = legacyDetailedLayout ? 17 : legacyUidLayout ? 16 : 14;
+            int voiceNotIndex = legacyDetailedLayout ? 18 : legacyUidLayout ? 17 : 15;
             stations.add(new LegacyGpsRouteResource.StationPoint(
                     stationNo,
                     stationSound,
@@ -130,17 +184,18 @@ public final class LegacyGpsRouteCatalog {
                     longitude.decimal,
                     latitude.decimal,
                     cell(row, 5),
-                    cell(row, 6),
-                    cell(row, 7),
-                    cell(row, 8),
-                    cell(row, 9),
-                    cell(row, 10),
-                    cell(row, 11),
-                    cell(row, 12),
-                    cell(row, 13),
-                    parseDouble(cell(row, 14), 0d),
-                    cell(row, 15),
-                    cell(row, 16)
+                    altitude,
+                    siteCode,
+                    cell(row, 6 + adOffset),
+                    cell(row, 7 + adOffset),
+                    cell(row, 8 + adOffset),
+                    cell(row, 9 + adOffset),
+                    cell(row, 10 + adOffset),
+                    cell(row, 11 + adOffset),
+                    cell(row, speedLimitIndex),
+                    parseDouble(cell(row, mileageIndex), 0d),
+                    cell(row, majorStationIndex),
+                    cell(row, voiceNotIndex)
             ));
         }
 
@@ -176,7 +231,8 @@ public final class LegacyGpsRouteCatalog {
             ));
         }
 
-        return new LegacyGpsRouteResource(lineName, attribute, directionText, stations, reminders);
+        return new LegacyGpsRouteResource(
+                lineName, lineNumber, attribute, directionText, stations, reminders);
     }
 
     /**
@@ -190,6 +246,10 @@ public final class LegacyGpsRouteCatalog {
         File sourceRoot = stationResourceArchiveUseCase.resolveManagedSourceRoot(context.getApplicationContext());
         File busDir = new File(sourceRoot, "Bus");
         return busDir.exists() && busDir.isDirectory() ? busDir : null;
+    }
+
+    private void logResolution(String message) {
+        AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, "LegacyGpsRouteCatalog", message, "gps-route-resolution");
     }
 
     /**
@@ -211,7 +271,10 @@ public final class LegacyGpsRouteCatalog {
             if (lineName.isEmpty()) {
                 continue;
             }
-            LineInfo info = new LineInfo(lineName, parseInt(cell(row, 3), LegacyGpsRouteResource.ATTRIBUTE_UP_DOWN));
+            LineInfo info = new LineInfo(
+                    lineName,
+                    parseInt(cell(row, 4), 0),
+                    parseInt(cell(row, 3), LegacyGpsRouteResource.ATTRIBUTE_UP_DOWN));
             if (first == null) {
                 first = info;
             }
@@ -239,7 +302,10 @@ public final class LegacyGpsRouteCatalog {
             if (lineName.isEmpty() || !normalize(lineNumber).equals(expected)) {
                 continue;
             }
-            return new LineInfo(lineName, parseInt(cell(row, 3), LegacyGpsRouteResource.ATTRIBUTE_UP_DOWN));
+            return new LineInfo(
+                    lineName,
+                    parseInt(cell(row, 4), 0),
+                    parseInt(cell(row, 3), LegacyGpsRouteResource.ATTRIBUTE_UP_DOWN));
         }
         return null;
     }
@@ -408,10 +474,12 @@ public final class LegacyGpsRouteCatalog {
 
     private static final class LineInfo {
         private final String lineName;
+        private final int lineNumber;
         private final int attribute;
 
-        private LineInfo(String lineName, int attribute) {
+        private LineInfo(String lineName, int lineNumber, int attribute) {
             this.lineName = lineName;
+            this.lineNumber = lineNumber;
             this.attribute = attribute;
         }
     }

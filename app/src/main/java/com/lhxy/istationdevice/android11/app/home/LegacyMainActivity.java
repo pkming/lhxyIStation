@@ -95,7 +95,6 @@ public final class LegacyMainActivity extends AppCompatActivity {
     
     // GPIO监听暂停标志（用于音频播放期间避免GPIO冲突）
     private volatile boolean homeMonitorGpioPaused = false;
-    private boolean homeMonitorGpioRecoveryPending;
     private boolean startupMonitorGpioBaselineCaptured;
     private int startupMonitorPrimary = Integer.MIN_VALUE;
     private int startupMonitorSecondary = Integer.MIN_VALUE;
@@ -440,7 +439,6 @@ public final class LegacyMainActivity extends AppCompatActivity {
      */
     private void resetHomeMonitorAtStartup() {
         homeMonitorGpioPaused = false;
-        homeMonitorGpioRecoveryPending = false;
         startupMonitorGpioBaselineCaptured = false;
         startupMonitorPrimary = Integer.MIN_VALUE;
         startupMonitorSecondary = Integer.MIN_VALUE;
@@ -771,13 +769,6 @@ public final class LegacyMainActivity extends AppCompatActivity {
                     resolvedMode = HomeMonitorMode.DVR;
                 }
 
-                if (homeMonitorGpioRecoveryPending) {
-                    homeMonitorGpioRecoveryPending = false;
-                    lastGpioResolvedMode = resolvedMode;
-                    gpioStableCount = HOME_MONITOR_GPIO_STABLE_THRESHOLD;
-                    return resolvedMode;
-                }
-                
                 // 连续稳定性检测：必须连续N次解析到相同模式才允许切换
                 if (resolvedMode == lastGpioResolvedMode) {
                     gpioStableCount++;
@@ -1969,11 +1960,20 @@ public final class LegacyMainActivity extends AppCompatActivity {
      */
     public void resumeHomeMonitorGpio() {
         homeMonitorGpioPaused = false;
-        homeMonitorGpioRecoveryPending = true;
+        // Audio routing may leave both monitor inputs low. Treat the first reading after
+        // playback as a fresh baseline so it cannot turn the home page into the large
+        // reverse-camera layout without a real GPIO edge.
+        startupMonitorGpioBaselineCaptured = false;
+        startupMonitorPrimary = Integer.MIN_VALUE;
+        startupMonitorSecondary = Integer.MIN_VALUE;
         lastGpioResolvedMode = null;
         gpioStableCount = 0;
+        homeMonitorStartupResetUntilMs = System.currentTimeMillis() + HOME_MONITOR_STARTUP_RESET_MS;
+        currentHomeMonitorMode = HomeMonitorMode.DVR;
+        applyHomeMonitorMode(HomeMonitorMode.DVR);
+        closeHomeMonitorPreview(false);
         AppLogCenter.log(LogCategory.UI, LogLevel.INFO, "LegacyMainActivity", 
-            "GPIO监听已恢复", "home-monitor-gpio-resume");
+            "GPIO监听已恢复，首页监控重置为 DVR 并重新采集基线", "home-monitor-gpio-resume");
         clockHandler.postDelayed(() -> {
             if (!homeMonitorGpioPaused && !isFinishing() && !isDestroyed()) {
                 refreshHomeState();

@@ -168,7 +168,18 @@ public final class LegacyBasicSetupSectionFragment extends Fragment {
             bindText(view, R.id.etAdwordsPort, String.valueOf(fileServerChannel.getPort()));
         }
 
-        bindSpinner(view, R.id.spDispatch, extractSocketKeys(channels), selectedDispatchKey);
+        String dispatchProtocol = ShellConfig.NetworkSettings.normalizeDispatchProtocol(settings.getDispatchProtocol());
+        if (dispatchProtocol == null || dispatchProtocol.trim().isEmpty()) {
+            // al808 is the shared network channel; it does not imply ALINK.
+            dispatchProtocol = "CC808";
+        }
+        bindMappedSpinner(
+                view,
+                R.id.spDispatch,
+                Arrays.asList(getResources().getStringArray(R.array.arrayprotocoldispatch)),
+                Arrays.asList("无", "ALINK", "CC808"),
+                dispatchProtocol
+        );
         Button save = view.findViewById(R.id.butNetWorkAffirm);
         if (save != null) {
             save.setOnClickListener(v -> saveNetworkConfig(view));
@@ -396,7 +407,11 @@ public final class LegacyBasicSetupSectionFragment extends Fragment {
                     throw new IllegalStateException("当前没有可保存的 Socket 配置");
                 }
 
-                String selectedKey = readSpinnerValue(root, R.id.spDispatch, orderedChannels.get(0).getKey());
+                String selectedKey = current.getDebugReplay().getJt808SocketKey();
+                if (!current.getSocketChannels().containsKey(selectedKey)) {
+                    selectedKey = orderedChannels.get(0).getKey();
+                }
+                String dispatchProtocol = readSpinnerValue(root, R.id.spDispatch, "CC808");
                 Map<String, ShellConfig.SocketChannel> updatedChannels = new LinkedHashMap<>(current.getSocketChannels());
 
                 ShellConfig.SocketChannel selectedChannel = current.requireSocketChannel(selectedKey);
@@ -435,6 +450,9 @@ public final class LegacyBasicSetupSectionFragment extends Fragment {
                         current.getCameraConfig(),
                         current.getRfidConfig(),
                         current.getSystemConfig(),
+                        current.getLocationConfig(),
+                        current.getCanConfig(),
+                        current.getKeyboardConfig(),
                         new ShellConfig.DebugReplay(
                                 current.getDebugReplay().getDisplaySerialKey(),
                                 current.getDebugReplay().getGpsSerialKey(),
@@ -449,6 +467,7 @@ public final class LegacyBasicSetupSectionFragment extends Fragment {
                                 current.getBasicSetupConfig().getNewspaperSettings(),
                                 new ShellConfig.NetworkSettings(
                                         readRequiredText(root, R.id.etDispatchID, "调度 ID"),
+                                        dispatchProtocol,
                                         parseNumber(root, R.id.etLongInterval, "心跳间隔", current.getBasicSetupConfig().getNetworkSettings().getLongInterval()),
                                         parseNumber(root, R.id.etInfoInterval, "信息间隔", current.getBasicSetupConfig().getNetworkSettings().getInfoInterval()),
                                     parseNumber(root, R.id.etSpeedingInterval, "超速间隔", current.getBasicSetupConfig().getNetworkSettings().getSpeedingInterval()),
@@ -543,6 +562,9 @@ public final class LegacyBasicSetupSectionFragment extends Fragment {
                         current.getCameraConfig(),
                         current.getRfidConfig(),
                         current.getSystemConfig(),
+                        current.getLocationConfig(),
+                        current.getCanConfig(),
+                        current.getKeyboardConfig(),
                         new ShellConfig.DebugReplay(
                             current.getDebugReplay().getDisplaySerialKey(),
                             current.getDebugReplay().getGpsSerialKey(),
@@ -859,6 +881,9 @@ public final class LegacyBasicSetupSectionFragment extends Fragment {
                 current.getCameraConfig(),
                 current.getRfidConfig(),
                 current.getSystemConfig(),
+                current.getLocationConfig(),
+                current.getCanConfig(),
+                current.getKeyboardConfig(),
                 current.getDebugReplay(),
                 basicSetupConfig
         );

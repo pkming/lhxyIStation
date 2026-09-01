@@ -135,6 +135,40 @@ public class StationStateTest {
     }
 
     @Test
+    public void autoStation_updatesDisplayPositionForArrivalAndDepartureSequence() {
+        StationState state = createState();
+
+        state.recordAutoStation(1, "B站", 1);
+        assertEquals(0, state.getDisplayStationNo());
+
+        state.recordAutoStation(1, "B站", 0);
+        assertEquals(1, state.getDisplayStationNo());
+
+        state.recordAutoStation(2, "C站", 1);
+        assertEquals(1, state.getDisplayStationNo());
+
+        state.recordAutoStation(2, "C站", 0);
+        assertEquals(2, state.getDisplayStationNo());
+    }
+
+    @Test
+    public void reportType_distinguishesManualAndGpsReports() {
+        StationState state = createState();
+
+        state.advanceStation();
+        assertEquals(1, state.getCurrentReportType());
+
+        state.advanceStation();
+        assertEquals(1, state.getCurrentReportType());
+
+        state.recordAutoStation(1, "B站", 0);
+        assertEquals(0, state.getCurrentReportType());
+
+        state.retreatStation();
+        assertEquals(1, state.getCurrentReportType());
+    }
+
+    @Test
     public void recordDirectionSwitch_resetsToNewDirectionStartState() {
         StationState state = createState();
 

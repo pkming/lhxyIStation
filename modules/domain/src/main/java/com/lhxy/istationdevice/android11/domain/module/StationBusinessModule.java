@@ -147,6 +147,28 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
         syncRouteProfileIfNeeded();
     }
 
+    public void resetForSyntheticGps() {
+        Context context = getContext();
+        if (context == null) {
+            return;
+        }
+        LegacyGpsRouteResource route = resolveActiveRoute(context);
+        if (route == null || route.getStations().isEmpty()) {
+            return;
+        }
+        stationState.applyLineProfile(route.getLineName(), route.getDirectionText(), route.stationNames());
+        stationState.setLineAttribute(route.getAttributeLabel());
+        gpsFlowUseCase.reset(route);
+        dispatchBusinessModule.reportStationProgress("gps-synthetic-reset");
+        AppLogCenter.log(
+                LogCategory.BIZ,
+                LogLevel.INFO,
+                TAG,
+                "测试定位报站状态已重置到起点 stationNo=0 / displayPosition=1",
+                "gps-synthetic-reset"
+        );
+    }
+
     @Override
     protected void onContextUpdated() {
         syncRouteProfileIfNeeded();
@@ -357,6 +379,7 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
             requestPassengerCounterForArrival(traceId + "-jhy-current-count");
             playCurrentStationAudio(requireContextOrThrow(), shellConfig, route);
             sendSerialDispatchFramesIfNeeded(traceId + "-advance-station");
+            dispatchBusinessModule.reportStationProgress(traceId + "-advance-station");
             maybeAutoStartBus(traceId + "-advance-station");
             startPeriodicGpsReportIfNeeded(traceId + "-periodic-gps");
             startAutoGpsReportIfNeeded(traceId + "-auto-gps");
@@ -423,6 +446,7 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
             stationDisplayUseCase.sendCurrentStation(shellConfig, route, stationState, traceId + "-display-current");
             playCurrentStationAudio(requireContextOrThrow(), shellConfig, route);
             sendSerialDispatchFramesIfNeeded(traceId + "-backward-station");
+            dispatchBusinessModule.reportStationProgress(traceId + "-backward-station");
             startPeriodicGpsReportIfNeeded(traceId + "-periodic-gps");
             startAutoGpsReportIfNeeded(traceId + "-auto-gps");
             logStationSnapshot("手动回退一站", traceId);
@@ -854,6 +878,7 @@ public final class StationBusinessModule extends AbstractTerminalBusinessModule 
                 stationDisplayUseCase.sendCurrentStation(shellConfig, route, stationState, traceId + "-display-current");
                 requestPassengerCounterForAutoStation(event.getStationType(), traceId + "-auto-station-jhy-current-count");
                 sendSerialDispatchFramesIfNeeded(traceId + "-auto-station");
+                dispatchBusinessModule.reportStationProgress(traceId + "-auto-station");
                 maybeAutoStartBus(traceId + "-auto-station");
             }
         } catch (Exception e) {

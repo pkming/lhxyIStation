@@ -36,6 +36,7 @@ public final class StationState {
     private int displayStationNo = -1;
     private int currentStationNo = -1;
     private int currentStationType;
+    private int currentReportType;
     private int reportCount;
     private boolean previewingNext;
     private boolean crossingReminderActive;
@@ -46,6 +47,7 @@ public final class StationState {
 
     public void advanceStation() {
         reportCount++;
+        currentReportType = 1;
         if (routeStations.isEmpty()) {
             currentStation = "-";
             nextStation = "-";
@@ -100,6 +102,7 @@ public final class StationState {
             return;
         }
         reportCount++;
+        currentReportType = 1;
         if (previewingNext) {
             previewingNext = false;
             if (stationCursor > 0) {
@@ -133,6 +136,7 @@ public final class StationState {
         if (!previewingNext && stationCursor >= routeStations.size() - 1) {
             return false;
         }
+        currentReportType = 1;
         if (!previewingNext) {
             stationCursor++;
             previewingNext = true;
@@ -165,6 +169,7 @@ public final class StationState {
         if (routeStations.isEmpty()) {
             return false;
         }
+        currentReportType = 1;
         if (previewingNext) {
             previewingNext = false;
             if (stationCursor > 0) {
@@ -198,6 +203,7 @@ public final class StationState {
             return false;
         }
         reportCount++;
+        currentReportType = 1;
         if ("-".equals(currentStation)) {
             advanceStation();
             return true;
@@ -231,10 +237,14 @@ public final class StationState {
 
     public void recordAutoStation(int stationNo, String stationName, int stationType) {
         reportCount++;
+        currentReportType = 0;
         currentStationNo = Math.max(stationNo, -1);
         currentStationType = stationType;
         stationCursor = currentStationNo;
         previewingNext = stationType == 1;
+        displayStationNo = stationType == 1
+                ? Math.max(0, currentStationNo - 1)
+                : currentStationNo;
         currentStation = emptyAsDash(stationName);
         nextStation = stationCursor + 1 >= 0 && stationCursor + 1 < routeStations.size()
                 ? routeStations.get(stationCursor + 1)
@@ -372,6 +382,10 @@ public final class StationState {
         return currentStationType;
     }
 
+    public int getCurrentReportType() {
+        return currentReportType;
+    }
+
     public String getLastReminder() {
         return lastReminder;
     }
@@ -419,6 +433,7 @@ public final class StationState {
         displayStationNo = -1;
         currentStationNo = -1;
         currentStationType = 0;
+        currentReportType = 0;
         reportCount = 0;
         previewingNext = false;
         currentStation = "-";

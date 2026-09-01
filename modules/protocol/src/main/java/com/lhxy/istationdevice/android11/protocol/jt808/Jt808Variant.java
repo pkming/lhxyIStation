@@ -2,7 +2,8 @@ package com.lhxy.istationdevice.android11.protocol.jt808;
 
 public enum Jt808Variant {
     JT808("JT808", "JT808_SOCKET", "CTTIT", 20),
-    AL808("AL808", "AL808_SOCKET", "ALINK", 8);
+    AL808("AL808", "AL808_SOCKET", "ALINK", 8),
+    CC808("CC808", "CC808_SOCKET", "CTTIT", 20);
 
     private final String protocolName;
     private final String channelName;

@@ -89,7 +89,7 @@ public final class SignInBusinessModuleTest {
                 ShellConfig.CameraConfig.empty(),
                 rfidConfig,
                 ShellConfig.SystemConfig.stub(),
-                ShellConfig.LocationConfig.stub(),
+                ShellConfig.LocationConfig.defaults(),
                 ShellConfig.CanConfig.empty(),
                 ShellConfig.KeyboardConfig.stub(),
                 ShellConfig.DebugReplay.defaultReplay(),

@@ -73,6 +73,35 @@ public class GpsSerialMonitorTest {
         assertEquals(validFix.getCourse(), stableFix.getCourse());
     }
 
+    @Test
+    public void physicalNoFixDoesNotExpireActiveSyntheticFix() {
+        AtomicLong now = new AtomicLong(1_000L);
+        FakeSerialAdapter adapter = new FakeSerialAdapter();
+        GpsSerialMonitor monitor = new GpsSerialMonitor(now::get);
+        monitor.attach(
+                adapter,
+                new ShellConfig.SerialChannel("gps", "ttyS5", 115200, SerialMode.REAL, "test"),
+                "gps-test"
+        );
+
+        adapter.emit("$GNRMC,103618.00,A,2240.56605,N,11403.35383,E,0.03,99.63,150726,,,A*00\r\n");
+        GpsFixSnapshot syntheticFix = monitor.getLatestSnapshot();
+        assertNotNull(syntheticFix);
+
+        now.set(2_000L);
+        monitor.publishSyntheticSnapshot(syntheticFix, "gps-synthetic-test");
+        now.set(8_000L);
+        adapter.emit("$GNGGA,103624.00,,,,,0,00,25.5,0.0,M,0.0,M,,*00\r\n");
+
+        assertEquals(GpsSerialMonitor.GpsConnectionState.FIXED, monitor.getConnectionState());
+        assertEquals(syntheticFix.getLatitudeDecimal(), monitor.getLatestSnapshot().getLatitudeDecimal());
+
+        monitor.finishSyntheticSnapshot();
+        now.set(8_001L);
+        adapter.emit("$GNGGA,103625.00,,,,,0,00,25.5,0.0,M,0.0,M,,*00\r\n");
+        assertEquals(GpsSerialMonitor.GpsConnectionState.EXPIRED, monitor.getConnectionState());
+    }
+
     private static final class FakeSerialAdapter implements SerialPortAdapter {
         private boolean open = true;
         private SerialReceiveListener listener;

@@ -108,7 +108,10 @@ public final class Jt808LegacyMessages {
     }
 
     public Jt808Frame createReportStation(Jt808Variant variant, String terminalId, Jt808ReportStationSnapshot snapshot) {
-        ByteArrayOutputStream body = new ByteArrayOutputStream(variant == Jt808Variant.AL808 ? 35 : 39);
+        // The legacy JQ808/0x0B02 layout is 35 bytes.  Its four reserved
+        // bytes precede the one-byte station number; they are not a DWORD
+        // station number followed by another station byte.
+        ByteArrayOutputStream body = new ByteArrayOutputStream(35);
         write(body, Jt808CodecSupport.toDword(snapshot.getLineNumber()));
         body.write(snapshot.getStatus() & 0xFF);
         body.write(snapshot.getDirection() & 0xFF);
@@ -118,11 +121,7 @@ public final class Jt808LegacyMessages {
             body.write(snapshot.getBusNo() & 0xFF);
             body.write(0x00);
         } else {
-            byte[] busNoBytes = Jt808CodecSupport.toDword(snapshot.getBusNo());
-            body.write(0x00);
-            body.write(0x00);
-            body.write(busNoBytes[2]);
-            body.write(busNoBytes[3]);
+            write(body, new byte[]{0x00, 0x00, 0x00, 0x00});
             body.write(snapshot.getBusNo() & 0xFF);
             body.write(0x00);
         }
@@ -136,7 +135,7 @@ public final class Jt808LegacyMessages {
         if (variant == Jt808Variant.AL808) {
             write(body, new byte[]{0x00, 0x00, 0x00});
         } else {
-            write(body, new byte[]{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00});
+            write(body, new byte[]{0x00, 0x00, 0x00});
         }
         return new Jt808Frame(
                 variant,

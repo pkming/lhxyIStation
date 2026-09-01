@@ -424,7 +424,7 @@ Time: %3$s</string>
     <string-array name="arrayprotocoldispatch">
         <item>None</item>
         <item>ALINK</item>
-        <item>AL808</item>
+        <item>CC808</item>
     </string-array>
 
     <string-array name="arraybaud">

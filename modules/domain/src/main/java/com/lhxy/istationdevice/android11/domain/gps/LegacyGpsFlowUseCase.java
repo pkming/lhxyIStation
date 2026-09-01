@@ -34,6 +34,10 @@ public final class LegacyGpsFlowUseCase {
         return routeCatalog.loadByLineNumber(context, lineNumber, directionText);
     }
 
+    public int resolveLineNumber(Context context, String lineName) {
+        return routeCatalog.resolveLineNumber(context, lineName);
+    }
+
     /**
      * 解析当前激活线路。
      * <p>

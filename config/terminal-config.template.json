@@ -172,11 +172,11 @@
   },
   "location": {
     "mode": "real",
-    "enabled": false,
+    "enabled": true,
     "provider": "gps",
     "minTimeMs": 1000,
     "minDistanceMeters": 0,
-    "note": "Android LocationManager 接入面；当前 GPS 主链仍走 ttyS5 NMEA"
+    "note": "测试流程默认使用固定线路坐标；关闭 enabled 后走 ttyS5 NMEA 真实 GPS"
   },
   "can": {
     "mode": "real",
@@ -216,8 +216,8 @@
   },
   "basicSetup": {
     "newspaper": {
-      "innerVolume": 7,
-      "outerVolume": 7,
+      "innerVolume": 2,
+      "outerVolume": 2,
       "lineProperty": "up_down",
       "angleEnabled": true,
       "dialectEnabled": false,
@@ -227,7 +227,8 @@
       "speedingWarningEnabled": true
     },
     "network": {
-      "dispatchId": "18612345678",
+      "dispatchId": "018612345678",
+      "dispatchProtocol": "CC808",
       "longInterval": 30,
       "infoInterval": 5,
       "speedingInterval": 10,
@@ -244,16 +245,16 @@
     },
     "tts": {
       "enabled": true,
-      "innerVolume": 8,
-      "outerVolume": 8,
+      "innerVolume": 2,
+      "outerVolume": 2,
       "stationPlaybackMode": "mixed"
     },
     "language": {
       "languageCode": "auto"
     },
     "other": {
-      "shoutingVolume": 50,
-      "dispatchVolume": 7,
+      "shoutingVolume": 15,
+      "dispatchVolume": 2,
       "vehicleNumber": "",
       "shoutingPrimaryGpioKey": "shouting_outer",
       "shoutingSecondaryGpioKey": "shouting_inner"

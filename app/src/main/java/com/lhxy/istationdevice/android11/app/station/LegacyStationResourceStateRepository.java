@@ -43,6 +43,28 @@ public final class LegacyStationResourceStateRepository {
         updateState(context, current.isImported(), source, lineName, directionText, lineAttribute);
     }
 
+    /**
+     * Restores the bundled default route after a runtime-config reset. A real
+     * imported route remains untouched so a user's explicit line choice wins.
+     */
+    public static boolean ensureDefaultRouteSelection(
+            @NonNull Context context,
+            @NonNull String source,
+            @NonNull String lineName,
+            @NonNull String directionText,
+            @NonNull String lineAttribute
+    ) {
+        StationResourceState current = getState(context);
+        if (current.isImported()
+                && current.getLineName() != null
+                && !current.getLineName().trim().isEmpty()
+                && !"-".equals(current.getLineName().trim())) {
+            return false;
+        }
+        updateState(context, true, source, lineName, directionText, lineAttribute);
+        return true;
+    }
+
     private static void updateState(
             @NonNull Context context,
             boolean imported,
@@ -72,6 +94,9 @@ public final class LegacyStationResourceStateRepository {
                 current.getCameraConfig(),
                 current.getRfidConfig(),
                 current.getSystemConfig(),
+                current.getLocationConfig(),
+                current.getCanConfig(),
+                current.getKeyboardConfig(),
                 current.getDebugReplay(),
                 new ShellConfig.BasicSetupConfig(
                         basicSetup.getNewspaperSettings(),

@@ -23,7 +23,8 @@ public final class DispatchState {
     private boolean reportedVehicleFailure;
     private int replayCount;
     private long lineGuid = 1001L;
-    private int timesNo = 1;
+    // Legacy SPUserInfoUtils.TIMESNO defaults to "0" until a dispatch plan arrives.
+    private int timesNo;
     private int overtimeMinutes = -1;
     private int overtimeSpeakIntervalMinutes = -1;
     private int prepareSpeakIntervalMinutes = -1;

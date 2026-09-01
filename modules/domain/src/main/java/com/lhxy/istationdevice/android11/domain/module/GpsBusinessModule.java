@@ -2,6 +2,9 @@ package com.lhxy.istationdevice.android11.domain.module;
 
 import android.content.Context;
 
+import com.lhxy.istationdevice.android11.core.AppLogCenter;
+import com.lhxy.istationdevice.android11.core.LogCategory;
+import com.lhxy.istationdevice.android11.core.LogLevel;
 import com.lhxy.istationdevice.android11.deviceapi.SystemOps;
 import com.lhxy.istationdevice.android11.domain.config.ShellConfig;
 import com.lhxy.istationdevice.android11.domain.gps.GpsSerialMonitor;
@@ -14,6 +17,11 @@ import com.lhxy.istationdevice.android11.deviceapi.SerialPortAdapter;
 import com.lhxy.istationdevice.android11.protocol.gps.GpsFixSnapshot;
 
 import java.util.Calendar;
+import java.util.List;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 
 /**
  * GPS 独立业务模块。
@@ -23,6 +31,8 @@ import java.util.Calendar;
  * 查找关键字：GPS 绑定、自动报站判定、线路扫描、GPS 校时。
  */
 public final class GpsBusinessModule extends AbstractTerminalBusinessModule {
+    private static final String TAG = "GpsBusinessModule";
+    private static final long SYNTHETIC_GPS_INTERVAL_MS = 10_000L;
     private final SerialPortAdapter serialPortAdapter;
     private final GpsSerialMonitor gpsSerialMonitor;
     private final SystemOps systemOps;
@@ -31,12 +41,25 @@ public final class GpsBusinessModule extends AbstractTerminalBusinessModule {
     private final GpsState gpsState = new GpsState();
     private volatile boolean gpsTimeInitialized;
     private volatile String lastGpsTimeKey = "-";
+    private final ScheduledExecutorService syntheticGpsExecutor = Executors.newSingleThreadScheduledExecutor(runnable -> {
+        Thread thread = new Thread(runnable, "synthetic-gps");
+        thread.setDaemon(true);
+        return thread;
+    });
+    private volatile boolean syntheticGpsRunning;
+    private volatile int syntheticGpsStep;
+    private ScheduledFuture<?> syntheticGpsTask;
+    private Runnable syntheticGpsStartListener;
 
     public GpsBusinessModule(SerialPortAdapter serialPortAdapter, GpsSerialMonitor gpsSerialMonitor, SystemOps systemOps) {
         this.serialPortAdapter = serialPortAdapter;
         this.gpsSerialMonitor = gpsSerialMonitor;
         this.systemOps = systemOps;
         this.gpsSerialMonitor.addSnapshotListener(this::onGpsSnapshot);
+    }
+
+    public void attachSyntheticGpsStartListener(Runnable listener) {
+        syntheticGpsStartListener = listener;
     }
 
     @Override
@@ -66,6 +89,9 @@ public final class GpsBusinessModule extends AbstractTerminalBusinessModule {
         if (getContext() != null && hasPreferredLineName()) {
             inspectActiveRoute();
         }
+        // Synthetic GPS is a test tool. Loading a saved config must not start a moving
+        // route and the station reporter as a side effect of application startup.
+        stopSyntheticGps("gps-context-no-auto-test");
     }
 
     @Override
@@ -114,6 +140,9 @@ public final class GpsBusinessModule extends AbstractTerminalBusinessModule {
     private ModuleRunResult bindGps(String traceId) {
         try {
             ShellConfig.SerialChannel gpsChannel = ensureGpsReady(traceId);
+            // Keep the replay workflow explicit: pressing "bind GPS" starts the
+            // configured fixed-route stream, while context refresh alone never does.
+            syncSyntheticGps();
             LegacyGpsRouteResource route = hasPreferredLineName() ? inspectActiveRoute() : null;
             String detail = "GPS 已绑定到 " + gpsChannel.getKey() + "/" + gpsChannel.getPortName();
             if (route != null) {
@@ -305,6 +334,158 @@ public final class GpsBusinessModule extends AbstractTerminalBusinessModule {
         gpsState.bindMonitor(gpsChannel.getKey(), gpsChannel.getPortName(), true);
         gpsState.applySnapshot(gpsSerialMonitor.getLatestSnapshot());
         return gpsChannel;
+    }
+
+    private synchronized void syncSyntheticGps() {
+        ShellConfig shellConfig = requireShellConfig();
+        // Test coordinates are an explicit GPS workflow switch. They must not be
+        // coupled to LocationManager's implementation mode because the production
+        // device may still report mode=real while the station flow is being tested.
+        boolean enabled = shellConfig.getLocationConfig().isEnabled();
+        if (!enabled || getContext() == null || !hasPreferredLineName()) {
+            syntheticGpsRunning = false;
+            if (syntheticGpsTask != null) {
+                syntheticGpsTask.cancel(false);
+                syntheticGpsTask = null;
+            }
+            return;
+        }
+        if (syntheticGpsRunning) {
+            return;
+        }
+        if (syntheticGpsStartListener != null) {
+            syntheticGpsStartListener.run();
+        }
+        syntheticGpsRunning = true;
+        syntheticGpsStep = 0;
+        long intervalMs = Math.max(SYNTHETIC_GPS_INTERVAL_MS, shellConfig.getLocationConfig().getMinTimeMs());
+        syntheticGpsTask = syntheticGpsExecutor.scheduleAtFixedRate(
+                this::publishSyntheticGps,
+                0L,
+                intervalMs,
+                TimeUnit.MILLISECONDS
+        );
+        AppLogCenter.log(LogCategory.BIZ, LogLevel.WARN, TAG,
+                "已手动启用测试定位，按 1 -> 1.5 -> 2 -> 2.5 顺序生成 GPS，终点后停止 / intervalMs=" + intervalMs,
+                "gps-synthetic-start");
+    }
+
+    private synchronized void stopSyntheticGps(String traceId) {
+        syntheticGpsRunning = false;
+        if (syntheticGpsTask != null) {
+            syntheticGpsTask.cancel(false);
+            syntheticGpsTask = null;
+            gpsSerialMonitor.finishSyntheticSnapshot();
+            AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, TAG,
+                    "已停止测试定位，启动阶段不自动生成 GPS",
+                    traceId);
+        }
+    }
+
+    private void publishSyntheticGps() {
+        try {
+            Context context = getContext();
+            ShellConfig shellConfig = requireShellConfig();
+            LegacyGpsRouteResource route = gpsFlowUseCase.resolveActiveRoute(
+                    context, shellConfig, gpsState.getLineName(), gpsState.getDirectionText());
+            if (route == null || route.getStations().isEmpty()) {
+                return;
+            }
+            List<LegacyGpsRouteResource.StationPoint> stations = route.getStations();
+            int totalSteps = stations.size() * 2 - 1;
+            int step = syntheticGpsStep++;
+            if (step >= totalSteps) {
+                stopSyntheticGps("gps-synthetic-complete");
+                return;
+            }
+            boolean departure = (step & 1) == 1;
+            int index = step / 2;
+            LegacyGpsRouteResource.StationPoint point = stations.get(index);
+            double[] coordinate = departure
+                    ? buildSyntheticDepartureCoordinate(stations, index)
+                    : new double[]{point.getLatitudeDecimal(), point.getLongitudeDecimal()};
+            String now = new java.text.SimpleDateFormat("HHmmss.SS", java.util.Locale.US)
+                    .format(new java.util.Date());
+            String latitude = formatSyntheticCoordinate(coordinate[0]);
+            String longitude = formatSyntheticCoordinate(coordinate[1]);
+            String latitudeRaw = decimalToNmea(coordinate[0], true);
+            String longitudeRaw = decimalToNmea(coordinate[1], false);
+            String displayPosition = (index + 1) + (departure ? ".5" : "");
+            GpsFixSnapshot snapshot = new GpsFixSnapshot(
+                    "$GPRMC," + now + ",A," + latitudeRaw + ",N," + longitudeRaw + ",E,0.00,0.0,010126,,,A*00",
+                    true,
+                    1,
+                    3,
+                    now,
+                    "010126",
+                    latitudeRaw,
+                    "N",
+                    latitude,
+                    longitudeRaw,
+                    "E",
+                    longitude,
+                    "0.00",
+                    point.getAngle(),
+                    point.getAltitude(),
+                    8
+            );
+            gpsSerialMonitor.publishSyntheticSnapshot(snapshot, "gps-synthetic-" + displayPosition);
+            AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, TAG,
+                    "测试定位已发布 phase=" + (departure ? "DEPARTURE" : "ARRIVAL")
+                            + " / displayPosition=" + displayPosition
+                            + " / stationNo=" + point.getStationNo()
+                            + " / station=" + point.getStationName()
+                            + " / lat=" + latitude
+                            + " / lon=" + longitude,
+                    "gps-synthetic-" + displayPosition);
+            if (step == totalSteps - 1) {
+                stopSyntheticGps("gps-synthetic-complete");
+            }
+        } catch (Exception exception) {
+            AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, TAG,
+                    "测试定位发布失败: " + exception.getMessage(), "gps-synthetic");
+        }
+    }
+
+    private String formatSyntheticCoordinate(double coordinate) {
+        return String.format(java.util.Locale.US, "%.6f", coordinate);
+    }
+
+    private double[] buildSyntheticDepartureCoordinate(
+            List<LegacyGpsRouteResource.StationPoint> stations,
+            int stationIndex
+    ) {
+        LegacyGpsRouteResource.StationPoint current = stations.get(stationIndex);
+        LegacyGpsRouteResource.StationPoint next = stations.get(stationIndex + 1);
+        double latitude = current.getLatitudeDecimal();
+        double longitude = current.getLongitudeDecimal();
+        double meters = Math.max(30d, current.getMileage() + 25d);
+        double latitudeScale = 111_320d;
+        double longitudeScale = latitudeScale * Math.max(0.1d, Math.cos(Math.toRadians(latitude)));
+        double east = (next.getLongitudeDecimal() - longitude) * longitudeScale;
+        double north = (next.getLatitudeDecimal() - latitude) * latitudeScale;
+        double routeLength = Math.sqrt(east * east + north * north);
+        if (routeLength < 0.1d) {
+            return new double[]{latitude, longitude + meters / longitudeScale};
+        }
+        double offsetEast = -north / routeLength * meters;
+        double offsetNorth = east / routeLength * meters;
+        return new double[]{
+                latitude + offsetNorth / latitudeScale,
+                longitude + offsetEast / longitudeScale
+        };
+    }
+
+    private String decimalToNmea(double coordinate, boolean latitude) {
+        double absolute = Math.abs(coordinate);
+        int degrees = (int) absolute;
+        double minutes = (absolute - degrees) * 60d;
+        return String.format(
+                java.util.Locale.US,
+                latitude ? "%02d%07.4f" : "%03d%07.4f",
+                degrees,
+                minutes
+        );
     }
 
     /**

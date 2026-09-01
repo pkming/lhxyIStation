@@ -370,9 +370,13 @@ public final class LegacyVoiceCallActivity extends LegacyBaseActivity {
                 audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);
                 audioManager.setSpeakerphoneOn(false);
                 int max = audioManager.getStreamMaxVolume(AudioManager.STREAM_VOICE_CALL);
-                int target = shellRuntime.getActiveConfig() == null
-                        ? max
-                        : Math.max(0, Math.min(shellRuntime.getActiveConfig().getBasicSetupConfig().getOtherSettings().getShoutingVolume(), max));
+                int percent = shellRuntime.getActiveConfig() == null
+                        ? 15
+                        : shellRuntime.getActiveConfig().getBasicSetupConfig().getOtherSettings().getShoutingVolume();
+                int target = Math.max(
+                        0,
+                        Math.min(Math.round(max * Math.max(0, Math.min(percent, 100)) / 100.0f), max)
+                );
                 audioManager.setStreamVolume(AudioManager.STREAM_VOICE_CALL, target, 0);
             } else {
                 audioManager.setSpeakerphoneOn(false);

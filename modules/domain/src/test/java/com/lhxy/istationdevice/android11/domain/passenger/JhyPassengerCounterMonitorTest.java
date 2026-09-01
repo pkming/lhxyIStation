@@ -101,7 +101,7 @@ public final class JhyPassengerCounterMonitorTest {
                 ShellConfig.CameraConfig.empty(),
             ShellConfig.RfidConfig.stub(),
             ShellConfig.SystemConfig.stub(),
-            ShellConfig.LocationConfig.stub(),
+            ShellConfig.LocationConfig.defaults(),
             ShellConfig.CanConfig.empty(),
             ShellConfig.KeyboardConfig.stub(),
             ShellConfig.DebugReplay.defaultReplay(),

@@ -35,6 +35,7 @@ public final class GpsSerialMonitor {
     private volatile GpsFixSnapshot latestSnapshot;
     private volatile GpsFixSnapshot latestUsableSnapshot;
     private volatile SerialPortAdapter attachedAdapter;
+    private volatile boolean syntheticSnapshotActive;
     private volatile long lastRawReceiveTimeMs;
     private volatile long lastValidFixTimeMs;
     private long rawPacketCount;
@@ -60,6 +61,7 @@ public final class GpsSerialMonitor {
         streamParser.reset();
         latestSnapshot = null;
         latestUsableSnapshot = null;
+        syntheticSnapshotActive = false;
         lastRawReceiveTimeMs = 0L;
         lastValidFixTimeMs = 0L;
         resetLogState();
@@ -91,6 +93,7 @@ public final class GpsSerialMonitor {
         attachedAdapter = null;
         latestSnapshot = null;
         latestUsableSnapshot = null;
+        syntheticSnapshotActive = false;
         lastRawReceiveTimeMs = 0L;
         lastValidFixTimeMs = 0L;
         safeLog(LogCategory.BIZ, LogLevel.INFO, TAG, "已解绑 GPS 串口监听: " + portName, traceId);
@@ -110,6 +113,38 @@ public final class GpsSerialMonitor {
         return usableSnapshot == null ? latestSnapshot : usableSnapshot;
     }
 
+    /**
+     * Publishes a controlled fix for field testing when the physical receiver has no fix.
+     * This follows the same listener path as a real NMEA fix, so position reports
+     * and automatic station logic remain exercised end to end.
+     */
+    public void publishSyntheticSnapshot(GpsFixSnapshot snapshot, String traceId) {
+        if (snapshot == null) {
+            return;
+        }
+        long now = clock.getAsLong();
+        syntheticSnapshotActive = true;
+        lastRawReceiveTimeMs = now;
+        latestSnapshot = snapshot;
+        if (hasUsableCoordinates(snapshot) && snapshot.isValid()) {
+            latestUsableSnapshot = snapshot;
+        }
+        if (isAuthoritativeValidFix(snapshot)) {
+            lastValidFixTimeMs = now;
+        }
+        logFixIfNeeded(snapshot, traceId == null ? "gps-synthetic" : traceId);
+        notifySnapshotListeners(snapshot);
+    }
+
+    /**
+     * Stops treating the last published snapshot as a synthetic source.
+     * The snapshot itself remains available briefly so the final station event
+     * can finish while the real receiver resumes normal ownership.
+     */
+    public void finishSyntheticSnapshot() {
+        syntheticSnapshotActive = false;
+    }
+
     public GpsConnectionState getConnectionState() {
         String portName = attachedPortName;
         SerialPortAdapter adapter = attachedAdapter;
@@ -118,6 +153,9 @@ public final class GpsSerialMonitor {
         }
         if (!adapter.isOpen(portName)) {
             return GpsConnectionState.RECONNECTING;
+        }
+        if (syntheticSnapshotActive && latestSnapshot != null && latestSnapshot.isValid()) {
+            return GpsConnectionState.FIXED;
         }
         long now = clock.getAsLong();
         if (lastRawReceiveTimeMs <= 0L) {
@@ -197,6 +235,12 @@ public final class GpsSerialMonitor {
             logRawSampleIfNeeded(portName, payload, traceId);
             List<GpsFixSnapshot> snapshots = streamParser.accept(payload);
             for (GpsFixSnapshot snapshot : snapshots) {
+                // A physical receiver can keep emitting no-fix sentences while
+                // the explicit fixed-route replay is being exercised. Those
+                // sentences must not replace or expire the controlled position.
+                if (syntheticSnapshotActive) {
+                    continue;
+                }
                 latestSnapshot = snapshot;
                 if (hasUsableCoordinates(snapshot) && snapshot.isValid()) {
                     latestUsableSnapshot = snapshot;

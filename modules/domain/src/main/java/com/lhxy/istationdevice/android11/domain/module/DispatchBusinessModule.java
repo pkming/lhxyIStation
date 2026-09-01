@@ -18,6 +18,7 @@ import com.lhxy.istationdevice.android11.domain.dispatch.Jt808CrossInfoPacketFac
 import com.lhxy.istationdevice.android11.domain.dispatch.Jt808OverspeedInfoPacketFactory;
 import com.lhxy.istationdevice.android11.domain.gps.GpsSerialMonitor;
 import com.lhxy.istationdevice.android11.domain.gps.LegacyGpsAutoReportEngine;
+import com.lhxy.istationdevice.android11.domain.gps.LegacyGpsFlowUseCase;
 import com.lhxy.istationdevice.android11.domain.gps.LegacyGpsRouteResource;
 import com.lhxy.istationdevice.android11.domain.module.state.SignInState;
 import com.lhxy.istationdevice.android11.domain.module.state.StationState;
@@ -33,6 +34,8 @@ import com.lhxy.istationdevice.android11.protocol.jt808.Jt808DispatchPlanCommand
 import com.lhxy.istationdevice.android11.protocol.jt808.Jt808Frame;
 import com.lhxy.istationdevice.android11.protocol.jt808.Jt808GeneralResponse;
 import com.lhxy.istationdevice.android11.protocol.jt808.Jt808LegacyMessages;
+import com.lhxy.istationdevice.android11.protocol.jt808.Cc808LegacyMessages;
+import com.lhxy.istationdevice.android11.protocol.jt808.Jt808LineSwitchSnapshot;
 import com.lhxy.istationdevice.android11.protocol.jt808.Jt808PositionSnapshot;
 import com.lhxy.istationdevice.android11.protocol.jt808.Jt808ProfessionResponse;
 import com.lhxy.istationdevice.android11.protocol.jt808.Jt808ProfessionResponseParser;
@@ -79,16 +82,19 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
     private static final int MSG_VEHICLE_OPERATION = 0x8B05;
     private static final int MSG_PROFESSION_RESPONSE = 0x8B09;
     private static final int MSG_PLATFORM_UPGRADE = 0x8B0A;
+    private static final int CC808_VEHICLE_STATUS = 1;
     private static final long PLATFORM_TEXT_DISPLAY_MILLIS = 10_000L;
     private final ProtocolReplayUseCase protocolReplayUseCase;
     private final SocketClientAdapter socketClientAdapter;
     private final Jt808SocketMonitor jt808SocketMonitor;
     private final DvrSerialDispatchUseCase dvrSerialDispatchUseCase;
     private final GpsSerialMonitor gpsSerialMonitor;
+    private final LegacyGpsFlowUseCase gpsFlowUseCase = new LegacyGpsFlowUseCase();
     private final DispatchProfessionRequestPacketFactory professionRequestPacketFactory = new DispatchProfessionRequestPacketFactory();
     private final Jt808CrossInfoPacketFactory crossInfoPacketFactory = new Jt808CrossInfoPacketFactory();
     private final Jt808OverspeedInfoPacketFactory overspeedInfoPacketFactory = new Jt808OverspeedInfoPacketFactory();
     private final Jt808LegacyMessages jt808Messages = new Jt808LegacyMessages();
+    private final Cc808LegacyMessages cc808Messages = new Cc808LegacyMessages();
     private final DispatchState dispatchState = new DispatchState();
     private final LegacyStationAudioUseCase stationAudioUseCase;
     private final LegacyStationDisplayUseCase stationDisplayUseCase;
@@ -105,8 +111,15 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
     private long lastSocketReportTimeMs;
     // 已成功注册过的 socket 通道名；断开/换通道时复位，避免重复发注册帧。
     private String registeredSocketChannel = "";
-    // 上次已上报的报站 key（stationNo:type）；站点变化时才发 0x0b02，断开/重连时复位以重报当前站。
+    private int pendingRegisterSerialNumber = -1;
+    private boolean socketRegistrationAccepted;
+    // V32 reports the active route with 0x0B0B before station progress starts.
+    private String reportedLineSwitchKey = "";
+    // 上次已上报的报站 key（stationNo:type）；断开/重连时复位以重报当前站。
     private String lastReportedStationKey = "";
+    // V32 preserves the last arrival timestamp and reuses it in the matching
+    // departure report. The platform can use the pair to derive stationState.
+    private String lastStationArrivalTime = "";
     private String lastDepartureReminderKey = "-";
     private long lastDepartureMillisUntil = Long.MIN_VALUE;
     private Supplier<SignInState> signInStateSupplier;
@@ -164,6 +177,45 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
     ) {
         this.signInStateSupplier = signInStateSupplier;
         this.stationStateSupplier = stationStateSupplier;
+    }
+
+    /**
+     * Immediately report the current station after a manual or automatic station action.
+     * The legacy station button path sends only the station frame. Heartbeat and position
+     * remain owned by the periodic GPS task.
+     */
+    public synchronized void reportStationProgress(String traceId) {
+        try {
+            ShellConfig shellConfig = requireShellConfig();
+            ShellConfig.SocketChannel channel = resolveActiveDispatchChannel(shellConfig);
+            if (!isUsableSocketChannel(channel)
+                    || !socketClientAdapter.isConnected(channel.getChannelName())
+                    || !socketRegistrationAccepted) {
+                return;
+            }
+            Jt808Variant variant = resolveDispatchVariant(shellConfig, channel);
+            Jt808TerminalProfile profile = buildTerminalProfile(shellConfig, variant);
+            StationState station = resolveStationState();
+            boolean lineSwitchReady = ensureCc808LineSwitchReported(
+                    shellConfig,
+                    channel,
+                    profile.getTerminalId(),
+                    traceId + "-line-switch"
+            );
+            sendStationReportIfChanged(
+                    shellConfig,
+                    channel,
+                    variant,
+                    profile,
+                    station,
+                    getLatestGpsSnapshot(),
+                    lineSwitchReady,
+                    traceId + "-station-now"
+            );
+        } catch (Exception e) {
+            AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, TAG,
+                    "即时上报站点失败: " + emptyAsDash(e.getMessage()), traceId);
+        }
     }
 
     @Override
@@ -298,26 +350,50 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
         try {
             ShellConfig shellConfig = requireShellConfig();
             ShellConfig.SocketChannel socketChannel = shellConfig.requireSocketChannel(shellConfig.getDebugReplay().getJt808SocketKey());
-            DispatchProfessionRequestPacketFactory.BuiltPacket request = professionRequestPacketFactory.buildRequest(
-                    shellConfig,
-                    dispatchState,
-                    resolveSignInState(),
-                    resolveStationState(),
-                    getLatestGpsSnapshot(),
-                    requestType
-            );
+            DispatchProfessionRequestPacketFactory.BuiltPacket request = null;
+            byte[] payload;
+            int serialNumber;
+            if (isCc808(shellConfig)) {
+                StationState station = resolveStationState();
+                SignInState signIn = resolveSignInState();
+                GpsFixSnapshot gps = getLatestGpsSnapshot();
+                boolean validFix = gps != null && gps.isValid();
+                Jt808TerminalProfile profile = buildTerminalProfile(shellConfig, Jt808Variant.CC808);
+                Jt808Frame frame = cc808Messages.createProfessionRequest(
+                        profile.getTerminalId(),
+                        station.getLineName(),
+                        signIn.getCardNo(),
+                        requestType,
+                        compactNowTime(),
+                        validFix ? gps.getLongitudeDecimal() : "0",
+                        validFix ? gps.getLatitudeDecimal() : "0"
+                );
+                payload = cc808Messages.encode(frame);
+                serialNumber = frame.getSerialNumber();
+            } else {
+                request = professionRequestPacketFactory.buildRequest(
+                        shellConfig,
+                        dispatchState,
+                        resolveSignInState(),
+                        resolveStationState(),
+                        getLatestGpsSnapshot(),
+                        requestType
+                );
+                payload = request.getPayload();
+                serialNumber = request.getSerialNumber();
+            }
             if (!socketClientAdapter.isConnected(socketChannel.getChannelName())) {
                 socketClientAdapter.connect(socketChannel.toSocketEndpointConfig(), traceId + "-connect");
             }
-            pendingProfessionRequestTypes.put(request.getSerialNumber(), request.getRequestType());
-            socketClientAdapter.send(socketChannel.getChannelName(), request.getPayload(), traceId + "-send");
+            pendingProfessionRequestTypes.put(serialNumber, requestType);
+            socketClientAdapter.send(socketChannel.getChannelName(), payload, traceId + "-send");
             AppLogCenter.log(
                     LogCategory.BIZ,
                     LogLevel.INFO,
                     TAG,
                     "职业请求已发送 type=" + requestType
                             + " / channel=" + socketChannel.getKey()
-                            + " / serial=" + request.getSerialNumber()
+                            + " / serial=" + serialNumber
                             + " / state=" + dispatchState.describe(),
                     traceId
             );
@@ -388,11 +464,13 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
         socketReportExecutor.shutdownNow();
         socketReportExecutor = null;
         socketReportIntervalSeconds = 0;
-        registeredSocketChannel = "";
+        resetSocketRegistrationState();
+        reportedLineSwitchKey = "";
+        lastStationArrivalTime = "";
         lastReportedStationKey = "";
     }
 
-    private void sendPeriodicSocketReport(String traceId) {
+    private synchronized void sendPeriodicSocketReport(String traceId) {
         try {
             ShellConfig shellConfig = requireShellConfig();
             // 对齐 V32：不因串口调度启用而跳过 socket 上报
@@ -403,64 +481,248 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
             Jt808Variant variant = resolveDispatchVariant(shellConfig, channel);
             Jt808TerminalProfile profile = buildTerminalProfile(shellConfig, variant);
             String channelName = channel.getChannelName();
+            boolean cc808 = isCc808(shellConfig);
 
             // 1) 连接（断开则复位注册标记，重连后会重发注册）
             if (!socketClientAdapter.isConnected(channelName)) {
                 socketClientAdapter.connect(channel.toSocketEndpointConfig(), traceId + "-connect");
-                registeredSocketChannel = "";
+                resetSocketRegistrationState();
+                reportedLineSwitchKey = "";
+                lastStationArrivalTime = "";
                 lastReportedStationKey = ""; // 重连后重报当前站
             }
             // 2) 首次注册 0x0100
             if (!channelName.equals(registeredSocketChannel)) {
-                socketClientAdapter.send(channelName,
-                        jt808Messages.encode(jt808Messages.createRegister(variant, profile)),
-                        traceId + "-register");
+                Jt808Frame registerFrame = cc808
+                        ? cc808Messages.createRegister(profile)
+                        : jt808Messages.createRegister(variant, profile);
                 registeredSocketChannel = channelName;
+                pendingRegisterSerialNumber = registerFrame.getSerialNumber();
+                socketRegistrationAccepted = false;
+                socketClientAdapter.send(channelName,
+                        cc808 ? cc808Messages.encode(registerFrame) : jt808Messages.encode(registerFrame),
+                        traceId + "-register");
                 AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, TAG,
                         "调度 socket 已发送注册 channel=" + channel.getKey()
                                 + " / variant=" + variant.getProtocolName()
-                                + " / terminalId=" + profile.getTerminalId(), traceId);
+                                + " / terminalId=" + profile.getTerminalId()
+                                + " / serial=" + registerFrame.getSerialNumber(), traceId);
+                return;
+            }
+            if (!socketRegistrationAccepted) {
+                return;
             }
             // 3) 心跳 0x0002
             socketClientAdapter.send(channelName,
-                    jt808Messages.encode(jt808Messages.createHeartbeat(variant, profile.getTerminalId())),
+                    cc808 ? cc808Messages.encode(cc808Messages.createHeartbeat(profile.getTerminalId()))
+                            : jt808Messages.encode(jt808Messages.createHeartbeat(variant, profile.getTerminalId())),
                     traceId + "-heartbeat");
-            // 4) 周期位置 0x0200
+            boolean lineSwitchReady = ensureCc808LineSwitchReported(
+                    shellConfig,
+                    channel,
+                    profile.getTerminalId(),
+                    traceId + "-line-switch"
+            );
+            // 4) 周期位置 0x0200。V32 的 GPS 线程在无速度/无有效定位时不会进入位置组包。
             GpsFixSnapshot snapshot = getLatestGpsSnapshot();
-            socketClientAdapter.send(channelName,
-                    jt808Messages.encode(jt808Messages.createPositionReport(variant, profile, buildPositionSnapshot(snapshot))),
-                    traceId + "-position");
+            StationState station = resolveStationState();
+            boolean positionSent = !cc808 || snapshot != null && snapshot.isValid();
+            if (positionSent) {
+                socketClientAdapter.send(channelName,
+                        cc808 ? cc808Messages.encode(cc808Messages.createPositionReport(
+                                        profile,
+                                        buildPositionSnapshot(snapshot),
+                                        String.valueOf(resolveLineNumber(station)),
+                                        cc808RouteDirectionValue(station.getDirectionText()),
+                                        positionStationNumber(station.getCurrentStationNo()),
+                                        CC808_VEHICLE_STATUS,
+                                        station.getSatellites()))
+                                : jt808Messages.encode(jt808Messages.createPositionReport(variant, profile, buildPositionSnapshot(snapshot))),
+                        traceId + "-position");
+            }
 
             socketReportCount++;
             lastSocketReportTimeMs = System.currentTimeMillis();
             dispatchState.markSocketReportSent(channelName);
             AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, TAG,
-                    "调度 socket 已上报心跳+位置 channel=" + channel.getKey()
+                    "调度 socket 已上报心跳" + (positionSent ? "+位置" : "，无有效定位故跳过位置")
+                            + " channel=" + channel.getKey()
                             + " / gpsValid=" + yesNo(snapshot != null && snapshot.isValid())
                             + " / count=" + socketReportCount, traceId);
 
-            // 5) 报站变化时上报 0x0b02（站点号或进出站类型变了才发，避免每轮重发）
-            StationState station = resolveStationState();
-            int stationNo = station.getCurrentStationNo();
-            int stationType = station.getCurrentStationType();
-            String stationKey = stationNo + ":" + stationType;
-            if (stationNo >= 0 && !stationKey.equals(lastReportedStationKey)) {
-                socketClientAdapter.send(channelName,
-                        jt808Messages.encode(jt808Messages.createReportStation(
-                                variant, profile.getTerminalId(), buildReportStationSnapshot(station, snapshot))),
-                        traceId + "-report-station");
-                lastReportedStationKey = stationKey;
-                AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, TAG,
-                        "调度 socket 已上报报站 channel=" + channel.getKey()
-                                + " / stationNo=" + stationNo + " / type=" + stationType
-                                + " / station=" + emptyAsDash(station.getCurrentStation()), traceId);
+            // 5) Report a station-state change once. CC808 uses the legacy
+            // 0x0900 frame; JT808/AL808 uses 0x0B02.
+            if (shouldSendPeriodicStationReport(cc808, snapshot != null && snapshot.isValid())) {
+                sendStationReportIfChanged(
+                        shellConfig,
+                        channel,
+                        variant,
+                        profile,
+                        station,
+                        snapshot,
+                        lineSwitchReady,
+                        traceId
+                );
+            } else {
+                AppLogCenter.log(
+                        LogCategory.BIZ,
+                        LogLevel.INFO,
+                        TAG,
+                        "无有效定位，周期任务跳过自动报站",
+                        traceId + "-station-skip"
+                );
             }
         } catch (Exception e) {
-            registeredSocketChannel = "";
+            resetSocketRegistrationState();
+            reportedLineSwitchKey = "";
+            lastStationArrivalTime = "";
             dispatchState.markSocketReportFailed();
             AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, TAG,
                     "调度 socket 周期上报失败: " + emptyAsDash(e.getMessage()), traceId);
         }
+    }
+
+    private void sendStationReportIfChanged(
+            ShellConfig shellConfig,
+            ShellConfig.SocketChannel channel,
+            Jt808Variant variant,
+            Jt808TerminalProfile profile,
+            StationState station,
+            GpsFixSnapshot snapshot,
+            boolean lineSwitchReady,
+            String traceId
+    ) {
+        int stationNo = station.getCurrentStationNo();
+        int stationType = station.getCurrentStationType();
+        int reportType = station.getCurrentReportType();
+        String stationKey = stationReportKey(
+                stationNo,
+                stationType,
+                reportType,
+                station.getReportCount()
+        );
+        if (stationNo < 0 || stationKey.equals(lastReportedStationKey)) {
+            return;
+        }
+
+        boolean cc808 = isCc808(shellConfig);
+        Jt808ReportStationSnapshot report = buildReportStationSnapshot(station, snapshot);
+        String stationCode = cc808 ? resolveReportStationCode(station) : "";
+        int plannedTrips = dispatchState.getTimesNo();
+        String stationEventTime = compactNowTime();
+        String arrivalTime;
+        String outboundTime;
+        if (report.getStatus() == 0) {
+            lastStationArrivalTime = stationEventTime;
+            arrivalTime = stationEventTime;
+            outboundTime = "000000000000";
+        } else {
+            arrivalTime = lastStationArrivalTime.isEmpty()
+                    ? stationEventTime
+                    : lastStationArrivalTime;
+            outboundTime = stationEventTime;
+        }
+        if (cc808) {
+            socketClientAdapter.send(channel.getChannelName(),
+                    cc808Messages.encode(cc808Messages.createReportStation(
+                            profile.getTerminalId(),
+                            CC808_VEHICLE_STATUS,
+                            stationCode,
+                            plannedTrips,
+                            report.getBusNo(),
+                            cc808RouteDirectionValue(station.getDirectionText()),
+                            String.valueOf(report.getLineNumber()),
+                            arrivalTime,
+                            outboundTime,
+                            reportType,
+                            report.getAngle(),
+                            report.getLongitude(),
+                            report.getLatitude(),
+                            report.getStatus())),
+                    traceId + "-report-station-cc808");
+        } else {
+            socketClientAdapter.send(channel.getChannelName(),
+                    jt808Messages.encode(jt808Messages.createReportStation(
+                            variant, profile.getTerminalId(), report)),
+                    traceId + "-report-station");
+        }
+        lastReportedStationKey = stationKey;
+        if (cc808) {
+            AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, TAG,
+                    "CC808 report station code=" + emptyAsDash(stationCode)
+                            + " / stationNo=" + stationNo + " / type=" + stationType
+                            + " / status=" + report.getStatus()
+                            + " / busNo=" + report.getBusNo()
+                            + " / routeDirection=" + cc808RouteDirectionValue(station.getDirectionText())
+                            + " / arrivalTime=" + arrivalTime
+                            + " / outboundTime=" + outboundTime
+                            + " / plannedTrips=" + plannedTrips + " / reportType=" + reportType
+                            + " / lineSwitchReady=" + yesNo(lineSwitchReady),
+                    traceId + "-site-code");
+        }
+        AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, TAG,
+                "调度 socket 已上报报站 channel=" + channel.getKey()
+                        + " / stationNo=" + stationNo + " / type=" + stationType
+                        + " / station=" + emptyAsDash(station.getCurrentStation()), traceId);
+    }
+
+    private boolean ensureCc808LineSwitchReported(
+            ShellConfig shellConfig,
+            ShellConfig.SocketChannel channel,
+            String terminalId,
+            String traceId
+    ) {
+        if (!isCc808(shellConfig)) {
+            return true;
+        }
+        StationState station = resolveStationState();
+        int lineNumber = resolveLineNumber(station);
+        // The old app passes the resource direction (up=1/down=2) into
+        // 0x0B0B. Position/report-station encoders convert that value to
+        // their own on-wire 0/1 field; line switching writes 1/2 directly.
+        int direction = cc808RouteDirectionValue(station.getDirectionText());
+        String switchKey = lineSwitchKey(channel.getChannelName(), lineNumber, direction);
+        if (switchKey.equals(reportedLineSwitchKey)) {
+            return true;
+        }
+        if (lineNumber <= 0 || !dispatchState.isPlatformOnline(120_000L)) {
+            return false;
+        }
+        Jt808LineSwitchSnapshot snapshot = new Jt808LineSwitchSnapshot(
+                1,
+                lineNumber,
+                direction,
+                1,
+                lineNumber,
+                direction,
+                1,
+                LocalDateTime.now(),
+                0
+        );
+        socketClientAdapter.send(
+                channel.getChannelName(),
+                cc808Messages.encode(cc808Messages.createLineSwitchInfo(terminalId, snapshot)),
+                traceId + "-send"
+        );
+        reportedLineSwitchKey = switchKey;
+        AppLogCenter.log(
+                LogCategory.BIZ,
+                LogLevel.INFO,
+                TAG,
+                "CC808 startup line switch sent line=" + lineNumber + " / direction=" + direction,
+                traceId
+        );
+        return true;
+    }
+
+    private String lineSwitchKey(String channelName, int lineNumber, int direction) {
+        return emptyAsDash(channelName) + ":" + lineNumber + ":" + direction;
+    }
+
+    private void resetSocketRegistrationState() {
+        registeredSocketChannel = "";
+        pendingRegisterSerialNumber = -1;
+        socketRegistrationAccepted = false;
     }
 
     private void handleSocketFrame(String channelName, byte[] rawFrame, Jt808Frame frame) {
@@ -492,11 +754,25 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
             }
             if (messageId == MSG_REGISTER_RESPONSE) {
                 boolean accepted = isRegisterAccepted(frame.getBody());
-                if (accepted) {
+                boolean matchesPendingRegister = channelName.equals(registeredSocketChannel)
+                        && pendingRegisterSerialNumber >= 0
+                        && registerResponseSerial(frame.getBody()) == pendingRegisterSerialNumber;
+                if (accepted && matchesPendingRegister) {
+                    socketRegistrationAccepted = true;
                     dispatchState.markPlatformResponse(messageId, true);
                     sendAuthorityFromRegisterResponse(shellConfig, channel, frame, "dispatch-platform-register-response");
-                } else {
+                } else if (!accepted) {
+                    resetSocketRegistrationState();
                     dispatchState.markPlatformResponse(messageId, false);
+                } else {
+                    AppLogCenter.log(
+                            LogCategory.ERROR,
+                            LogLevel.WARN,
+                            TAG,
+                            "收到注册成功应答但流水号不匹配 expected=" + pendingRegisterSerialNumber
+                                    + " / actual=" + registerResponseSerial(frame.getBody()),
+                            "dispatch-platform-register-response"
+                    );
                 }
                 return;
             }
@@ -817,21 +1093,64 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
             String traceId
     ) {
         Jt808Variant variant = requestedVariant == null ? Jt808Variant.JT808 : requestedVariant;
-        socketClientAdapter.send(
-                channelName,
-                jt808Messages.encode(
-                        jt808Messages.createGeneralResponse(
-                                variant,
-                                terminalId,
-                                new Jt808GeneralResponse(
-                                        requestSerialNumber,
-                                        responseMessageId,
-                                        result
-                                )
-                        )
-                ),
-                traceId + "-general-response"
+        Jt808GeneralResponse response = new Jt808GeneralResponse(
+                requestSerialNumber,
+                responseMessageId,
+                result
         );
+        byte[] payload = variant == Jt808Variant.CC808
+                ? cc808Messages.encode(cc808Messages.createGeneralResponse(terminalId, response))
+                : jt808Messages.encode(jt808Messages.createGeneralResponse(variant, terminalId, response));
+        socketClientAdapter.send(channelName, payload, traceId + "-general-response");
+    }
+
+    /** 线路选择完成后，按旧 CC808 主链上报 0x0B0B。 */
+    public void sendLineSwitchReport(
+            String firstLineName,
+            int firstDirection,
+            int firstBusNo,
+            String lineName,
+            int direction,
+            int busNo,
+            int type,
+            String traceId
+    ) {
+        try {
+            ShellConfig shellConfig = requireShellConfig();
+            ShellConfig.SocketChannel channel = resolveActiveDispatchChannel(shellConfig);
+            if (!isUsableSocketChannel(channel)) {
+                return;
+            }
+            if (!socketClientAdapter.isConnected(channel.getChannelName())) {
+                socketClientAdapter.connect(channel.toSocketEndpointConfig(), traceId + "-connect");
+            }
+            String terminalId = shellConfig.getBasicSetupConfig().getNetworkSettings().getDispatchId();
+            Jt808LineSwitchSnapshot snapshot = new Jt808LineSwitchSnapshot(
+                    type,
+                    resolveLineNumber(firstLineName, "上行"),
+                    firstDirection,
+                    firstBusNo,
+                    resolveLineNumber(lineName, direction == 2 ? "下行" : "上行"),
+                    direction,
+                    busNo,
+                    LocalDateTime.now(),
+                    0
+            );
+            Jt808Variant variant = resolveDispatchVariant(shellConfig, channel);
+            Jt808Frame frame = variant == Jt808Variant.CC808
+                    ? cc808Messages.createLineSwitchInfo(terminalId, snapshot)
+                    : jt808Messages.createLineSwitchInfo(variant, terminalId, snapshot);
+            socketClientAdapter.send(channel.getChannelName(),
+                    variant == Jt808Variant.CC808 ? cc808Messages.encode(frame) : jt808Messages.encode(frame),
+                    traceId + "-send");
+            AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, TAG,
+                    "线路切换上报已发送 variant=" + variant.getProtocolName()
+                            + " / firstLine=" + firstLineName + " / line=" + lineName,
+                    traceId);
+        } catch (Exception e) {
+            AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, TAG,
+                    "线路切换上报失败: " + emptyAsDash(e.getMessage()), traceId);
+        }
     }
 
     public interface PlatformLineSwitchHandler {
@@ -875,6 +1194,13 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
         return body != null && body.length >= 3 && (body[2] & 0xFF) == 0x00;
     }
 
+    private int registerResponseSerial(byte[] body) {
+        if (body == null || body.length < 2) {
+            return -1;
+        }
+        return ((body[0] & 0xFF) << 8) | (body[1] & 0xFF);
+    }
+
     private boolean isGeneralResponseAccepted(byte[] body) {
         return body != null && body.length >= 5 && (body[4] & 0xFF) == 0x00;
     }
@@ -896,9 +1222,12 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
             } else {
                 authorityCode = null;
             }
-            byte[] payload = authorityCode == null || authorityCode.length == 0
-                    ? jt808Messages.encode(jt808Messages.createAuthority(variant, profile))
-                    : jt808Messages.encode(jt808Messages.createAuthority(variant, profile.getTerminalId(), authorityCode));
+            boolean cc808 = isCc808(shellConfig);
+            byte[] payload = cc808
+                    ? cc808Messages.encode(cc808Messages.createAuthority(profile.getTerminalId(), authorityCode))
+                    : authorityCode == null || authorityCode.length == 0
+                            ? jt808Messages.encode(jt808Messages.createAuthority(variant, profile))
+                            : jt808Messages.encode(jt808Messages.createAuthority(variant, profile.getTerminalId(), authorityCode));
             socketClientAdapter.send(channel.getChannelName(), payload, traceId + "-authority");
             AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, TAG,
                     "调度平台注册应答已通过，已补发鉴权 channel=" + channel.getKey()
@@ -912,11 +1241,19 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
 
     private ShellConfig.SocketChannel resolveActiveDispatchChannel(ShellConfig shellConfig) {
         try {
-            return shellConfig.requireSocketChannel(shellConfig.getDebugReplay().getJt808SocketKey());
+            // CC808/AL808 deployments use the AL808 socket. The old lookup always
+            // selected the JT808 key, which silently disabled reporting when only
+            // the AL808 channel was configured.
+            String socketKey = isCc808(shellConfig)
+                    ? shellConfig.getDebugReplay().getAl808SocketKey()
+                    : shellConfig.getDebugReplay().getJt808SocketKey();
+            return shellConfig.requireSocketChannel(socketKey);
         } catch (Exception e) {
             // socket key 配错/通道缺失时返回 null 会让调度整链静默不上报，必须记录。
             AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, TAG,
-                    "调度 socket 通道解析失败 key=" + shellConfig.getDebugReplay().getJt808SocketKey() + " / err=" + e, "dispatch-channel");
+                    "调度 socket 通道解析失败 key=" + (isCc808(shellConfig)
+                            ? shellConfig.getDebugReplay().getAl808SocketKey()
+                            : shellConfig.getDebugReplay().getJt808SocketKey()) + " / err=" + e, "dispatch-channel");
             return null;
         }
     }
@@ -929,12 +1266,27 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
     }
 
     private Jt808Variant resolveDispatchVariant(ShellConfig shellConfig, ShellConfig.SocketChannel channel) {
+        if (isCc808(shellConfig)) {
+            return Jt808Variant.CC808;
+        }
         String al808Key = emptyAsDash(shellConfig.getDebugReplay().getAl808SocketKey());
         String key = channel == null ? "" : emptyAsDash(channel.getKey());
         if (key.equalsIgnoreCase(al808Key) || key.toLowerCase().contains("al808")) {
             return Jt808Variant.AL808;
         }
         return Jt808Variant.JT808;
+    }
+
+    private boolean isCc808(ShellConfig shellConfig) {
+        return "CC808".equalsIgnoreCase(shellConfig.getBasicSetupConfig().getNetworkSettings().getDispatchProtocol());
+    }
+
+    static int cc808RouteDirectionValue(String directionText) {
+        return directionText != null && directionText.contains("下") ? 2 : 1;
+    }
+
+    static int jq808DirectionValue(String directionText) {
+        return directionText != null && directionText.contains("下") ? 2 : 1;
     }
 
     private Jt808TerminalProfile buildTerminalProfile(ShellConfig shellConfig, Jt808Variant variant) {
@@ -973,17 +1325,104 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
         //   与 DVR/siteInfo 路径(纯 km/h)不同，别混。
         int speed = valid ? knotsToKmhTenths(snapshot.getSpeedKnots()) : 0;
         int angle = valid ? parseIntSafe(snapshot.getCourse()) : 0;
-        int lineNumber = parseLineNumber(station.getLineName());
+        int lineNumber = resolveLineNumber(station);
         // - status：V32 是 !isNextStation(到站)→0 / isNextStation(下一站预报)→1。
         //   我们的 currentStationType：1=预报、0=到站。
         boolean previewingNext = station.getCurrentStationType() == 1;
         int status = previewingNext ? 0x01 : 0x00;
-        int direction = emptyAsDash(station.getDirectionText()).contains("下") ? 0x02 : 0x01; // 上行=1 / 下行=2
-        // - busNo：V32 的 ReportInfoModel 同时有 busNo(int) 与 carNumber(String)，busNo 是"站序号"不是车号。
-        //   V32：预报时 = 站号；到站时 = 站号+1。
-        int stationNo = Math.max(0, station.getCurrentStationNo());
-        int busNo = previewingNext ? stationNo : stationNo + 1;
+        // JQ808 0x0B02 uses ReportInfoModel.direction: up=1, down=2.
+        // This differs from the CC808 0x0900 direction field, which is 0/1.
+        int direction = jq808DirectionValue(station.getDirectionText());
+        // The legacy app uses two related but different values:
+        // - preview: currentStation (zero-based), e.g. next station 4 -> 3;
+        // - arrival: currentStation + 1 (one-based), e.g. arrived station 4 -> 4.
+        int busNo = reportStationBusNumber(
+                station.getCurrentStationNo(),
+                station.getCurrentStationType()
+        );
         return new Jt808ReportStationSnapshot(lineNumber, status, direction, busNo, latitude, longitude, speed, angle, LocalDateTime.now());
+    }
+
+    private String resolveReportStationCode(StationState station) {
+        Context context = getContext();
+        if (context == null || station == null) {
+            return "";
+        }
+        LegacyGpsRouteResource route = gpsFlowUseCase.resolveActiveRoute(
+                context,
+                requireShellConfig(),
+                station.getLineName(),
+                station.getDirectionText()
+        );
+        if (route == null || route.getStations().isEmpty()) {
+            return "";
+        }
+        int stationIndex = station.getCurrentStationNo();
+        if (station.getCurrentStationType() == 1) {
+            stationIndex--;
+        }
+        stationIndex = Math.max(0, Math.min(stationIndex, route.getStations().size() - 1));
+        LegacyGpsRouteResource.StationPoint point = route.getStations().get(stationIndex);
+        if (point == null) {
+            return String.valueOf(stationIndex);
+        }
+        String siteCode = point.getSiteCode();
+        // Older 16-column resources have no UID column.  Preserve the legacy
+        // behavior and leave the field empty so the platform matches by
+        // direction and coordinates; only populated UID values are sent.
+        return siteCode == null || siteCode.trim().isEmpty()
+                ? ""
+                : siteCode;
+    }
+
+    static int positionStationNumber(int stationNo) {
+        return Math.max(0, stationNo);
+    }
+
+    static int reportStationBusNumber(int stationNo, int stationType) {
+        int normalizedStationNo = Math.max(0, stationNo);
+        return stationType == 1 ? normalizedStationNo : normalizedStationNo + 1;
+    }
+
+    static boolean shouldSendPeriodicStationReport(boolean cc808, boolean gpsValid) {
+        return !cc808 || gpsValid;
+    }
+
+    static String stationReportKey(int stationNo, int stationType, int reportType, int reportCount) {
+        return stationNo + ":" + stationType + ":" + reportType + ":" + reportCount;
+    }
+
+    private int resolveLineNumber(StationState station) {
+        if (station == null) {
+            return 0;
+        }
+        return resolveLineNumber(station.getLineName(), station.getDirectionText());
+    }
+
+    private int resolveLineNumber(String lineName, String directionText) {
+        Context context = getContext();
+        if (context != null) {
+            LegacyGpsRouteResource route = gpsFlowUseCase.load(context, lineName, directionText);
+            if (route != null && route.getLineNumber() > 0) {
+                return route.getLineNumber();
+            }
+            int resourceLineNumber = gpsFlowUseCase.resolveLineNumber(context, lineName);
+            if (resourceLineNumber > 0) {
+                AppLogCenter.log(LogCategory.BIZ, LogLevel.WARN, TAG,
+                        "线路站点资源加载失败，仍使用 lineInfo.csv 线路号 line="
+                                + emptyAsDash(lineName) + " / direction=" + emptyAsDash(directionText)
+                                + " / lineNumber=" + resourceLineNumber,
+                        "dispatch-line-number");
+                return resourceLineNumber;
+            }
+        }
+        int fallback = parseLineNumber(lineName);
+        AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, TAG,
+                "未找到 lineInfo.csv 线路号，使用线路名数字回退 line=" + emptyAsDash(lineName)
+                        + " / direction=" + emptyAsDash(directionText)
+                        + " / lineNumber=" + fallback,
+                "dispatch-line-number-fallback");
+        return fallback;
     }
 
     private int parseLineNumber(String lineName) {
@@ -1123,16 +1562,31 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
             if (!socketClientAdapter.isConnected(socketChannel.getChannelName())) {
                 socketClientAdapter.connect(socketChannel.toSocketEndpointConfig(), traceId + "-connect");
             }
-            byte[] payload = crossInfoPacketFactory.build(
-                    shellConfig,
-                    stationState,
-                    reminderPoint,
-                    stationState.getActiveCrossArrivalTime(),
-                    reminderType == LegacyGpsAutoReportEngine.REMINDER_TYPE_LEAVE ? compactNowTime() : "000000000000",
-                    validFix ? parseAngle(snapshot.getCourse()) : 0,
-                    validFix ? snapshot.getLongitudeDecimal() : "0",
-                    validFix ? snapshot.getLatitudeDecimal() : "0"
-            );
+            byte[] payload;
+            Jt808Variant variant = resolveDispatchVariant(shellConfig, socketChannel);
+            if (variant == Jt808Variant.CC808) {
+                payload = cc808Messages.encode(cc808Messages.createCrossInfo(
+                        shellConfig.getBasicSetupConfig().getNetworkSettings().getDispatchId(),
+                        stationState.getLineName(),
+                        reminderPoint.getCrossCode(),
+                        stationState.getActiveCrossArrivalTime(),
+                        reminderType == LegacyGpsAutoReportEngine.REMINDER_TYPE_LEAVE ? compactNowTime() : "000000000000",
+                        validFix ? parseAngle(snapshot.getCourse()) : 0,
+                        validFix ? snapshot.getLongitudeDecimal() : "0",
+                        validFix ? snapshot.getLatitudeDecimal() : "0"
+                ));
+            } else {
+                payload = crossInfoPacketFactory.build(
+                        shellConfig,
+                        stationState,
+                        reminderPoint,
+                        stationState.getActiveCrossArrivalTime(),
+                        reminderType == LegacyGpsAutoReportEngine.REMINDER_TYPE_LEAVE ? compactNowTime() : "000000000000",
+                        validFix ? parseAngle(snapshot.getCourse()) : 0,
+                        validFix ? snapshot.getLongitudeDecimal() : "0",
+                        validFix ? snapshot.getLatitudeDecimal() : "0"
+                );
+            }
             socketClientAdapter.send(socketChannel.getChannelName(), payload, traceId + "-send");
             AppLogCenter.log(
                     LogCategory.BIZ,
@@ -1172,18 +1626,44 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
             if (!socketClientAdapter.isConnected(socketChannel.getChannelName())) {
                 socketClientAdapter.connect(socketChannel.toSocketEndpointConfig(), traceId + "-connect");
             }
-            byte[] payload = overspeedInfoPacketFactory.buildCrossing(
-                    shellConfig,
-                    stationState,
-                    resolveSignInState(),
-                    route,
-                    highSpeedKmh,
-                    averageSpeedHundredKmh,
-                    continueSeconds,
-                    validFix ? snapshot.getLongitudeDecimal() : "0",
-                    validFix ? snapshot.getLatitudeDecimal() : "0",
-                    compactNowTime()
-            );
+            byte[] payload;
+            Jt808Variant variant = resolveDispatchVariant(shellConfig, socketChannel);
+            if (variant == Jt808Variant.CC808) {
+                payload = cc808Messages.encode(cc808Messages.createOverspeedInfo(
+                        shellConfig.getBasicSetupConfig().getNetworkSettings().getDispatchId(),
+                        22,
+                        65320,
+                        148,
+                        stationState.getLineName(),
+                        stationState.getActiveCrossCode(),
+                        compactNowTime(),
+                        continueSeconds,
+                        highSpeedKmh,
+                        validFix ? snapshot.getLongitudeDecimal() : "0",
+                        validFix ? snapshot.getLatitudeDecimal() : "0",
+                        parseIntSafe(stationState.getActiveCrossSpeedLimit()),
+                        0,
+                        Math.max(0, stationState.getCurrentStationNo()),
+                        averageSpeedHundredKmh,
+                        resolveSignInState().getCardNo(),
+                        parseIntSafe(stationState.getActiveCrossType()),
+                        Math.max(0, stationState.getActiveReminderNo()),
+                        parseIntSafe(stationState.getActiveCrossSpeedLimit())
+                ));
+            } else {
+                payload = overspeedInfoPacketFactory.buildCrossing(
+                        shellConfig,
+                        stationState,
+                        resolveSignInState(),
+                        route,
+                        highSpeedKmh,
+                        averageSpeedHundredKmh,
+                        continueSeconds,
+                        validFix ? snapshot.getLongitudeDecimal() : "0",
+                        validFix ? snapshot.getLatitudeDecimal() : "0",
+                        compactNowTime()
+                );
+            }
             socketClientAdapter.send(socketChannel.getChannelName(), payload, traceId + "-send");
             AppLogCenter.log(
                     LogCategory.BIZ,

@@ -198,7 +198,7 @@ public final class ShellConfigLoader {
             JSONObject locationObject = root.optJSONObject("location");
             ShellConfig.LocationConfig locationConfig = new ShellConfig.LocationConfig(
                 locationObject == null ? DeviceMode.REAL : DeviceMode.fromConfig(locationObject.optString("mode", "real")),
-                locationObject != null && locationObject.optBoolean("enabled", false),
+                locationObject == null || locationObject.optBoolean("enabled", true),
                 locationObject == null ? "gps" : locationObject.optString("provider", "gps"),
                 locationObject == null ? 1000L : locationObject.optLong("minTimeMs", 1000L),
                 (float) (locationObject == null ? 0D : locationObject.optDouble("minDistanceMeters", 0D)),
@@ -274,8 +274,8 @@ public final class ShellConfigLoader {
 
             ShellConfig.BasicSetupConfig basicSetupConfig = new ShellConfig.BasicSetupConfig(
                 new ShellConfig.NewspaperSettings(
-                    newspaperObject == null ? 7 : newspaperObject.optInt("innerVolume", 7),
-                    newspaperObject == null ? 7 : newspaperObject.optInt("outerVolume", 7),
+                    newspaperObject == null ? 2 : newspaperObject.optInt("innerVolume", 2),
+                    newspaperObject == null ? 2 : newspaperObject.optInt("outerVolume", 2),
                     newspaperObject == null ? "up_down" : newspaperObject.optString("lineProperty", "up_down"),
                     newspaperObject == null || newspaperObject.optBoolean("angleEnabled", true),
                     newspaperObject != null && newspaperObject.optBoolean("dialectEnabled", false),
@@ -285,7 +285,8 @@ public final class ShellConfigLoader {
                     newspaperObject == null || newspaperObject.optBoolean("speedingWarningEnabled", true)
                 ),
                 new ShellConfig.NetworkSettings(
-                    networkSettingsObject == null ? "1" : networkSettingsObject.optString("dispatchId", "1"),
+                    networkSettingsObject == null ? "018612345678" : networkSettingsObject.optString("dispatchId", "018612345678"),
+                    resolveDispatchProtocol(networkSettingsObject, debugReplay),
                     networkSettingsObject == null ? 30 : networkSettingsObject.optInt("longInterval", 30),
                     networkSettingsObject == null ? 5 : networkSettingsObject.optInt("infoInterval", 5),
                     networkSettingsObject == null ? 10 : networkSettingsObject.optInt("speedingInterval", 10),
@@ -297,8 +298,8 @@ public final class ShellConfigLoader {
                 serialSettings,
                 new ShellConfig.TtsSettings(
                     ttsObject == null || ttsObject.optBoolean("enabled", true),
-                    ttsObject == null ? 8 : ttsObject.optInt("innerVolume", 8),
-                    ttsObject == null ? 8 : ttsObject.optInt("outerVolume", 8),
+                    ttsObject == null ? 2 : ttsObject.optInt("innerVolume", 2),
+                    ttsObject == null ? 2 : ttsObject.optInt("outerVolume", 2),
                     ttsObject == null ? ShellConfig.TtsSettings.STATION_MODE_MIXED
                             : ttsObject.has("stationPlaybackMode")
                                     ? ttsObject.optString("stationPlaybackMode", ShellConfig.TtsSettings.STATION_MODE_MIXED)
@@ -308,8 +309,8 @@ public final class ShellConfigLoader {
                 ),
                 new ShellConfig.LanguageSettings(languageObject == null ? "auto" : languageObject.optString("languageCode", "auto")),
                 new ShellConfig.OtherSettings(
-                    otherObject == null ? 50 : otherObject.optInt("shoutingVolume", 50),
-                    otherObject == null ? 7 : otherObject.optInt("dispatchVolume", 7),
+                    otherObject == null ? 15 : otherObject.optInt("shoutingVolume", 15),
+                    otherObject == null ? 2 : otherObject.optInt("dispatchVolume", 2),
                     otherObject == null ? "" : otherObject.optString("vehicleNumber", ""),
                     otherObject == null ? "shouting_outer" : otherObject.optString("shoutingPrimaryGpioKey", "shouting_outer"),
                     otherObject == null ? "shouting_inner" : otherObject.optString("shoutingSecondaryGpioKey", "shouting_inner")
@@ -400,7 +401,7 @@ public final class ShellConfigLoader {
                 new ShellConfig.CameraConfig(DeviceMode.REAL, cameraChannels, "M90 预置 Camera 通道"),
                 new ShellConfig.RfidConfig(DeviceMode.REAL, "", "", "", "/dev/i2c-3", "0x00", "RFID real 模式"),
                 new ShellConfig.SystemConfig(DeviceMode.REAL, false, false, false, "", "", "", "系统能力 real 模式"),
-                new ShellConfig.LocationConfig(DeviceMode.REAL, false, "gps", 1000L, 0F, "LocationManager real 模式"),
+                new ShellConfig.LocationConfig(DeviceMode.REAL, true, "gps", 1000L, 0F, "固定线路 GPS 默认启用；可由真实 GPS 快照替换"),
                 new ShellConfig.CanConfig(DeviceMode.REAL, canChannels, "CAN real 模式"),
                 new ShellConfig.KeyboardConfig(DeviceMode.REAL, "keyboard", "serial", "ttyS0 Keyboard real 模式"),
                 new ShellConfig.DebugReplay("rs485_1", "gps", "al808", "al808", "inner_audio", "io1", "io2", "av_out"),
@@ -435,6 +436,31 @@ public final class ShellConfigLoader {
             return ShellConfig.ProtocolLinkageSettings.DISPATCH_OWNER_SERIAL_RS2321;
         }
         return ShellConfig.ProtocolLinkageSettings.DISPATCH_OWNER_NETWORK;
+    }
+
+    private static String resolveDispatchProtocol(JSONObject networkSettingsObject, ShellConfig.DebugReplay debugReplay) {
+        if (networkSettingsObject != null && networkSettingsObject.has("dispatchProtocol")) {
+            String configured = ShellConfig.NetworkSettings.normalizeDispatchProtocol(
+                    networkSettingsObject.optString("dispatchProtocol", "")
+            );
+            if (!configured.isEmpty()) {
+                return configured;
+            }
+        }
+        // The socket key identifies the transport channel, not the application
+        // protocol. Older runtime configs omitted dispatchProtocol while using
+        // the shared "al808" channel; the legacy site deployment expects CC808.
+        return "CC808";
+    }
+
+    private static String resolveDispatchProtocol(ShellConfig shellConfig) {
+        ShellConfig.NetworkSettings settings = shellConfig.getBasicSetupConfig().getNetworkSettings();
+        String configured = settings.getDispatchProtocol();
+        String normalized = ShellConfig.NetworkSettings.normalizeDispatchProtocol(configured);
+        if (!normalized.isEmpty()) {
+            return normalized;
+        }
+        return "CC808";
     }
 
     /**
@@ -657,6 +683,7 @@ public final class ShellConfigLoader {
 
         JSONObject networkSettingsObject = new JSONObject();
         networkSettingsObject.put("dispatchId", shellConfig.getBasicSetupConfig().getNetworkSettings().getDispatchId());
+        networkSettingsObject.put("dispatchProtocol", resolveDispatchProtocol(shellConfig));
         networkSettingsObject.put("longInterval", shellConfig.getBasicSetupConfig().getNetworkSettings().getLongInterval());
         networkSettingsObject.put("infoInterval", shellConfig.getBasicSetupConfig().getNetworkSettings().getInfoInterval());
         networkSettingsObject.put("speedingInterval", shellConfig.getBasicSetupConfig().getNetworkSettings().getSpeedingInterval());

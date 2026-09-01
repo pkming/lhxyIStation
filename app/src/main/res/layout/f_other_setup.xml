@@ -28,7 +28,7 @@
                 android:max="100"
                 android:maxHeight="@dimen/d_15"
                 android:minHeight="@dimen/d_15"
-                android:progress="50"
+                android:progress="15"
                 android:progressDrawable="@drawable/layer_seekbar"
                 android:thumb="@drawable/shape_seekbar_thumb" />
 
@@ -59,7 +59,7 @@
                 android:max="15"
                 android:maxHeight="@dimen/d_15"
                 android:minHeight="@dimen/d_15"
-                android:progress="7"
+                android:progress="2"
                 android:progressDrawable="@drawable/layer_seekbar"
                 android:thumb="@drawable/shape_seekbar_thumb" />
 

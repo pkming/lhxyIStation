@@ -44,6 +44,9 @@ public final class StationResourceConfigApplier {
                 current.getCameraConfig(),
                 current.getRfidConfig(),
                 current.getSystemConfig(),
+                current.getLocationConfig(),
+                current.getCanConfig(),
+                current.getKeyboardConfig(),
                 current.getDebugReplay(),
                 new ShellConfig.BasicSetupConfig(
                         basicSetup.getNewspaperSettings(),

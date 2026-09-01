@@ -17,6 +17,7 @@ import com.lhxy.istationdevice.android11.app.common.LegacyBaseActivity;
 import com.lhxy.istationdevice.android11.app.common.LegacyWheelPickerDialog;
 import com.lhxy.istationdevice.android11.app.station.LegacyStationResourceStateRepository;
 import com.lhxy.istationdevice.android11.domain.module.StationBusinessModule;
+import com.lhxy.istationdevice.android11.domain.module.DispatchBusinessModule;
 import com.lhxy.istationdevice.android11.domain.module.TerminalBusinessModule;
 import com.lhxy.istationdevice.android11.domain.module.state.StationState;
 import com.lhxy.istationdevice.android11.runtime.ShellRuntime;
@@ -148,6 +149,12 @@ public final class LegacyLineChoiceActivity extends LegacyBaseActivity {
 
     private void applySelection(LegacyLineCatalog.LineProfile profile, String direction) {
         StationState stationState = requireStationState();
+        String firstLineName = stationState.getLineName();
+        int firstDirection = stationState.getDirectionText() != null
+                && stationState.getDirectionText().contains("下") ? 2 : 1;
+        int firstBusNo = stationState.getCurrentStationNo() < 0
+                ? 1
+                : stationState.getCurrentStationNo() + 1;
         stationState.applyLineProfile(profile.getLineName(), direction, profile.stationsForDirection(direction));
         stationState.setLineAttribute(profile.getLineAttribute());
         LegacyStationResourceStateRepository.updateRouteSelection(
@@ -157,6 +164,19 @@ public final class LegacyLineChoiceActivity extends LegacyBaseActivity {
                 direction,
                 profile.getLineAttribute()
         );
+        TerminalBusinessModule dispatch = ShellRuntime.get().getModuleHub().findModule("dispatch");
+        if (dispatch instanceof DispatchBusinessModule) {
+            ((DispatchBusinessModule) dispatch).sendLineSwitchReport(
+                    firstLineName,
+                    firstDirection,
+                    firstBusNo,
+                    profile.getLineName(),
+                    direction.contains("下") ? 2 : 1,
+                    1,
+                    1,
+                    "line-choice-switch-" + System.currentTimeMillis()
+            );
+        }
         Toast.makeText(this, R.string.line_line_switch_suc, Toast.LENGTH_SHORT).show();
         finish();
     }

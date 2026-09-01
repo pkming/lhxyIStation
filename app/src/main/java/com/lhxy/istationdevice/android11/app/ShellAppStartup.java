@@ -13,6 +13,7 @@ import com.lhxy.istationdevice.android11.domain.config.ShellConfigValidator;
 import com.lhxy.istationdevice.android11.domain.file.StationResourceArchiveUseCase;
 import com.lhxy.istationdevice.android11.domain.file.StationResourceConfigApplier;
 import com.lhxy.istationdevice.android11.app.line.LegacyLineCatalog;
+import com.lhxy.istationdevice.android11.app.station.LegacyStationResourceStateRepository;
 import com.lhxy.istationdevice.android11.runtime.ShellRuntime;
 
 import java.io.File;
@@ -58,6 +59,7 @@ public final class ShellAppStartup {
         if (lineInfoFile.exists() && lineInfoFile.isFile()) {
             LegacyLineCatalog.LineProfile defaultLineProfile = resolveDefaultLineProfile(application);
             if (defaultLineProfile != null) {
+                ensureDefaultRouteSelection(application, defaultLineProfile, traceId);
                 logDefaultResourceReady(traceId);
             } else {
                 logDefaultResourceFailure(
@@ -88,6 +90,7 @@ public final class ShellAppStartup {
                 );
                 ShellConfigRepository.save(application, updated);
                 if (defaultLineProfile != null) {
+                    ensureDefaultRouteSelection(application, defaultLineProfile, traceId);
                     logDefaultResourceReady(traceId);
                 }
                 AppLogCenter.log(
@@ -128,6 +131,32 @@ public final class ShellAppStartup {
                 "默认资源加载失败，原因：" + reason,
                 traceId + "-station-resource-bootstrap"
         );
+    }
+
+    private static void ensureDefaultRouteSelection(
+            Application application,
+            LegacyLineCatalog.LineProfile defaultLineProfile,
+            String traceId
+    ) {
+        LegacyStationResourceStateRepository.StationResourceState state =
+                LegacyStationResourceStateRepository.getState(application);
+        boolean restored = LegacyStationResourceStateRepository.ensureDefaultRouteSelection(
+                application,
+                state.getSource().equals("-") ? "bundled-default" : state.getSource(),
+                defaultLineProfile.getLineName(),
+                "上行",
+                defaultLineProfile.getLineAttribute()
+        );
+        if (restored) {
+            AppLogCenter.log(
+                    LogCategory.BIZ,
+                    LogLevel.INFO,
+                    "ShellApplication",
+                    "已恢复默认线路选择: line=" + defaultLineProfile.getLineName()
+                            + " / direction=上行 / lineNumberFromLineInfo=由资源解析",
+                    traceId + "-station-resource-bootstrap"
+            );
+        }
     }
 
     private static LegacyLineCatalog.LineProfile resolveDefaultLineProfile(Application application) {

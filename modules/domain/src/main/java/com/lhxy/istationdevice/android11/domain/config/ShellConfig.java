@@ -54,7 +54,7 @@ public final class ShellConfig {
                 cameraConfig,
                 rfidConfig,
                 systemConfig,
-                LocationConfig.stub(),
+                LocationConfig.defaults(),
                 CanConfig.empty(),
                 KeyboardConfig.stub(),
                 debugReplay,
@@ -85,7 +85,7 @@ public final class ShellConfig {
                 cameraConfig,
                 rfidConfig,
                 systemConfig,
-                LocationConfig.stub(),
+                LocationConfig.defaults(),
                 CanConfig.empty(),
                 KeyboardConfig.stub(),
                 debugReplay,
@@ -118,7 +118,7 @@ public final class ShellConfig {
         this.cameraConfig = cameraConfig == null ? CameraConfig.empty() : cameraConfig;
         this.rfidConfig = rfidConfig == null ? RfidConfig.stub() : rfidConfig;
         this.systemConfig = systemConfig == null ? SystemConfig.stub() : systemConfig;
-        this.locationConfig = locationConfig == null ? LocationConfig.stub() : locationConfig;
+        this.locationConfig = locationConfig == null ? LocationConfig.defaults() : locationConfig;
         this.canConfig = canConfig == null ? CanConfig.empty() : canConfig;
         this.keyboardConfig = keyboardConfig == null ? KeyboardConfig.stub() : keyboardConfig;
         this.debugReplay = debugReplay == null ? DebugReplay.defaultReplay() : debugReplay;
@@ -672,7 +672,7 @@ public final class ShellConfig {
         private final String note;
 
         public LocationConfig(DeviceMode mode, boolean enabled, String provider, long minTimeMs, float minDistanceMeters, String note) {
-            this.mode = mode == null ? DeviceMode.STUB : mode;
+            this.mode = mode == null ? DeviceMode.REAL : mode;
             this.enabled = enabled;
             this.provider = provider == null || provider.trim().isEmpty() ? "gps" : provider.trim();
             this.minTimeMs = Math.max(0L, minTimeMs);
@@ -680,8 +680,8 @@ public final class ShellConfig {
             this.note = note == null ? "" : note;
         }
 
-        public static LocationConfig stub() {
-            return new LocationConfig(DeviceMode.STUB, false, "gps", 1000L, 0F, "Android LocationManager 默认关闭");
+        public static LocationConfig defaults() {
+            return new LocationConfig(DeviceMode.REAL, true, "gps", 1000L, 0F, "固定线路 GPS 默认启用；可由真实 GPS 快照替换");
         }
 
         public DeviceMode getMode() { return mode; }
@@ -1114,7 +1114,7 @@ public final class ShellConfig {
         }
 
         public static NewspaperSettings defaults() {
-            return new NewspaperSettings(7, 7, "up_down", true, false, false, true, true, true);
+            return new NewspaperSettings(2, 2, "up_down", true, false, false, true, true, true);
         }
 
         public int getInnerVolume() { return innerVolume; }
@@ -1130,6 +1130,7 @@ public final class ShellConfig {
 
     public static final class NetworkSettings {
         private final String dispatchId;
+        private final String dispatchProtocol;
         private final int longInterval;
         private final int infoInterval;
         private final int speedingInterval;
@@ -1148,7 +1149,22 @@ public final class ShellConfig {
                 String adwordsUser,
                 int adwordsInterval
         ) {
-            this.dispatchId = dispatchId == null ? "18612345678" : dispatchId;
+            this(dispatchId, "", longInterval, infoInterval, speedingInterval, adwordsEnabled, adwordsId, adwordsUser, adwordsInterval);
+        }
+
+        public NetworkSettings(
+                String dispatchId,
+                String dispatchProtocol,
+                int longInterval,
+                int infoInterval,
+                int speedingInterval,
+                boolean adwordsEnabled,
+                String adwordsId,
+                String adwordsUser,
+                int adwordsInterval
+        ) {
+            this.dispatchId = dispatchId == null ? "018612345678" : dispatchId;
+            this.dispatchProtocol = normalizeDispatchProtocol(dispatchProtocol);
             this.longInterval = longInterval;
             this.infoInterval = infoInterval;
             this.speedingInterval = speedingInterval;
@@ -1159,10 +1175,11 @@ public final class ShellConfig {
         }
 
         public static NetworkSettings defaults() {
-            return new NetworkSettings("18612345678", 30, 5, 10, true, "1", "admin", 10);
+            return new NetworkSettings("018612345678", 30, 5, 10, true, "1", "admin", 10);
         }
 
         public String getDispatchId() { return dispatchId; }
+        public String getDispatchProtocol() { return dispatchProtocol; }
         public int getLongInterval() { return longInterval; }
         public int getInfoInterval() { return infoInterval; }
         public int getSpeedingInterval() { return speedingInterval; }
@@ -1170,6 +1187,27 @@ public final class ShellConfig {
         public String getAdwordsId() { return adwordsId; }
         public String getAdwordsUser() { return adwordsUser; }
         public int getAdwordsInterval() { return adwordsInterval; }
+
+        /** Normalize values written by older setup pages and config templates. */
+        public static String normalizeDispatchProtocol(String value) {
+            if (value == null) {
+                return "";
+            }
+            String normalized = value.trim();
+            if (normalized.isEmpty() || "无".equalsIgnoreCase(normalized)
+                    || "NONE".equalsIgnoreCase(normalized)) {
+                return "";
+            }
+            if ("AL808".equalsIgnoreCase(normalized)
+                    || "ALINK".equalsIgnoreCase(normalized)) {
+                return "ALINK";
+            }
+            if ("808".equalsIgnoreCase(normalized)
+                    || "CC808".equalsIgnoreCase(normalized)) {
+                return "CC808";
+            }
+            return normalized;
+        }
     }
 
     public static final class SerialSettings {
@@ -1221,7 +1259,7 @@ public final class ShellConfig {
         }
 
         public static TtsSettings defaults() {
-            return new TtsSettings(true, 8, 8);
+            return new TtsSettings(true, 2, 2);
         }
 
         public boolean isEnabled() { return enabled; }
@@ -1280,7 +1318,7 @@ public final class ShellConfig {
         }
 
         public static OtherSettings defaults() {
-            return new OtherSettings(50, 7, "", "shouting_outer", "shouting_inner");
+            return new OtherSettings(15, 2, "", "shouting_outer", "shouting_inner");
         }
 
         public int getShoutingVolume() { return shoutingVolume; }

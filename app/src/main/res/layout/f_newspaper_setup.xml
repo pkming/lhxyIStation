@@ -65,7 +65,7 @@
                         android:layout_gravity="center_vertical"
                         android:layout_marginLeft="@dimen/d_90"
                         android:max="15"
-                        android:progress="7" />
+                        android:progress="2" />
 
                 </RelativeLayout>
 
@@ -104,7 +104,7 @@
                         android:layout_gravity="center_vertical"
                         android:layout_marginLeft="@dimen/d_90"
                         android:max="15"
-                        android:progress="7" />
+                        android:progress="2" />
 
                 </RelativeLayout>
 

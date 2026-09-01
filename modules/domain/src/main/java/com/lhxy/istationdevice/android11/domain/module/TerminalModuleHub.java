@@ -73,6 +73,7 @@ public final class TerminalModuleHub {
                 dispatchModule,
                 dvrSerialDispatchUseCase
             );
+        gpsModule.attachSyntheticGpsStartListener(stationModule::resetForSyntheticGps);
         dispatchModule.attachPlatformLineSwitchHandler(stationModule::applyPlatformLineSwitch);
         SignInBusinessModule signInModule =
                 new SignInBusinessModule(protocolReplayUseCase, socketClientAdapter, rfidAdapter, dvrSerialDispatchUseCase);
