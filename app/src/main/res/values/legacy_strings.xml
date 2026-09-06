@@ -470,6 +470,7 @@ OK：%2$d 项  警告：%3$d 项  失败：%4$d 项
         <item>无</item>
         <item>ALINK</item>
         <item>CC808</item>
+        <item>AL808</item>
     </string-array>
 
     <string-array name="arraybaud">

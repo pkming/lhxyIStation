@@ -440,12 +440,9 @@ public final class ShellConfigLoader {
 
     private static String resolveDispatchProtocol(JSONObject networkSettingsObject, ShellConfig.DebugReplay debugReplay) {
         if (networkSettingsObject != null && networkSettingsObject.has("dispatchProtocol")) {
-            String configured = ShellConfig.NetworkSettings.normalizeDispatchProtocol(
+            return ShellConfig.NetworkSettings.normalizeDispatchProtocol(
                     networkSettingsObject.optString("dispatchProtocol", "")
             );
-            if (!configured.isEmpty()) {
-                return configured;
-            }
         }
         // The socket key identifies the transport channel, not the application
         // protocol. Older runtime configs omitted dispatchProtocol while using
@@ -456,11 +453,7 @@ public final class ShellConfigLoader {
     private static String resolveDispatchProtocol(ShellConfig shellConfig) {
         ShellConfig.NetworkSettings settings = shellConfig.getBasicSetupConfig().getNetworkSettings();
         String configured = settings.getDispatchProtocol();
-        String normalized = ShellConfig.NetworkSettings.normalizeDispatchProtocol(configured);
-        if (!normalized.isEmpty()) {
-            return normalized;
-        }
-        return "CC808";
+        return ShellConfig.NetworkSettings.normalizeDispatchProtocol(configured);
     }
 
     /**

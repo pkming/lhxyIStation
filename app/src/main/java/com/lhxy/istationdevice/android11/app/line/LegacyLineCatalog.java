@@ -200,6 +200,11 @@ public final class LegacyLineCatalog {
                 Arrays.asList("stopname", "stationname", "站名"),
                 rows.isEmpty() || rows.get(0).size() < 3 ? 1 : 2
         );
+        int speedLimitColumn = resolveHeaderColumn(
+                rows.isEmpty() ? Collections.emptyList() : rows.get(0),
+                Collections.singletonList("inspeedlimit"),
+                12
+        );
         for (int i = 1; i < rows.size(); i++) {
             List<String> row = rows.get(i);
             if (row.size() < 2) {
@@ -212,7 +217,7 @@ public final class LegacyLineCatalog {
             }
             if (!stationName.isEmpty()) {
                 stations.add(stationName);
-                speedLimits.add(row.size() > 12 ? cleanCell(row.get(12)) : "");
+                speedLimits.add(row.size() > speedLimitColumn ? cleanCell(row.get(speedLimitColumn)) : "");
             }
         }
         return new DirectionProfile(stations, speedLimits);

@@ -127,6 +127,13 @@ public final class StationResourceArchiveUseCase {
         recreateDirectory(stagingRoot);
         File extractedDir = new File(stagingRoot, "SourceFile");
         extractArchive(selectedCandidate.getFile(), extractedDir);
+        int generatedCsvFiles;
+        try {
+            generatedCsvFiles = ensureRuntimeCsvResources(extractedDir);
+        } catch (Exception e) {
+            deleteRecursively(stagingRoot);
+            return OperationResult.failure("导入报站资源失败", "XLS 线路兼容转换失败: " + e.getMessage());
+        }
 
         List<File> extractedFiles = new ArrayList<>();
         collectFiles(extractedDir, extractedFiles);
@@ -168,6 +175,7 @@ public final class StationResourceArchiveUseCase {
             "资源包=" + selectedCandidate.getAbsolutePath()
                 + "\n解压目录=" + finalExtractedDir.getAbsolutePath()
                 + "\n文件数=" + finalExtractedFiles.size()
+                + "\nXLS 兼容 CSV=" + generatedCsvFiles
                 + "\n消息数=" + importedMessageCount
                 + "\n线路候选=" + (lineCandidates.isEmpty() ? "-" : join(lineCandidates))
                 + "\n配置覆盖=" + configOverrides.describe()
@@ -279,6 +287,93 @@ public final class StationResourceArchiveUseCase {
             return discoveredSourceRoot;
         }
         return extractedDir;
+    }
+
+    /**
+     * C808 旧资源使用 XLS，线路页面、GPS 和语音仍按 CSV 读取。
+     * 只补齐线路索引及其引用的站点/提醒表；已有 CSV 和原 XLS 均不覆盖。
+     * 导入时在临时目录执行，启动时也可修复此前已导入的 XLS 包。
+     */
+    public int ensureRuntimeCsvResources(File extractedDir) throws Exception {
+        File sourceRoot = resolveExtractedSourceRoot(extractedDir);
+        if (sourceRoot == null) {
+            return 0;
+        }
+        File busDir = new File(sourceRoot, "Bus");
+        File lineInfoFile = resolveTabularFile(busDir, "lineInfo");
+        if (lineInfoFile == null) {
+            return 0;
+        }
+        Map<File, List<List<String>>> pendingTables = new LinkedHashMap<>();
+        List<List<String>> lineRows = lineInfoFile.getName().toLowerCase(Locale.ROOT).endsWith(".xls")
+                ? readXlsRows(lineInfoFile, 0, true) : readTableRows(lineInfoFile);
+        for (int index = 1; index < lineRows.size(); index++) {
+            String lineName = cell(lineRows.get(index), 1);
+            if (lineName.isEmpty()) {
+                continue;
+            }
+            File lineDir = new File(busDir, lineName);
+            if (!lineDir.getCanonicalFile().getParentFile().equals(busDir.getCanonicalFile())) {
+                throw new IllegalStateException("线路名称不是有效目录: " + lineName);
+            }
+            for (String suffix : new String[]{"S", "X", "SRemind", "XRemind"}) {
+                addMissingXlsCsv(lineDir, lineName + suffix, pendingTables);
+            }
+        }
+        // 最后发布索引，避免启动时把尚未补齐站点的资源判定为就绪。
+        addMissingXlsCsv(busDir, "lineInfo", pendingTables);
+        Map<File, File> pendingFiles = new LinkedHashMap<>();
+        try {
+            for (Map.Entry<File, List<List<String>>> table : pendingTables.entrySet()) {
+                File temporaryFile = File.createTempFile("route-csv-", ".tmp", table.getKey().getParentFile());
+                pendingFiles.put(table.getKey(), temporaryFile);
+                try (OutputStreamWriter writer = new OutputStreamWriter(new FileOutputStream(temporaryFile), LEGACY_CSV_CHARSET)) {
+                    // GB18030 的“路”字节也恰好是合法 UTF-8；签名避免索引被误读成“·”。
+                    // 现有 CSV 读取入口均会去掉解码后的 BOM。
+                    writer.write('\uFEFF');
+                    for (List<String> row : table.getValue()) {
+                        for (int column = 0; column < row.size(); column++) {
+                            String value = row.get(column);
+                            if (value.contains("\n") || value.contains("\r")) {
+                                throw new IllegalStateException(table.getKey().getName() + " 含有不支持的多行单元格");
+                            }
+                            if (column > 0) {
+                                writer.write(',');
+                            }
+                            writer.write('"');
+                            writer.write(value.replace("\"", "\"\""));
+                            writer.write('"');
+                        }
+                        writer.write('\n');
+                    }
+                }
+            }
+            for (Map.Entry<File, File> entry : pendingFiles.entrySet()) {
+                Files.move(entry.getValue().toPath(), entry.getKey().toPath());
+            }
+        } finally {
+            for (File temporaryFile : pendingFiles.values()) {
+                Files.deleteIfExists(temporaryFile.toPath());
+            }
+        }
+        return pendingTables.size();
+    }
+
+    private void addMissingXlsCsv(File dir, String baseName, Map<File, List<List<String>>> pendingTables) throws Exception {
+        File tableFile = resolveTabularFile(dir, baseName);
+        if (tableFile == null || !tableFile.getName().toLowerCase(Locale.ROOT).endsWith(".xls")) {
+            return;
+        }
+        List<List<String>> rows;
+        try {
+            rows = readXlsRows(tableFile, 0, true);
+        } catch (Exception e) {
+            throw new IllegalStateException("无法读取 " + tableFile.getName() + ": " + e.getMessage(), e);
+        }
+        if (rows.isEmpty()) {
+            throw new IllegalStateException("XLS 表格为空: " + tableFile.getName());
+        }
+        pendingTables.put(new File(dir, baseName + ".csv"), rows);
     }
 
     private File findNestedSourceRoot(File dir, int remainingDepth) {
@@ -925,7 +1020,7 @@ public final class StationResourceArchiveUseCase {
 
     private LinkedHashSet<String> deriveLineCandidates(List<File> extractedFiles) {
         LinkedHashSet<String> values = new LinkedHashSet<>();
-        File lineInfoFile = findExtractedFile(extractedFiles, "lineInfo.csv");
+        File lineInfoFile = findExtractedTableFile(extractedFiles, "lineInfo");
         if (lineInfoFile != null) {
             values.addAll(parseLineNamesFromLineInfo(lineInfoFile));
         }
@@ -945,7 +1040,8 @@ public final class StationResourceArchiveUseCase {
             if ((baseName.endsWith("S") || baseName.endsWith("X")) && baseName.length() > 1) {
                 baseName = baseName.substring(0, baseName.length() - 1);
             }
-            if (baseName.equalsIgnoreCase("config") || baseName.equalsIgnoreCase("lineInfo") || baseName.trim().isEmpty()) {
+            if (baseName.equalsIgnoreCase("config") || baseName.equalsIgnoreCase("lineInfo")
+                    || baseName.equalsIgnoreCase("Message") || baseName.equalsIgnoreCase("Vchinfo") || baseName.trim().isEmpty()) {
                 continue;
             }
             values.add(baseName.trim());
@@ -1956,6 +2052,16 @@ public final class StationResourceArchiveUseCase {
     }
 
     private List<List<String>> readXlsRows(File file, int startRow) {
+        try {
+            return readXlsRows(file, startRow, false);
+        } catch (Exception e) {
+            AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, "StationResourceArchive",
+                    "资源表格读取失败(将当作空表) file=" + (file == null ? "-" : file.getName()) + " / err=" + e, "resource-import-read");
+            return new ArrayList<>();
+        }
+    }
+
+    private List<List<String>> readXlsRows(File file, int startRow, boolean preserveEmptyCells) throws Exception {
         List<List<String>> rows = new ArrayList<>();
         if (file == null || !file.exists() || !file.isFile()) {
             return rows;
@@ -1971,10 +2077,15 @@ public final class StationResourceArchiveUseCase {
                     }
                     List<String> values = new ArrayList<>();
                     boolean hasContent = false;
-                    for (int cellIndex = 0; cellIndex < row.getLastCellNum(); cellIndex++) {
+                    int columnCount = row.getLastCellNum();
+                    if (preserveEmptyCells && sheet.getRow(startRow) != null) {
+                        // GPS 按列数识别 18/19 列布局，行尾空单元格也必须补齐。
+                        columnCount = Math.max(columnCount, sheet.getRow(startRow).getLastCellNum());
+                    }
+                    for (int cellIndex = 0; cellIndex < columnCount; cellIndex++) {
                         HSSFCell cell = row.getCell(cellIndex);
                         String value = readSpreadsheetCell(cell);
-                        if (cellIndex > 0 && value.isEmpty()) {
+                        if (!preserveEmptyCells && cellIndex > 0 && value.isEmpty()) {
                             break;
                         }
                         if (!value.isEmpty()) {
@@ -1987,11 +2098,6 @@ public final class StationResourceArchiveUseCase {
                     }
                 }
             }
-        } catch (Exception e) {
-            // 表格文件真实存在但读取/解码/解析异常时，之前被吞成“0行”，上层误报“文件为空/格式无法识别”。
-            AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, "StationResourceArchive",
-                    "资源表格读取失败(将当作空表) file=" + (file == null ? "-" : file.getName()) + " / err=" + e, "resource-import-read");
-            return new ArrayList<>();
         }
         return rows;
     }

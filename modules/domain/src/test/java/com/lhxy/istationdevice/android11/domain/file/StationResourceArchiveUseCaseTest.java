@@ -3,12 +3,19 @@ package com.lhxy.istationdevice.android11.domain.file;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertThrows;
+
+import com.lhxy.istationdevice.android11.domain.gps.LegacyGpsRouteCatalog;
+import com.lhxy.istationdevice.android11.domain.gps.LegacyGpsRouteResource;
 
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.junit.Test;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.lang.reflect.Method;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.ArrayList;
@@ -17,6 +24,116 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
 public class StationResourceArchiveUseCaseTest {
+    @Test
+    public void ensureRuntimeCsvResources_preservesXlsColumnsAndLoadsRealGpsRoute() throws Exception {
+        File root = Files.createTempDirectory("c808-xls-route").toFile();
+        File busDir = new File(root, "SourceFile/SourceFile/Bus");
+        File lineDir = new File(busDir, "1路");
+        assertTrue(lineDir.mkdirs());
+        writeXls(new File(busDir, "lineInfo.xls"), new String[][]{
+                {"NO.", "Line name", "Current line", "Attribute", "Line serial"},
+                {"0", "1路", "N", "1", "0"}, {"1", "30路", "Y", "1", "1"}
+        });
+        File stationXls = new File(lineDir, "1路S.xls");
+        writeXls(stationXls, new String[][]{
+                {"Stop No.", "Play", "Stop name", "Longitude", "Latitude", "Angular", "UID",
+                        "Inbound Ad.", "Outbound Ad.", "Inbound hint", "Outbound hint", "Inbound Ex", "Outbound Ex",
+                        "InSpeed limit", "Speed limit", "Play point", "L/M stop", "Spkr/not"},
+                {"0", "城关花园", "城关,花园\"站", "9109.898506", "2940.122733", "N", "UID-1",
+                        "", "", "", "", "", "", "45", "45", "10", "start", "N"},
+                {"1", "第二站", "第二站", "9109.898506", "2940.122733", "", "UID-2",
+                        "", "", "", "", "", "", "40", "40", "20", ""}
+        });
+        writeXls(new File(lineDir, "1路SRemind.xls"), new String[][]{
+                {"Stop No.", "Cross", "Longitude", "Latitude", "Cross point", "UID", "CrossInNotice",
+                        "CrossOutNotice", "CrossInEx", "CrossOutEx", "SpeedLimit", "CrossType", "Spkr/not"},
+                {"0", "前方路口", "9109.898506", "2940.122733", "10", "CROSS-1", "", "", "", "", "60", "0", "N"}
+        });
+        writeXls(new File(busDir, "Message.xls"), new String[][]{{"NO.", "Date", "Content"}});
+        writeXls(new File(busDir, "Vchinfo.xls"), new String[][]{{"key", "value"}});
+        byte[] originalXls = Files.readAllBytes(stationXls.toPath());
+        StationResourceArchiveUseCase useCase = new StationResourceArchiveUseCase();
+
+        assertEquals(3, useCase.ensureRuntimeCsvResources(root));
+        Method loadRoute = LegacyGpsRouteCatalog.class.getDeclaredMethod("loadRoute", File.class, String.class, int.class, String.class);
+        loadRoute.setAccessible(true);
+        LegacyGpsRouteResource route = (LegacyGpsRouteResource) loadRoute.invoke(new LegacyGpsRouteCatalog(), busDir, "1路", 1, "up");
+        LegacyGpsRouteResource.StationPoint station = route.getStations().get(0);
+        assertEquals("城关,花园\"站", station.getStationName());
+        assertEquals("UID-1", station.getSiteCode());
+        assertEquals("", station.getStationAdvert());
+        assertEquals("45", station.getSpeedLimit());
+        assertEquals(10d, station.getMileage(), 0d);
+        assertEquals(91 + 9.898506 / 60, station.getLongitudeDecimal(), 0.000001);
+        assertEquals("60", route.getReminders().get(0).getCrossSpeedLimit());
+        assertEquals("CROSS-1", route.getReminders().get(0).getCrossCode());
+        assertEquals("UID-2", route.getStations().get(1).getSiteCode());
+        assertEquals("40", route.getStations().get(1).getSpeedLimit());
+        assertEquals("", route.getStations().get(1).getVoiceNot());
+        String indexText = new String(Files.readAllBytes(new File(busDir, "lineInfo.csv").toPath()), Charset.forName("GB18030"));
+        assertTrue(indexText.contains("\"0\",\"1路\",\"N\",\"1\",\"0\""));
+        assertTrue(indexText.contains("\"1\",\"30路\",\"Y\",\"1\",\"1\""));
+        Method derive = StationResourceArchiveUseCase.class.getDeclaredMethod("deriveLineCandidates", List.class);
+        derive.setAccessible(true);
+        assertEquals("[1路, 30路]", derive.invoke(useCase, collectFiles(root)).toString());
+        File csv = new File(lineDir, "1路S.csv");
+        long modified = csv.lastModified();
+        assertEquals(0, useCase.ensureRuntimeCsvResources(root));
+        assertEquals(modified, csv.lastModified());
+        assertArrayEquals(originalXls, Files.readAllBytes(stationXls.toPath()));
+        assertFalse(new File(busDir, "Message.csv").exists());
+    }
+
+    @Test
+    public void ensureRuntimeCsvResources_keepsExistingCsvEvenIfPairedXlsIsCorrupt() throws Exception {
+        File root = Files.createTempDirectory("c808-existing-csv").toFile();
+        File lineDir = new File(root, "Bus/L1");
+        assertTrue(lineDir.mkdirs());
+        File index = new File(root, "Bus/lineInfo.csv");
+        File station = new File(lineDir, "L1S.csv");
+        byte[] indexBytes = "id,lineName\n0,L1\n".getBytes(StandardCharsets.UTF_8);
+        byte[] stationBytes = "original csv bytes".getBytes(StandardCharsets.UTF_8);
+        Files.write(index.toPath(), indexBytes);
+        Files.write(station.toPath(), stationBytes);
+        StationResourceArchiveUseCase useCase = new StationResourceArchiveUseCase();
+        assertEquals(0, useCase.ensureRuntimeCsvResources(root));
+        Files.write(new File(root, "Bus/lineInfo.xls").toPath(), new byte[]{1, 2});
+        Files.write(new File(lineDir, "L1S.xls").toPath(), new byte[]{1, 2});
+        assertEquals(0, useCase.ensureRuntimeCsvResources(root));
+        assertArrayEquals(indexBytes, Files.readAllBytes(index.toPath()));
+        assertArrayEquals(stationBytes, Files.readAllBytes(station.toPath()));
+    }
+
+    @Test
+    public void ensureRuntimeCsvResources_corruptXlsDoesNotPublishPartialCsv() throws Exception {
+        File root = Files.createTempDirectory("c808-corrupt-xls").toFile();
+        File lineDir = new File(root, "Bus/1路");
+        assertTrue(lineDir.mkdirs());
+        writeXls(new File(root, "Bus/lineInfo.xls"), new String[][]{{"id", "lineName"}, {"0", "1路"}});
+        writeXls(new File(lineDir, "1路S.xls"), new String[][]{{"id", "name"}, {"0", "测试站"}});
+        File brokenFile = new File(lineDir, "1路X.xls");
+        Files.write(brokenFile.toPath(), new byte[]{1, 2});
+        StationResourceArchiveUseCase useCase = new StationResourceArchiveUseCase();
+        assertThrows(Exception.class, () -> useCase.ensureRuntimeCsvResources(root));
+        assertFalse(new File(root, "Bus/lineInfo.csv").exists());
+        assertFalse(new File(lineDir, "1路S.csv").exists());
+        writeXls(brokenFile, new String[][]{{"id", "name"}, {"0", "测试站"}});
+        assertEquals(3, useCase.ensureRuntimeCsvResources(root));
+    }
+
+    @Test
+    public void ensureRuntimeCsvResources_rejectsMultilineCellsBeforePublishing() throws Exception {
+        File root = Files.createTempDirectory("c808-multiline-xls").toFile();
+        File lineDir = new File(root, "Bus/1路");
+        assertTrue(lineDir.mkdirs());
+        writeXls(new File(root, "Bus/lineInfo.xls"), new String[][]{{"id", "lineName"}, {"0", "1路"}});
+        writeXls(new File(lineDir, "1路S.xls"), new String[][]{{"id", "name"}, {"0", "测试\n站"}});
+        StationResourceArchiveUseCase useCase = new StationResourceArchiveUseCase();
+        assertThrows(IllegalStateException.class, () -> useCase.ensureRuntimeCsvResources(root));
+        assertFalse(new File(root, "Bus/lineInfo.csv").exists());
+        assertEquals(2, collectFiles(root).size());
+    }
+
     @Test
     public void inspectExtractedArchive_rejectsPackageWithoutBusDirectory() throws Exception {
         File extractedDir = Files.createTempDirectory("station-archive-invalid").toFile();
@@ -172,7 +289,8 @@ public class StationResourceArchiveUseCaseTest {
                 new StationResourceArchiveUseCase().parseResourceConfigOverrides(new File(extractedDir, "SourceFile"));
 
         assertEquals("DVR", overrides.getRs2321Protocol());
-        assertEquals("NONE", overrides.getRs2322Protocol());
+        // The imported NONE value uses the same disabled-protocol value as the settings page.
+        assertEquals("无", overrides.getRs2322Protocol());
         assertEquals("TD", overrides.getRs485Protocol());
         assertEquals("JHY", overrides.getRs4852Protocol());
         assertEquals(Integer.valueOf(9600), overrides.getRs2321Baud());

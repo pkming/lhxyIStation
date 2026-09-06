@@ -55,6 +55,17 @@ public final class ShellAppStartup {
     private static void ensureBundledStationResources(Application application, String traceId) {
         StationResourceArchiveUseCase stationResourceArchiveUseCase = new StationResourceArchiveUseCase();
         File sourceRoot = stationResourceArchiveUseCase.resolveManagedSourceRoot(application);
+        try {
+            int generatedFiles = stationResourceArchiveUseCase.ensureRuntimeCsvResources(sourceRoot);
+            if (generatedFiles > 0) {
+                AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, "ShellApplication",
+                        "已补齐 XLS 线路兼容 CSV: " + generatedFiles + " 个，保留当前线路配置", traceId);
+            }
+        } catch (Exception e) {
+            AppLogCenter.log(LogCategory.ERROR, LogLevel.WARN, "ShellApplication",
+                    "XLS 线路兼容转换失败，保留已导入资源: " + e.getMessage(), traceId);
+            return;
+        }
         File lineInfoFile = new File(sourceRoot, "Bus/lineInfo.csv");
         if (lineInfoFile.exists() && lineInfoFile.isFile()) {
             LegacyLineCatalog.LineProfile defaultLineProfile = resolveDefaultLineProfile(application);
@@ -62,10 +73,8 @@ public final class ShellAppStartup {
                 ensureDefaultRouteSelection(application, defaultLineProfile, traceId);
                 logDefaultResourceReady(traceId);
             } else {
-                logDefaultResourceFailure(
-                        "托管资源已存在，但未找到默认线路 " + DEFAULT_LINE_NAME,
-                        traceId
-                );
+                AppLogCenter.log(LogCategory.BIZ, LogLevel.INFO, "ShellApplication",
+                        "托管报站资源已加载，沿用当前线路选择", traceId);
             }
             return;
         }

@@ -152,9 +152,10 @@ public final class LegacyLineChoiceActivity extends LegacyBaseActivity {
         String firstLineName = stationState.getLineName();
         int firstDirection = stationState.getDirectionText() != null
                 && stationState.getDirectionText().contains("下") ? 2 : 1;
-        int firstBusNo = stationState.getCurrentStationNo() < 0
-                ? 1
-                : stationState.getCurrentStationNo() + 1;
+        boolean al808 = "AL808".equals(ShellRuntime.get().getActiveConfig()
+                .getBasicSetupConfig().getNetworkSettings().getDispatchProtocol());
+        int firstBusNo = Math.max(1, stationState.getCurrentStationNo()
+                + (al808 && stationState.getCurrentStationType() == 1 ? 0 : 1));
         stationState.applyLineProfile(profile.getLineName(), direction, profile.stationsForDirection(direction));
         stationState.setLineAttribute(profile.getLineAttribute());
         LegacyStationResourceStateRepository.updateRouteSelection(

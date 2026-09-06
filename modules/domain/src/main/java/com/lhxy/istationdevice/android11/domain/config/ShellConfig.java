@@ -216,6 +216,13 @@ public final class ShellConfig {
         return debugReplay;
     }
 
+    public String getDispatchSocketKey(String protocol) {
+        String normalized = NetworkSettings.normalizeDispatchProtocol(protocol);
+        return "AL808".equals(normalized) || "CC808".equals(normalized)
+                ? debugReplay.getAl808SocketKey()
+                : debugReplay.getJt808SocketKey();
+    }
+
     /**
      * 返回系统设置页统一配置。
      */
@@ -1198,8 +1205,10 @@ public final class ShellConfig {
                     || "NONE".equalsIgnoreCase(normalized)) {
                 return "";
             }
-            if ("AL808".equalsIgnoreCase(normalized)
-                    || "ALINK".equalsIgnoreCase(normalized)) {
+            if ("AL808".equalsIgnoreCase(normalized)) {
+                return "AL808";
+            }
+            if ("ALINK".equalsIgnoreCase(normalized)) {
                 return "ALINK";
             }
             if ("808".equalsIgnoreCase(normalized)

@@ -146,9 +146,7 @@ public final class LegacyBasicSetupSectionFragment extends Fragment {
         bindText(view, R.id.etAdwordsUser, settings.getAdwordsUser());
         bindText(view, R.id.etAdwordsInterval, String.valueOf(settings.getAdwordsInterval()));
 
-        // 回显必须读“保存时所选的那个通道”，否则换协议保存后会看起来没保存（保存写所选通道，旧逻辑却固定读第 0 个）。
-        // 保存时所选通道 key 存在 DebugReplay.jt808SocketKey，这里据此回显调度 IP/Port 并作为下拉框默认值。
-        String selectedDispatchKey = config == null ? null : config.getDebugReplay().getJt808SocketKey();
+        String selectedDispatchKey = config == null ? null : config.getDispatchSocketKey(settings.getDispatchProtocol());
         if (selectedDispatchKey == null || !channelMap.containsKey(selectedDispatchKey)) {
             selectedDispatchKey = channels.isEmpty() ? null : channels.get(0).getKey();
         }
@@ -169,15 +167,11 @@ public final class LegacyBasicSetupSectionFragment extends Fragment {
         }
 
         String dispatchProtocol = ShellConfig.NetworkSettings.normalizeDispatchProtocol(settings.getDispatchProtocol());
-        if (dispatchProtocol == null || dispatchProtocol.trim().isEmpty()) {
-            // al808 is the shared network channel; it does not imply ALINK.
-            dispatchProtocol = "CC808";
-        }
         bindMappedSpinner(
                 view,
                 R.id.spDispatch,
                 Arrays.asList(getResources().getStringArray(R.array.arrayprotocoldispatch)),
-                Arrays.asList("无", "ALINK", "CC808"),
+                Arrays.asList("", "ALINK", "CC808", "AL808"),
                 dispatchProtocol
         );
         Button save = view.findViewById(R.id.butNetWorkAffirm);
@@ -407,11 +401,11 @@ public final class LegacyBasicSetupSectionFragment extends Fragment {
                     throw new IllegalStateException("当前没有可保存的 Socket 配置");
                 }
 
-                String selectedKey = current.getDebugReplay().getJt808SocketKey();
+                String dispatchProtocol = readSpinnerValue(root, R.id.spDispatch, "CC808");
+                String selectedKey = current.getDispatchSocketKey(dispatchProtocol);
                 if (!current.getSocketChannels().containsKey(selectedKey)) {
                     selectedKey = orderedChannels.get(0).getKey();
                 }
-                String dispatchProtocol = readSpinnerValue(root, R.id.spDispatch, "CC808");
                 Map<String, ShellConfig.SocketChannel> updatedChannels = new LinkedHashMap<>(current.getSocketChannels());
 
                 ShellConfig.SocketChannel selectedChannel = current.requireSocketChannel(selectedKey);

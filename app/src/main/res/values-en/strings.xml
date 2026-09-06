@@ -425,6 +425,7 @@ Time: %3$s</string>
         <item>None</item>
         <item>ALINK</item>
         <item>CC808</item>
+        <item>AL808</item>
     </string-array>
 
     <string-array name="arraybaud">
