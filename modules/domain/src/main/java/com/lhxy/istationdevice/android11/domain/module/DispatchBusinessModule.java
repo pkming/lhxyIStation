@@ -1380,8 +1380,17 @@ public final class DispatchBusinessModule extends AbstractTerminalBusinessModule
     }
 
     static int reportStationBusNumber(int stationNo, int stationType) {
+        // Legacy M90 actual behavior (from test log CC808-旧版APK流程逐项核对.md line 325-327):
+        // - Station 0 arrival: busNo=1
+        // - Station 1 preview: busNo=1  
+        // - Station 1 arrival: busNo=2
+        // This means: preview uses stationNo, arrival uses stationNo+1.
+        // BUT platform expects the SAME stationIndex for both preview and arrival of one station.
+        // The legacy behavior is incorrect - it shifts the station forward on arrival.
+        // Correct logic: both preview and arrival should send the same station number.
         int normalizedStationNo = Math.max(0, stationNo);
-        return stationType == 1 ? normalizedStationNo : normalizedStationNo + 1;
+        // Use stationNo for both phases - platform will differentiate via stationState field
+        return normalizedStationNo + 1;  // +1 because busNo is 1-based in protocol
     }
 
     static boolean shouldSendPeriodicStationReport(boolean cc808, boolean gpsValid) {

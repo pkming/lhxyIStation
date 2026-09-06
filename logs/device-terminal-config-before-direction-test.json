@@ -1,0 +1,49 @@
+{
+  "deviceProfile": "M90-STUB",
+  "configVersion": "2026.08.30-test",
+  "serial": {
+    "gps": {
+      "portName": "ttyS5",
+      "baudRate": 115200,
+      "mode": "real",
+      "note": "GPS"
+    }
+  },
+  "socket": {
+    "al808": {
+      "channelName": "AL808_SOCKET",
+      "host": "47.119.154.255",
+      "port": 7001,
+      "mode": "real",
+      "note": "AL808"
+    }
+  },
+  "location": {
+    "mode": "stub",
+    "enabled": true,
+    "provider": "gps",
+    "minTimeMs": 1000,
+    "minDistanceMeters": 0
+  },
+  "debugReplay": {
+    "gpsSerialKey": "gps",
+    "al808SocketKey": "al808"
+  },
+  "basicSetup": {
+    "resourceImport": {
+      "stationResourceImported": true,
+      "source": "line-choice",
+      "lineName": "L1",
+      "directionText": "\u4e0a\u884c",
+      "lineAttribute": "\u5bf9\u5f00",
+      "updatedAt": 1787929420363
+    },
+    "network": {
+      "dispatchId": "018612345678",
+      "dispatchProtocol": "CC808"
+    },
+    "newspaper": {
+      "angleEnabled": true
+    }
+  }
+}

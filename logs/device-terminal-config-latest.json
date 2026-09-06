@@ -1,0 +1,272 @@
+{
+  "deviceProfile": "M90-STUB",
+  "configVersion": "2026.04.13",
+  "serial": {
+    "keyboard": {
+      "portName": "ttyS0",
+      "baudRate": 9600,
+      "mode": "real",
+      "note": "Keyboard \/ ttyS0"
+    },
+    "debug": {
+      "portName": "ttyS2",
+      "baudRate": 115200,
+      "mode": "real",
+      "note": "debug \/ ttyS2"
+    },
+    "rs232_1": {
+      "portName": "ttyS3",
+      "baudRate": 9600,
+      "mode": "real",
+      "note": "DVR \/ RS232-1"
+    },
+    "rs232_2": {
+      "portName": "ttyS4",
+      "baudRate": 9600,
+      "mode": "real",
+      "note": "RS232-2"
+    },
+    "gps": {
+      "portName": "ttyS5",
+      "baudRate": 115200,
+      "mode": "real",
+      "note": "GPS"
+    },
+    "rs485_1": {
+      "portName": "ttyS7",
+      "baudRate": 38400,
+      "mode": "real",
+      "note": "RS485-1"
+    },
+    "rs485_2": {
+      "portName": "ttyS9",
+      "baudRate": 9600,
+      "mode": "real",
+      "note": "RS485-2"
+    }
+  },
+  "socket": {
+    "jt808": {
+      "channelName": "JT808_SOCKET",
+      "host": "47.119.154.255",
+      "port": 7001,
+      "mode": "real",
+      "note": "JT808 调度"
+    },
+    "al808": {
+      "channelName": "AL808_SOCKET",
+      "host": "47.119.154.255",
+      "port": 7001,
+      "mode": "real",
+      "note": "AL808 调度"
+    }
+  },
+  "gpio": {
+    "mode": "real",
+    "note": "GPIO 按 M90 \/proc\/rp_gpio 节点配置；切真机时把 mode 改为 real",
+    "pins": {
+      "inner_audio": {
+        "pinId": "GPIO1_B1",
+        "valuePath": "\/proc\/rp_gpio\/gpio1b1",
+        "defaultValue": 0,
+        "note": "内音"
+      },
+      "outer_audio": {
+        "pinId": "GPIO1_B2",
+        "valuePath": "\/proc\/rp_gpio\/gpio1b2",
+        "defaultValue": 0,
+        "note": "外音"
+      },
+      "inner_speaker": {
+        "pinId": "GPIO0_D6",
+        "valuePath": "\/proc\/rp_gpio\/gpio0d6",
+        "defaultValue": 0,
+        "note": "内喇叭"
+      },
+      "io1": {
+        "pinId": "GPIO1_D0",
+        "valuePath": "\/proc\/rp_gpio\/gpio1d0",
+        "defaultValue": 1,
+        "note": "IO1 \/ 倒车"
+      },
+      "io2": {
+        "pinId": "GPIO1_D1",
+        "valuePath": "\/proc\/rp_gpio\/gpio1d1",
+        "defaultValue": 1,
+        "note": "IO2 \/ 中门开"
+      },
+      "io3": {
+        "pinId": "GPIO1_D2",
+        "valuePath": "\/proc\/rp_gpio\/gpio1d2",
+        "defaultValue": 1,
+        "note": "IO3"
+      },
+      "io4": {
+        "pinId": "GPIO1_D3",
+        "valuePath": "\/proc\/rp_gpio\/gpio1d3",
+        "defaultValue": 1,
+        "note": "IO4 \/ 默认高"
+      },
+      "io5": {
+        "pinId": "GPIO1_D4",
+        "valuePath": "\/proc\/rp_gpio\/gpio1d4",
+        "defaultValue": 0,
+        "note": "IO5"
+      },
+      "shouting_inner": {
+        "pinId": "GPIO3_A3",
+        "valuePath": "\/proc\/rp_gpio\/gpio3a3",
+        "defaultValue": 0,
+        "note": "喊话器内"
+      },
+      "shouting_outer": {
+        "pinId": "GPIO3_A4",
+        "valuePath": "\/proc\/rp_gpio\/gpio3a4",
+        "defaultValue": 0,
+        "note": "喊话器外"
+      },
+      "headphone_detect_power": {
+        "pinId": "GPIO3_A6",
+        "valuePath": "\/proc\/rp_gpio\/gpio3a6",
+        "defaultValue": 1,
+        "note": "耳机检测控制 \/ 默认高"
+      },
+      "headphone_detect": {
+        "pinId": "GPIO1_B0",
+        "valuePath": "\/proc\/rp_gpio\/gpio1b0",
+        "defaultValue": 0,
+        "note": "耳机检测 IO"
+      }
+    }
+  },
+  "camera": {
+    "mode": "real",
+    "note": "Camera ID 先按 0~3 占位，真机时按 M90 联调结果修正",
+    "channels": {
+      "av_out": {
+        "cameraId": "100",
+        "note": "AV-OUT \/ DVR"
+      },
+      "reverse": {
+        "cameraId": "101",
+        "note": "倒车"
+      },
+      "middle_door": {
+        "cameraId": "102",
+        "note": "中门"
+      },
+      "monitor": {
+        "cameraId": "103",
+        "note": "监控"
+      }
+    }
+  },
+  "rfid": {
+    "mode": "real",
+    "mockCardNo": "",
+    "inputFilePath": "",
+    "readCommand": "",
+    "i2cDevicePath": "\/dev\/i2c-3",
+    "i2cAddress": "0x00",
+    "note": "真机模式下可以配文件、命令或 I2C-3；I2C 地址待厂商确认"
+  },
+  "systemOps": {
+    "mode": "stub",
+    "supportSilentInstall": false,
+    "allowReboot": false,
+    "allowSetTime": false,
+    "silentInstallCommand": "",
+    "rebootCommand": "",
+    "setTimeCommand": "",
+    "note": "真机模式下按厂商权限补命令"
+  },
+  "location": {
+    "mode": "stub",
+    "enabled": false,
+    "provider": "gps",
+    "minTimeMs": 1000,
+    "minDistanceMeters": 0,
+    "note": "Android LocationManager 默认关闭"
+  },
+  "can": {
+    "mode": "stub",
+    "note": "CAN 默认走 stub",
+    "channels": {}
+  },
+  "keyboard": {
+    "mode": "stub",
+    "serialKey": "keyboard",
+    "protocol": "serial",
+    "note": "ttyS0 Keyboard 默认关闭"
+  },
+  "debugReplay": {
+    "displaySerialKey": "rs485_1",
+    "gpsSerialKey": "gps",
+    "jt808SocketKey": "al808",
+    "al808SocketKey": "al808",
+    "gpioPinKey": "inner_audio",
+    "monitorPrimaryGpioKey": "io1",
+    "monitorSecondaryGpioKey": "io2",
+    "cameraChannelKey": "av_out"
+  },
+  "basicSetup": {
+    "newspaper": {
+      "innerVolume": 7,
+      "outerVolume": 7,
+      "lineProperty": "up_down",
+      "angleEnabled": true,
+      "dialectEnabled": false,
+      "englishEnabled": false,
+      "externalSoundEnabled": true,
+      "nowTimeEnabled": true,
+      "speedingWarningEnabled": true
+    },
+    "network": {
+      "dispatchId": "18612345678",
+      "longInterval": 30,
+      "infoInterval": 5,
+      "speedingInterval": 10,
+      "adwordsEnabled": true,
+      "adwordsId": "1",
+      "adwordsUser": "admin",
+      "adwordsInterval": 10
+    },
+    "serialSettings": {
+      "rs2321Protocol": "无",
+      "rs2322Protocol": "无",
+      "rs485Protocol": "通达",
+      "rs4852Protocol": "无"
+    },
+    "tts": {
+      "enabled": true,
+      "innerVolume": 8,
+      "outerVolume": 8,
+      "stationPlaybackMode": "mixed"
+    },
+    "language": {
+      "languageCode": "auto"
+    },
+    "other": {
+      "shoutingVolume": 50,
+      "dispatchVolume": 7,
+      "vehicleNumber": "",
+      "shoutingPrimaryGpioKey": "shouting_outer",
+      "shoutingSecondaryGpioKey": "shouting_inner"
+    },
+    "wireless": {
+      "systemEntryEnabled": true
+    },
+    "resourceImport": {
+      "stationResourceImported": true,
+      "source": "\/storage\/emulated\/0\/Android\/data\/com.lhxy.istationdevice.android11\/files\/station-resources\/bundled-imports\/SourceFile.zip",
+      "lineName": "L1",
+      "directionText": "上行",
+      "lineAttribute": "对开",
+      "updatedAt": 1787495051048
+    },
+    "protocolLinkage": {
+      "dispatchOwner": "network",
+      "updatedAt": 1787495051048
+    }
+  }
+}

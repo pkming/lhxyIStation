@@ -12,23 +12,29 @@ public class DispatchBusinessModuleTest {
     }
 
     @Test
-    public void reportStationUsesZeroBasedNumberWhenPreviewingNextStation() {
-        // Internal station 3 is the fourth station; previewing it means next station 4.
-        assertEquals(3, DispatchBusinessModule.reportStationBusNumber(3, 1));
-    }
-
-    @Test
-    public void reportStationUsesOneBasedNumberWhenArriving() {
-        // Internal station 3 is the fourth station; arrival must report station 4.
+    public void reportStationUsesOneBasedNumberForBothPreviewAndArrival() {
+        // Internal station 0 is the first station; both preview and arrival report busNo=1.
+        assertEquals(1, DispatchBusinessModule.reportStationBusNumber(0, 1));
+        assertEquals(1, DispatchBusinessModule.reportStationBusNumber(0, 0));
+        
+        // Internal station 3 is the fourth station; both preview and arrival report busNo=4.
+        assertEquals(4, DispatchBusinessModule.reportStationBusNumber(3, 1));
         assertEquals(4, DispatchBusinessModule.reportStationBusNumber(3, 0));
     }
 
     @Test
-    public void reportStationFollowsIntegerAndHalfStationSequence() {
+    public void reportStationFollowsCorrectStationProgression() {
+        // Station 0 (first station): busNo=1 for both phases
         assertEquals(1, DispatchBusinessModule.reportStationBusNumber(0, 0));
-        assertEquals(1, DispatchBusinessModule.reportStationBusNumber(1, 1));
+        assertEquals(1, DispatchBusinessModule.reportStationBusNumber(0, 1));
+        
+        // Station 1 (second station): busNo=2 for both phases
         assertEquals(2, DispatchBusinessModule.reportStationBusNumber(1, 0));
-        assertEquals(2, DispatchBusinessModule.reportStationBusNumber(2, 1));
+        assertEquals(2, DispatchBusinessModule.reportStationBusNumber(1, 1));
+        
+        // Station 2 (third station): busNo=3 for both phases
+        assertEquals(3, DispatchBusinessModule.reportStationBusNumber(2, 0));
+        assertEquals(3, DispatchBusinessModule.reportStationBusNumber(2, 1));
     }
 
     @Test
